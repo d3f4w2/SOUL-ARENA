@@ -1,40 +1,69 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Soul Arena
 
-## Getting Started
+Soul Arena 是一个面向中文用户的 `Agent 构筑竞技场`。
 
-在开始本项目之前你必须阅读docs的全部文档
-在当前会话结束后，必须更新docs下的进度表
-必须读取"C:\Users\24719\Desktop\soul-arena\skills.txt"来使用skills
+核心思路不是做一个普通 AI 对话页，而是把：
 
-First, run the development server:
+- Soul
+- 观点
+- 规则
+- 禁忌
 
+全部转成 build，再通过可观看的 battle replay 验证 build 强弱。
+
+## 当前状态
+当前仓库已经具备第一版可演示主线：
+
+- 首页品牌化落地页
+- `/arena` 备战工作台
+- `/arena/[battleId]` 战斗回放页
+- 三大高光
+- 挑战者预告
+- 浏览器端 WebM 录屏导出
+- `SecondMe` / `Zhihu` 接入底座
+
+当前 battle package 仍是 MVP 级生成逻辑，不是完整真实多 Agent 编排。
+
+## 开发前先看
+开始开发前，建议按这个顺序阅读：
+
+1. `agent.md`
+2. `docs/specs/product.md`
+3. `docs/specs/architecture.md`
+4. `docs/specs/api/contracts.md`
+5. `docs/specs/ui/flows.md`
+6. `docs/specs/progress.md`
+
+`docs/specs` 是当前产品与工程协作的 source of truth。
+
+## 本地运行
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+打开：
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- `http://localhost:3000/`
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 生产验证
+```bash
+npm run lint
+npm run build
+```
 
-## Learn More
+## 关键目录
+- `src/components/`
+  - 首页、构筑工作台、战斗回放
+- `src/app/api/`
+  - arena / SecondMe / Zhihu 路由
+- `src/lib/`
+  - arena 生成逻辑、battle contract、接入层
+- `docs/specs/`
+  - 产品、架构、接口、流程、进度、实现日志
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 当前协作要求
+- 先改 spec，再改代码
+- 行为变化后更新 `docs/specs`
+- 完成任务后更新：
+  - `docs/specs/progress.md`
+  - `docs/specs/implementation-log.md`

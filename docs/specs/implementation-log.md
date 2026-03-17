@@ -1,14 +1,31 @@
-# Implementation Log
+# 实现日志
 
 ## 2026-03-17
-- Existing repo already includes SecondMe auth/profile/chat/note integration routes.
-- Existing repo already includes Zhihu ring/search/billboard/comment/reaction integration routes.
-- Project direction reset from “integration console” to “Soul Arena MVP”.
-- `agent.md + docs/specs` chosen as the collaboration hub.
-- Added `agent.md` and the `docs/specs` documentation structure.
-- Added arena domain types, presets, build-preview generation, battle package generation, and battle event contracts.
-- Added arena API routes for topics, build preview, battle creation, battle retrieval, and event retrieval.
-- Replaced the old home/demo page with a Soul Arena landing page.
-- Added `/arena` build workbench with topic selection, challenger selection, build inputs, and build preview.
-- Added `/arena/[battleId]` battle replay page with canvas stage, explainability feed, highlights, challenger preview, and browser WebM export.
-- Verified the app with `npm run lint` and `npm run build`.
+- 仓库已有 `SecondMe` 登录、资料、标签、软记忆、聊天、笔记接入
+- 仓库已有 `Zhihu` 热榜、搜索、圈子相关路由
+- 项目方向从“接入演示台”切到 `Soul Arena MVP`
+- 建立 `agent.md + docs/specs` 作为协作中枢
+- 增加 arena 域层：
+  - 题库
+  - 守擂者预设
+  - build 分析
+  - battle package
+  - battle events
+- 增加 arena API：
+  - `/api/arena/topics`
+  - `/api/arena/build-preview`
+  - `/api/arena/battles`
+  - `/api/arena/battles/[battleId]`
+  - `/api/arena/battles/[battleId]/events`
+- 首页已经改成 `Soul Arena` landing
+- `/arena` 已有构筑工作台
+- `/arena/[battleId]` 已有回放页、战报与录屏导出
+- 用户可见 UI 已切到中文
+- 已通过：
+  - `npm run lint`
+  - `npm run build`
+
+## 本次文档同步
+- 把 `agent.md` 重写为中文协作入口
+- 把 `docs/specs/*` 重写为中文 source of truth
+- 把文档内容和当前代码状态重新对齐

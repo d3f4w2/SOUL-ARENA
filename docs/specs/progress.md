@@ -1,17 +1,39 @@
-# Progress
+# 当前进度
 
-## Status
-- Integration base: done
-- Soul Arena docs hub: done
-- Arena domain contracts: done
-- Build flow UI: done
-- Battle replay UI: done
-- WebM export: done
+## 当前状态
+- 接入底座：已完成
+- Arena 文档中枢：已完成
+- Arena 域契约：已完成
+- 首页品牌化：已完成
+- `/arena` 构筑工作台：已完成
+- `/arena/[battleId]` 战斗回放：已完成
+- WebM 录屏导出：已完成
+- 用户界面中文化：已完成
+- 协作文档中文同步：进行中
 
-## Current Milestone
-Ship the first playable `build -> battle -> replay -> export` loop.
+## 当前里程碑
+把项目从“能演示”推进到“团队能协作推进”的状态：
 
-## Risks
-- MVP persistence is still lightweight
-- Browser recording support varies by browser
-- Real Agent orchestration is still mocked behind generated battle packages
+- 文档变成中文 source of truth
+- 新同学能快速理解项目结构
+- 前后端能并行认领下一批任务
+
+## 下一步优先级
+### P0
+- 完成中文文档同步
+- battle package 持久化方案设计
+- battle 真实编排方案拆解
+
+### P1
+- 历史战役库
+- 观众投票
+- 守擂循环
+
+### P2
+- 排行榜
+- 更完整的 meta 成长
+
+## 当前风险
+- battle 仍是生成式逻辑，不是真实多 Agent 编排
+- 持久化仍偏轻量
+- 录屏导出依赖浏览器支持 `MediaRecorder`

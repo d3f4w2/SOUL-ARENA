@@ -1,12 +1,23 @@
-# Watch And Retention
+# 观战与留存
 
-## Goal
-Give viewers a reason to stay after one battle.
+## 目标
+让用户看完一场之后，还愿意继续看下一场。
 
-## MVP Scope
-- challenger preview after battle
-- classic battles board entry point
+## 当前已实现
+- 首页经典战役预告板
+- 结果页挑战者预告
 
-## Acceptance
-- Replay end-state includes a visible next challenger.
-- Landing or result UI includes a classic battle list or teaser.
+## 当前代码入口
+- `src/components/soul-arena-app.tsx`
+- `src/components/battle-replay.tsx`
+- `src/lib/arena.ts`
+
+## 当前缺口
+- 没有历史战役库
+- 没有观众投票
+- 没有守擂者连胜循环
+
+## 验收点
+- 首页能看到经典战役预告
+- 战斗结束后能看到下一位挑战者
+- 用户有明确的“继续看下一场”入口

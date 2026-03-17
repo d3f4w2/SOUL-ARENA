@@ -1,24 +1,46 @@
-# UI Sitemap
+# 页面地图
 
-## Pages
-- `/`
-  - product landing
-  - build-game positioning
-  - CTA to start arena flow
-  - classic battle teasers
-- `/arena`
-  - topic selection
-  - fighter build input
-  - build preview
-  - challenger selection
-- `/arena/[battleId]`
-  - replay stage
-  - event feed
-  - highlights
-  - challenger preview
-  - recording/export controls
+## 当前页面
+### `/`
+首页，已实现
 
-## Future Pages
+包含：
+- 品牌说明
+- 核心循环说明
+- Soul 天赋说明
+- 经典战役预告板
+- 进入 `/arena` 的 CTA
+
+### `/arena`
+构筑工作台，已实现
+
+包含：
+- 辩题选择
+- 守擂者选择
+- 挑战者名称与宣言
+- 三条观点
+- 规则与禁忌
+- 构筑预览
+- 赛前建议
+- 开始对战
+
+### `/arena/[battleId]`
+战斗回放页，已实现
+
+包含：
+- canvas 舞台
+- 播放控制
+- WebM 录制
+- 事件流
+- 战斗解释
+- 三大高光
+- 评委点评
+- 挑战者预告
+
+## 后续页面
 - `/arena/history`
+  历史战役库
 - `/arena/rankings`
+  排行榜
 - `/arena/battles/[battleId]/share`
+  单场战役分享页

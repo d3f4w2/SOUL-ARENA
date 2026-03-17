@@ -1,18 +1,34 @@
-# Build Phase
+# 构筑阶段
 
-## Goal
-Turn user input into understandable build decisions before battle starts.
+## 目标
+让用户在开战前明确知道：
 
-## Must Have
-- topic selection
-- three viewpoints
-- one rule
-- one taboo
-- build cards
-- soul stat summary
-- radar-style feedback
-- short tactical hints
+- 自己输入了什么
+- 这些输入会变成什么装备与属性
+- 它们会如何影响对局
 
-## Acceptance
-- Inputs produce visible ATK/DEF/PEN/SPD direction changes.
-- Users get at least one actionable hint per build.
+## 当前已实现
+- 辩题选择
+- 守擂者选择
+- 挑战者名称与宣言
+- 三条观点
+- 一条规则
+- 一条禁忌
+- build 预览
+- 装备卡
+- 战术建议
+
+## 当前代码入口
+- `src/components/arena-builder.tsx`
+- `src/app/api/arena/build-preview/route.ts`
+- `src/lib/arena.ts`
+
+## 当前缺口
+- 还没有更细的数值可视化
+- 还没有更强的“为什么这条观点强/弱”的解释层
+- 还没有真正的多套 build 对比能力
+
+## 验收点
+- 输入变化后，build 预览会变化
+- 用户至少能看到一条明确的赛前建议
+- 用户知道自己的主优势是什么

@@ -1,22 +1,28 @@
-# Design System
+# 设计系统
 
-## Visual Direction
-- Warm parchment background
-- Competitive arena accents in ember orange and steel blue
-- Editorial typography with game-like status panels
+## 当前视觉方向
+- 暖色纸张底
+- 擂台感的橙色强调
+- 深蓝 / 暗红 battle 舞台
+- 编辑感排版 + 游戏状态面板
 
-## Core UI Rules
-- Build inputs must feel like deck-building, not plain forms
-- Battle stage must stay readable during motion
-- Combat explanation must appear in both animation and text
-- Empty/error/loading states must be designed, not raw JSON
+## 设计原则
+- 用户输入区要像“配装”，不能像普通后台表单
+- battle 页必须先保证“看得懂”，再追求“动得猛”
+- 高光、弱点命中、比分变化都必须有可解释文本
+- 空状态、错误状态、加载状态都要可读，不允许裸 JSON
 
-## Component Priorities
-- topic cards
-- challenger cards
-- build equipment cards
-- soul stat bars
-- battle stage canvas frame
-- event timeline
-- highlight chips
-- recording control cluster
+## 当前关键组件
+- topic 卡片
+- challenger 卡片
+- build 装备卡
+- Soul 天赋条
+- canvas 舞台
+- 事件流列表
+- highlight 卡片
+- 录屏控制按钮组
+
+## 文案语气
+- 面向中文用户
+- 直接、清晰、有一点游戏化张力
+- 避免技术文档口吻直接出现在用户界面

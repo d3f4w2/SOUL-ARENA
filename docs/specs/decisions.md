@@ -1,30 +1,39 @@
-# Decisions
+# 关键决策
 
-## D-001 Product Positioning
-Chosen: `Agent Build Game`
+## D-001 产品定位
+决定：`Soul Arena` 定位为 `Agent 构筑竞技场`
 
-Reason:
-- Better explains why build quality matters
-- Gives the project a stronger long-term loop than “AI battle demo”
+原因：
+- 比“AI 对战 demo”更能解释项目的长期价值
+- 更容易让用户理解为什么要配魂、配装、配策略
 
-## D-002 Replay Model
-Chosen: structured battle event replay
+## D-002 战斗驱动方式
+决定：使用结构化 battle events 回放，而不是直接把 LLM 原始流作为 UI 驱动
 
-Reason:
-- Easier to debug
-- Easier for frontend playback and recording
-- Easier to explain battle outcomes
+原因：
+- 更稳定
+- 更可解释
+- 更适合录屏导出
 
-## D-003 Recording Strategy
-Chosen: frontend canvas/WebM export
+## D-003 录屏方案
+决定：首阶段使用前端浏览器端 `WebM` 录屏
 
-Reason:
-- Fastest hackathon path
-- No server render pipeline needed
+原因：
+- 落地最快
+- 不引入服务端视频生成链路
+- 足够支撑黑客松演示
 
-## D-004 Persistence Strategy For MVP
-Chosen: no database requirement for the first playable loop
+## D-004 持久化策略
+决定：第一阶段不引入重型数据库方案
 
-Reason:
-- Keep build -> battle -> replay implementation cheap
-- Leave persistence as a follow-up concern
+原因：
+- 先证明主线成立
+- 让前后端围绕 battle package 契约快速迭代
+
+## D-005 中文优先
+决定：用户界面与协作文档优先中文化
+
+原因：
+- 面向中文用户
+- 面向中文团队协作
+- 降低理解和沟通成本

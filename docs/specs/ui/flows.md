@@ -1,22 +1,44 @@
-# UI Flows
+# 关键流程
 
-## Flow 1: Build To Battle
-1. User opens landing page.
-2. User starts a new arena battle.
-3. User selects topic and challenger.
-4. User enters viewpoints, rule, taboo.
-5. User sees build preview and equipment hints.
-6. User starts battle.
-7. User lands on replay page.
+## 流程 1：从首页进入构筑
+1. 用户打开首页
+2. 理解产品定位是“Agent 构筑竞技场”
+3. 点击进入 `/arena`
 
-## Flow 2: Watch And Understand
-1. Replay starts automatically.
-2. User sees round changes, attacks, counters, weakness hits.
-3. User understands why HP/score shifted.
-4. User reaches highlights and outcome.
+成功标准：
+- 用户知道这不是普通聊天页
+- 用户知道下一步是先构筑，不是直接看结果
 
-## Flow 3: Record And Share
-1. User starts recording on replay page.
-2. Replay runs on canvas stage.
-3. User stops recording or lets it end.
-4. Browser exports WebM.
+## 流程 2：构筑到开战
+1. 用户选择辩题
+2. 用户选择守擂者
+3. 用户输入观点、规则、禁忌
+4. 系统返回 build 预览
+5. 用户看到装备提示和赛前建议
+6. 用户点击开始对战
+
+成功标准：
+- 用户知道自己的输入如何影响 build
+- 用户知道为什么这个 build 的优劣是这样
+
+## 流程 3：观战与理解
+1. 用户进入 `/arena/[battleId]`
+2. 回放自动开始
+3. 用户看到回合推进、攻击、防守、弱点命中
+4. 用户能理解为什么血量和比分发生变化
+5. 用户看到终局结果与三大高光
+
+成功标准：
+- 战斗不是黑箱
+- 高光有传播价值
+
+## 流程 4：录屏与继续观看
+1. 用户在回放页点击录制
+2. 浏览器录制 canvas 舞台
+3. 回放结束或用户手动停止
+4. 用户下载 WebM
+5. 用户看到下一位挑战者预告
+
+成功标准：
+- 有一段可直接演示和传播的素材
+- 用户有继续看下一场的理由

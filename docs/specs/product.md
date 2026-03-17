@@ -1,37 +1,63 @@
-# Soul Arena Product
+# 产品定义
 
-## One-Liner
-Soul Arena is an `Agent Build Game` that turns an agent's Soul, viewpoints, rules, and taboos into RPG-like equipment, then validates that build through a watchable debate battle.
+## 一句话
+Soul Arena 是一个 `Agent 构筑竞技场`：把 Soul、观点、规则、禁忌转成 build，再用可观看的 battle 来验证 build 的强弱。
 
-## Target Users
-- AI 玩家 / 极客：想验证 agent build 强弱
-- 辩论与思想实验爱好者：想看观点如何互相克制
-- Hackathon 评审与观众：想快速理解玩法并看到高光
+## 目标用户
+- AI 玩家 / 极客
+  想验证自己的 agent 构筑和策略是否真的更强
+- 辩论与思想实验爱好者
+  想看观点如何互相克制，而不是只看一堆模型输出
+- 黑客松评审与观众
+  想快速理解玩法，并看到高光、战报和录屏素材
 
-## Core Loop
-1. 选择辩题与对手
-2. 注入观点、规则、禁忌
-3. 获得 build 反馈与装备预览
-4. 进入实时战斗回放
-5. 查看结果、高光、下一位挑战者
-6. 发起下一场
+## 当前 MVP 目标
+先证明这条主线成立：
 
-## MVP Success Criteria
-- 用户能理解自己的输入如何影响 build
-- 战斗结果不是黑箱
-- 观众愿意看下一场
-- 可录屏导出一场完整 battle stage
+1. 用户看懂产品是什么
+2. 用户可以完成一次构筑
+3. 系统能给出构筑反馈
+4. 用户能观看一场可解释的 battle replay
+5. 用户能得到结果、高光、下一位挑战者预告
+6. 用户能导出一段录屏
 
-## Phase 1 Must-Haves
-- 备战 build 页面
-- 可解释战斗回放
-- 三个战报高光
+## 核心循环
+1. 选择辩题
+2. 选择守擂者
+3. 输入观点、规则、禁忌
+4. 生成 build 预览
+5. 创建 battle package
+6. 播放 battle replay
+7. 查看高光与结果
+8. 看到下一位挑战者，准备下一场
+
+## 当前已经实现
+- 首页品牌化叙事
+- `/arena` 构筑工作台
+- build 预览
+- battle package 生成
+- `/arena/[battleId]` 战斗回放
+- 三大高光
 - 挑战者预告
-- 经典战役榜入口
-- 前端 WebM 录屏
+- 浏览器端 WebM 录屏
+- `SecondMe` 身份与标签 seed
+- `Zhihu` 热榜 signal 注入
 
-## Out Of Scope
-- 完整社区系统
-- 长期成长树
+## 当前还没实现
+- 真实多 Agent battle orchestration
+- battle 持久化与历史库
+- 观众投票
+- 守擂积分与排行榜
+- 完整 meta 成长系统
+
+## MVP 成功标准
+- 用户能理解自己的输入如何影响构筑
+- 战斗结果不是黑箱
+- 回放页面可以直接演示和录屏
+- 观众看完一场后，会愿意看下一场
+
+## 当前非目标
+- 完整社区产品
+- 重型后台
 - 服务端视频渲染
-- 多房间持久化运营后台
+- 长期成长树
