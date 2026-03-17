@@ -1,0 +1,122 @@
+  # Hackathon Minimal Skill Stack + OpenSpec Layout
+
+  ## Summary
+
+  This project should use a lightweight spec-first workflow, not a heavy process. The goal is to keep direction
+  changes cheap while preserving delivery speed.
+
+  Recommended minimum skill stack:
+
+  - brainstorming: define or change feature intent before coding
+  - ui-ux-pro-max: define page structure, flows, states, and design rules
+  - frontend-design: implement distinctive, polished UI in the existing Next.js + Tailwind stack
+  - writing-plans: turn approved ideas into concrete implementation tasks
+  - Code: execute normal coding work
+  - debug-pro: troubleshoot integration and runtime issues quickly
+  - test-runner: verify critical demo paths before submission
+
+  Recommended optional add-ons:
+
+  - secondme-reference: for API/integration questions tied to SecondMe
+  - playwright: for smoke-testing key user flows and demo capture
+  - security-auditor: final pass before public demo or deployment
+
+  ## OpenSpec Layout
+
+  Use a small docs/specs/ area instead of a full process framework.
+
+  docs/
+    specs/
+      README.md
+      product.md
+      decisions.md
+      features/
+        landing-experience.md
+        secondme-chat.md
+        zhihu-integration.md
+      ui/
+        sitemap.md
+        design-system.md
+        flows.md
+      api/
+        contracts.md
+        env.md
+
+  Purpose of each file:
+
+  - docs/specs/README.md: how to use the spec folder, update rules, current source of truth
+  - docs/specs/product.md: project goal, audience, core narrative, demo success criteria, out-of-scope
+  - docs/specs/decisions.md: short ADR-style log for major decisions and reversals
+  - docs/specs/features/*.md: one file per active feature; include goal, trigger, happy path, edge cases, acceptance
+  - docs/specs/ui/sitemap.md: page/module map and ownership of each screen
+  - docs/specs/ui/design-system.md: colors, type, spacing, button/card/form rules, loading/empty/error states
+  - docs/specs/ui/flows.md: top 3-5 user flows the demo must nail
+  - docs/specs/api/contracts.md: route list, request/response shapes, fallback behavior, error handling
+  - docs/specs/api/env.md: required env vars, which routes depend on them, local/demo behavior when missing
+
+  ## Working Rules
+
+  Use this update order whenever requirements change:
+
+  1. Update product.md if the goal or demo narrative changed.
+  2. Update the affected feature spec under features/.
+  3. Update ui/flows.md or api/contracts.md if behavior changed.
+  4. Then implement.
+
+  Rules to keep it lightweight:
+
+  - Keep each feature spec to roughly one screen of text.
+  - Prefer acceptance criteria and examples over long prose.
+  - Mark dropped ideas explicitly in decisions.md instead of deleting context.
+  - Treat specs as current truth for product behavior, not architecture essays.
+  - Do not create specs for minor styling tweaks or obvious refactors.
+
+  ## Skill Workflow
+
+  Use this exact sequence per feature:
+
+  1. brainstorming
+     Lock the user goal, demo value, and what is explicitly out of scope.
+  2. ui-ux-pro-max
+     Define screen layout, key states, and interaction flow.
+  3. writing-plans
+     Break the approved spec into concrete implementation tasks.
+  4. frontend-design
+     Build the actual UI with a strong visual direction.
+  5. Code
+     Implement routes, components, and data wiring.
+  6. debug-pro
+     Fix integration/runtime issues.
+  7. test-runner
+     Verify the main demo path and one fallback/error path.
+
+  ## Public Interfaces To Standardize
+
+  These should be documented early and kept stable even if features move:
+
+  - Main pages/screens and their intent
+  - Core user flows
+  - API route contracts under src/app/api/...
+  - Environment variable requirements
+  ## Test Plan
+  For each demo-critical feature, verify:
+
+  - Happy path completes without manual fixes
+  - Missing env/config produces a controlled fallback
+  - API error renders a clear error state
+  - Empty data renders a designed empty state, not a broken layout
+  - Mobile width remains usable for the main path
+  - One end-to-end smoke flow works before every demo
+
+  Suggested minimum smoke scenarios:
+
+  - Landing page loads and primary CTA works
+  - SecondMe interaction path completes or fails gracefully
+  - Zhihu data surface loads, handles empty/error, and remains visually intact
+
+  ## Assumptions
+
+  - The project remains a fast-moving hackathon demo, not a compliance-heavy product.
+  - The current stack stays Next.js + React + Tailwind.
+  - Specs are kept intentionally small and updated only where changes affect behavior, flow, or contracts.
+  - ui-ux-pro-max and frontend-design are complementary and should both be used, not treated as substitutes.

@@ -1,0 +1,151 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f5efe2;
+  --foreground: #211c15;
+  --panel: rgba(255, 250, 241, 0.76);
+  --panel-strong: rgba(255, 247, 235, 0.96);
+  --line: rgba(54, 36, 18, 0.18);
+  --accent: #d05a37;
+  --accent-soft: rgba(208, 90, 55, 0.16);
+  --olive: #5d6948;
+  --muted: #6c6259;
+  --shadow: 0 18px 70px rgba(68, 46, 22, 0.14);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: "Noto Serif SC", "Source Han Serif SC", "Songti SC", serif;
+  --font-mono: "IBM Plex Mono", "Cascadia Code", monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: "Noto Serif SC", "Source Han Serif SC", "Songti SC", serif;
+  min-height: 100vh;
+  background-image:
+    radial-gradient(circle at 20% 10%, rgba(255, 255, 255, 0.85), transparent 30%),
+    radial-gradient(circle at 80% 0%, rgba(208, 90, 55, 0.11), transparent 28%),
+    linear-gradient(135deg, rgba(93, 105, 72, 0.08), transparent 45%),
+    linear-gradient(180deg, #f8f2e8 0%, #f0e4d1 100%);
+}
+
+a {
+  color: inherit;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+::selection {
+  background: rgba(208, 90, 55, 0.22);
+}
+
+.paper-grid {
+  background-image:
+    linear-gradient(to right, rgba(80, 58, 35, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(80, 58, 35, 0.05) 1px, transparent 1px);
+  background-size: 36px 36px;
+}
+
+.paper-panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(22px);
+}
+
+.paper-panel-strong {
+  background: var(--panel-strong);
+  border: 1px solid rgba(33, 28, 21, 0.1);
+  box-shadow: var(--shadow);
+}
+
+.accent-chip {
+  border: 1px solid rgba(208, 90, 55, 0.22);
+  background: rgba(255, 248, 241, 0.88);
+  color: var(--foreground);
+}
+
+.section-title {
+  font-size: clamp(1.45rem, 1.8vw, 2rem);
+  line-height: 1.1;
+  letter-spacing: -0.04em;
+}
+
+.display-title {
+  font-family: "KaiTi", "STKaiti", serif;
+  font-size: clamp(3rem, 8vw, 6.8rem);
+  line-height: 0.95;
+  letter-spacing: -0.05em;
+}
+
+.muted-copy {
+  color: var(--muted);
+}
+
+.soft-button {
+  transition:
+    transform 180ms ease,
+    background-color 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease;
+}
+
+.soft-button:hover {
+  transform: translateY(-1px);
+}
+
+.soft-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+  transform: none;
+}
+
+.text-scrim {
+  background:
+    linear-gradient(180deg, rgba(255, 249, 241, 0.8) 0%, rgba(255, 249, 241, 0.96) 100%);
+}
+
+.grain::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.08;
+  background-image:
+    radial-gradient(circle at 20% 20%, #000 0.7px, transparent 0.8px),
+    radial-gradient(circle at 80% 30%, #000 0.6px, transparent 0.8px),
+    radial-gradient(circle at 45% 70%, #000 0.7px, transparent 0.9px);
+  background-size: 18px 18px, 24px 24px, 30px 30px;
+}
+
+.entry-fade {
+  animation: entry-fade 520ms ease both;
+}
+
+@keyframes entry-fade {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
