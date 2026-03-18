@@ -1272,60 +1272,107 @@ export function ArenaBuilder() {
     }
 
     const bindCode = bindCodes[slot];
+    const isAlpha = slot === "alpha";
+    const accentColor = isAlpha ? 'var(--red)' : 'var(--gold)';
+    const accentGlow = isAlpha ? 'rgba(200,0,0,0.4)' : 'rgba(212,160,0,0.4)';
+
+    const copyBindCode = (code: string) => {
+      void navigator.clipboard.writeText(code);
+    };
 
     return (
-      <div className="mt-5 grid gap-3 rounded-[1.25rem] border border-[var(--line)] bg-white/75 p-4">
-        <p className="text-sm font-semibold">OpenClaw 注册</p>
+      <div className="mt-4 mk-panel-inset p-4 flex flex-col gap-3">
+        <p style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '0.72rem', letterSpacing: '0.25em', textTransform: 'uppercase', color: accentColor }}>
+          OpenClaw 注册
+        </p>
         {participant.connected ? (
           <>
-            <p className="text-sm text-stone-600">
-              已注册为 {participant.displayName ?? "未命名角色"}
-              {participantDisplayId(participant) ? ` (@${participantDisplayId(participant)})` : ""}.
+            <p style={{ fontFamily: "'Courier New', monospace", fontSize: '0.78rem', color: 'var(--text-dim)', lineHeight: '1.8' }}>
+              已注册为 <span style={{ color: accentColor }}>{participant.displayName ?? "未命名角色"}</span>
+              {participantDisplayId(participant) ? ` (@${participantDisplayId(participant)})` : ""}
             </p>
-            <p className="text-sm text-stone-600">
+            <p style={{ fontFamily: "'Courier New', monospace", fontSize: '0.72rem', color: 'var(--text-muted)' }}>
               版本 {participant.configVersion ?? "当前"} · {participant.sourceLabel ?? "OpenClaw 技能"}
             </p>
-            {participantAvatar(participant) ? (
-              <p className="text-sm text-stone-600 break-all">头像：{participantAvatar(participant)}</p>
-            ) : null}
             {tagLabels(participant).length ? (
               <div className="flex flex-wrap gap-2">
                 {tagLabels(participant).slice(0, 6).map((tag) => (
-                  <span key={tag} className="accent-chip rounded-full px-3 py-1 text-xs">
+                  <span key={tag} className={isAlpha ? "mk-badge" : "mk-badge-gold"}>
                     {tag}
                   </span>
                 ))}
               </div>
             ) : null}
             {memoryAnchors(participant).length ? (
-              <div className="space-y-2 text-sm text-stone-600">
+              <div style={{ fontFamily: "'Courier New', monospace", fontSize: '0.72rem', color: 'var(--text-dim)', lineHeight: '1.7' }}>
                 {memoryAnchors(participant).slice(0, 3).map((item) => (
-                  <p key={item}>{item}</p>
+                  <p key={item} style={{ marginBottom: '4px' }}>{item}</p>
                 ))}
               </div>
             ) : null}
           </>
         ) : bindCode ? (
           <>
-            <p className="text-sm text-stone-600">
+            <p style={{ fontFamily: "'Courier New', monospace", fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: '1.7' }}>
               请在用户自己的 OpenClaw 技能中使用这个绑定码，并调用注册接口。
             </p>
-            <div className="rounded-[1rem] border border-[var(--line)] bg-stone-50 px-4 py-3">
-              <p className="font-semibold tracking-[0.12em]">{bindCode.bindCode}</p>
-              <p className="mt-1 text-sm text-stone-600">
-                Expires: {new Date(bindCode.expiresAt).toLocaleString()}
+            {/* Dramatic bind code display */}
+            <div style={{
+              background: 'rgba(0,0,0,0.85)',
+              border: `1px solid ${accentColor}`,
+              boxShadow: `0 0 18px ${accentGlow}, inset 0 0 20px rgba(0,0,0,0.5)`,
+              padding: '16px 20px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '10px',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+                <code style={{
+                  fontFamily: '"Courier New", monospace',
+                  fontSize: '1.25rem',
+                  letterSpacing: '0.18em',
+                  color: accentColor,
+                  textShadow: `0 0 12px ${accentGlow}`,
+                  fontWeight: 'bold',
+                  wordBreak: 'break-all',
+                }}>
+                  {bindCode.bindCode}
+                </code>
+                <button
+                  onClick={() => copyBindCode(bindCode.bindCode)}
+                  style={{
+                    flexShrink: 0,
+                    fontFamily: 'Impact, Arial Black, sans-serif',
+                    fontSize: '0.62rem',
+                    letterSpacing: '0.18em',
+                    textTransform: 'uppercase',
+                    color: accentColor,
+                    border: `1px solid ${accentColor}`,
+                    padding: '4px 10px',
+                    background: 'rgba(0,0,0,0.6)',
+                    cursor: 'pointer',
+                  }}
+                  type="button"
+                >
+                  复制
+                </button>
+              </div>
+              <p style={{ fontFamily: "'Courier New', monospace", fontSize: '0.65rem', color: 'var(--text-muted)' }}>
+                到期：{new Date(bindCode.expiresAt).toLocaleString()}
               </p>
-              <p className="mt-1 text-xs break-all text-stone-500">{bindCode.registerUrl}</p>
+              <p style={{ fontFamily: "'Courier New', monospace", fontSize: '0.6rem', color: 'var(--text-muted)', wordBreak: 'break-all' }}>
+                {bindCode.registerUrl}
+              </p>
             </div>
           </>
         ) : (
-          <p className="text-sm text-stone-600">
+          <p style={{ fontFamily: "'Courier New', monospace", fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: '1.75' }}>
             先生成绑定码，再让用户自己的 OpenClaw 技能远程注册这个槽位。
           </p>
         )}
         <div className="flex flex-wrap gap-2">
           <button
-            className="soft-button rounded-full bg-[var(--accent)] px-4 py-2 text-sm text-white"
+            className={isAlpha ? "mk-button px-4 py-2" : "mk-button-gold px-4 py-2"}
             disabled={pendingSlot === slot}
             onClick={() => void generateBindCode(slot)}
             type="button"
@@ -1337,7 +1384,7 @@ export function ArenaBuilder() {
                 : "生成绑定码"}
           </button>
           <button
-            className="soft-button rounded-full border border-[var(--line)] bg-white/70 px-4 py-2 text-sm"
+            className="mk-button-ghost px-4 py-2"
             onClick={() => void refreshOpenClawSlot(slot)}
             type="button"
           >
@@ -1601,7 +1648,7 @@ export function ArenaBuilder() {
                             实时
                           </span>
                         </div>
-                        {zhihuTopics.map((topic) => (
+                        {zhihuTopics.map((topic, tidx) => (
                           <button
                             key={topic.id}
                             className={topic.id === topicId ? "mk-topic mk-topic-active" : "mk-topic"}
@@ -1609,9 +1656,22 @@ export function ArenaBuilder() {
                               setTopicId(topic.id);
                               setTopicSnapshot(topic);
                             }}
-                            style={{ border: topic.id === topicId ? '1px solid var(--gold-bright)' : '1px solid var(--border-gold)', boxShadow: topic.id === topicId ? '0 0 12px rgba(212,160,0,0.3)' : '0 0 6px rgba(212,160,0,0.1)' }}
+                            style={{ border: topic.id === topicId ? '1px solid var(--gold-bright)' : '1px solid var(--border-gold)', boxShadow: topic.id === topicId ? '0 0 12px rgba(212,160,0,0.3)' : '0 0 6px rgba(212,160,0,0.1)', position: 'relative' }}
                             type="button"
                           >
+                            {/* Number badge */}
+                            <span style={{
+                              position: 'absolute', top: '-10px', left: '-10px',
+                              width: '28px', height: '28px', borderRadius: '50%',
+                              background: topic.id === topicId ? 'var(--gold)' : 'rgba(180,120,0,0.55)',
+                              border: '2px solid rgba(255,215,0,0.6)',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              fontFamily: 'Impact, Arial Black, sans-serif',
+                              fontSize: '0.72rem', color: '#1a0000', fontWeight: 'bold',
+                              boxShadow: '0 0 8px rgba(212,160,0,0.5)',
+                            }}>
+                              {String(tidx + 1).padStart(2, '0')}
+                            </span>
                             <div className="flex flex-wrap items-center gap-3 mb-2">
                               <p style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '0.95rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: topic.id === topicId ? 'var(--gold-bright)' : 'var(--gold)' }}>
                                 {topic.title}
@@ -1640,7 +1700,7 @@ export function ArenaBuilder() {
                           </span>
                           <div style={{ flex: 1, height: '1px', background: 'var(--border)' }} />
                         </div>
-                        {presetTopics.map((topic) => (
+                        {presetTopics.map((topic, tidx) => (
                           <button
                             key={topic.id}
                             className={topic.id === topicId ? "mk-topic mk-topic-active" : "mk-topic"}
@@ -1649,7 +1709,21 @@ export function ArenaBuilder() {
                               setTopicSnapshot(topic);
                             }}
                             type="button"
+                            style={{ position: 'relative' }}
                           >
+                            {/* Number badge */}
+                            <span style={{
+                              position: 'absolute', top: '-10px', left: '-10px',
+                              width: '28px', height: '28px', borderRadius: '50%',
+                              background: topic.id === topicId ? 'var(--red-bright)' : 'rgba(139,0,0,0.6)',
+                              border: '2px solid rgba(200,0,0,0.6)',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              fontFamily: 'Impact, Arial Black, sans-serif',
+                              fontSize: '0.72rem', color: '#fff', fontWeight: 'bold',
+                              boxShadow: '0 0 8px rgba(200,0,0,0.5)',
+                            }}>
+                              {String(tidx + 1).padStart(2, '0')}
+                            </span>
                             <div className="flex flex-wrap items-center gap-3 mb-2">
                               <p style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '0.95rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: topic.id === topicId ? 'var(--red-bright)' : 'var(--text-bright)' }}>
                                 {topic.title}

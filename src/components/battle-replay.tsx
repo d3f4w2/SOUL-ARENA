@@ -94,6 +94,13 @@ type AudienceMemberCanvas = {
   bobPhase: number;
 };
 
+type AnnouncerState = {
+  text: string;
+  color: string;
+  scale: number;
+  alpha: number;
+};
+
 function drawStage(
   canvas: HTMLCanvasElement,
   battle: BattlePackage,
@@ -108,6 +115,10 @@ function drawStage(
   avatarImageCache: Map<string, HTMLImageElement>,
   arenaBg: HTMLImageElement | null,
   arenaFloor: HTMLImageElement | null,
+  announcer: AnnouncerState | null,
+  phase: "playing" | "complete",
+  winnerName: string,
+  winnerCrown: HTMLImageElement | null,
 ) {
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
@@ -849,6 +860,47 @@ function drawStage(
       ctx.lineWidth = 2.5; ctx.shadowColor = "rgba(255,100,0,0.8)"; ctx.shadowBlur = 8;
       ctx.stroke(); ctx.shadowBlur = 0;
     }
+
+    // ── RED SLASH LINES on melee attack ──
+    const slashX = actorIsPlayer ? W - 285 : 285;
+    const slashY = floorY - 200;
+    const slashAlpha = Math.max(0, 1 - poseAge / 500);
+    ctx.save();
+    ctx.globalAlpha = slashAlpha;
+    ctx.strokeStyle = "#ff2200";
+    ctx.shadowColor = "rgba(255,30,0,1)";
+    ctx.shadowBlur = 20;
+    ctx.lineWidth = 5;
+    ctx.lineCap = "round";
+    // Three diagonal slash marks
+    const slashDir = actorIsPlayer ? -1 : 1;
+    for (let si = 0; si < 3; si++) {
+      const sy = slashY - 30 + si * 28;
+      ctx.beginPath();
+      ctx.moveTo(slashX + slashDir * 55 + si * slashDir * 8, sy - 30);
+      ctx.lineTo(slashX - slashDir * 45 + si * slashDir * 8, sy + 30);
+      ctx.stroke();
+    }
+    ctx.shadowBlur = 0;
+    ctx.restore();
+
+    // ── PARTICLE TRAIL during movement ──
+    const trailX = actorIsPlayer ? 285 : W - 285;
+    for (let pi = 0; pi < 5; pi++) {
+      const tAlpha = Math.max(0, (1 - poseAge / 600) * (1 - pi * 0.18));
+      const tX = trailX + (actorIsPlayer ? 1 : -1) * pi * -18;
+      const tY = floorY - 150 - pi * 12 + Math.sin(pi * 1.4) * 15;
+      const tR = 8 - pi * 1.2;
+      if (tR <= 0) continue;
+      ctx.save();
+      ctx.globalAlpha = tAlpha;
+      const tGrad = ctx.createRadialGradient(tX, tY, 0, tX, tY, tR * 2);
+      tGrad.addColorStop(0, "#ff5500");
+      tGrad.addColorStop(1, "transparent");
+      ctx.fillStyle = tGrad;
+      ctx.beginPath(); ctx.arc(tX, tY, tR * 2, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
   }
 
   // ── 5. EVENT TEXT PANEL ────────────────────────────────────────
@@ -870,6 +922,107 @@ function drawStage(
   ctx.fillStyle = "rgba(232,212,184,0.72)";
   ctx.fillText(currentEvent?.description ?? "等待战斗数据载入。", W / 2, H - 30, W - 180);
   ctx.textAlign = "left";
+
+  // ── 6. BIG_HIT SCREEN FLASH + "HIT!" TEXT ────────────────────
+  const isBigHit = replayState.currentEvent?.type === "weakness_hit";
+  if (isBigHit && poseAge < 600) {
+    const flashAlpha = Math.max(0, 0.38 * (1 - poseAge / 600));
+    ctx.save();
+    ctx.globalAlpha = flashAlpha;
+    ctx.fillStyle = "#cc0000";
+    ctx.fillRect(0, 0, W, H);
+    ctx.restore();
+    // "WEAKNESS HIT" already drawn — also flash at screen edges
+    const edgeGlow = ctx.createRadialGradient(W / 2, H / 2, H * 0.3, W / 2, H / 2, H);
+    edgeGlow.addColorStop(0, "transparent");
+    edgeGlow.addColorStop(1, `rgba(255,0,0,${flashAlpha * 0.6})`);
+    ctx.fillStyle = edgeGlow;
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  // ── 7. WIN SCREEN OVERLAY (phase === "complete") ──────────────
+  if (phase === "complete") {
+    // Dark overlay
+    ctx.save();
+    ctx.globalAlpha = 0.78;
+    ctx.fillStyle = "#000000";
+    ctx.fillRect(0, 0, W, H);
+    ctx.restore();
+
+    // Pulsing winner-side border glow
+    const borderAlpha = 0.4 + 0.35 * Math.sin(animTime * 0.004);
+    const isPlayerWinner = battle.winnerId === battle.player.id;
+    ctx.save();
+    ctx.strokeStyle = isPlayerWinner ? `rgba(255,30,0,${borderAlpha})` : `rgba(255,215,0,${borderAlpha})`;
+    ctx.lineWidth = 12;
+    if (isPlayerWinner) {
+      ctx.strokeRect(6, 6, W / 2 - 12, H - 12);
+    } else {
+      ctx.strokeRect(W / 2 + 6, 6, W / 2 - 12, H - 12);
+    }
+    ctx.restore();
+
+    // Winner crown image above name
+    if (winnerCrown) {
+      const crownSize = 120;
+      const crownX = W / 2 - crownSize / 2;
+      const crownY = H / 2 - 180;
+      ctx.save();
+      ctx.shadowColor = "rgba(255,215,0,0.8)";
+      ctx.shadowBlur = 30;
+      ctx.drawImage(winnerCrown, crownX, crownY, crownSize, crownSize);
+      ctx.restore();
+    }
+
+    // Winner name in huge gold text
+    ctx.save();
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    const winnerColor = isPlayerWinner ? "#ff3300" : "#ffd700";
+    const winnerShadow = isPlayerWinner ? "rgba(255,30,0,1)" : "rgba(255,215,0,1)";
+    ctx.font = `bold 88px Impact, "Arial Black", sans-serif`;
+    ctx.strokeStyle = "#000";
+    ctx.lineWidth = 10;
+    ctx.strokeText(winnerName.toUpperCase(), W / 2, H / 2 - 40);
+    ctx.fillStyle = winnerColor;
+    ctx.shadowColor = winnerShadow;
+    ctx.shadowBlur = 40;
+    ctx.fillText(winnerName.toUpperCase(), W / 2, H / 2 - 40);
+    ctx.shadowBlur = 0;
+
+    // "WINS!" below
+    ctx.font = `bold 64px Impact, "Arial Black", sans-serif`;
+    ctx.strokeStyle = "#000";
+    ctx.lineWidth = 8;
+    ctx.strokeText("WINS!", W / 2, H / 2 + 50);
+    ctx.fillStyle = "#ff2200";
+    ctx.shadowColor = "rgba(255,30,0,1)";
+    ctx.shadowBlur = 30;
+    ctx.fillText("WINS!", W / 2, H / 2 + 50);
+    ctx.shadowBlur = 0;
+    ctx.textBaseline = "alphabetic";
+    ctx.restore();
+  }
+
+  // ── 8. ANNOUNCER TEXT OVERLAY ─────────────────────────────────
+  if (announcer && announcer.alpha > 0) {
+    ctx.save();
+    ctx.globalAlpha = announcer.alpha;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    const fontSize = Math.floor(120 * announcer.scale);
+    ctx.font = `bold ${fontSize}px Impact, "Arial Black", sans-serif`;
+    ctx.strokeStyle = "#000";
+    ctx.lineWidth = 10;
+    ctx.strokeText(announcer.text, W / 2, H / 2);
+    ctx.fillStyle = announcer.color;
+    ctx.shadowColor = announcer.color === "#ffd700" ? "rgba(255,200,0,1)" : "rgba(255,30,0,1)";
+    ctx.shadowBlur = 50;
+    ctx.fillText(announcer.text, W / 2, H / 2);
+    ctx.shadowBlur = 0;
+    ctx.textBaseline = "alphabetic";
+    ctx.restore();
+  }
 }
 
 async function fetchBattlePackage(battleId: string) {
@@ -962,6 +1115,7 @@ export function BattleReplay({ battleId }: { battleId: string }) {
   const defenderSpriteRef = useRef<HTMLImageElement | null>(null);
   const arenaBgRef = useRef<HTMLImageElement | null>(null);
   const arenaFloorRef = useRef<HTMLImageElement | null>(null);
+  const winnerCrownRef = useRef<HTMLImageElement | null>(null);
   const animFrameRef = useRef(0);
   const replayStateRef = useRef<ReplayState | null>(null);
   const poseStartTimeRef = useRef(0);
@@ -980,6 +1134,8 @@ export function BattleReplay({ battleId }: { battleId: string }) {
   const [goLivePending, setGoLivePending] = useState(false);
   const [votes, setVotes] = useState({ player: 0, defender: 0 });
   const [votePending, setVotePending] = useState(false);
+  const [announcer, setAnnouncer] = useState<AnnouncerState | null>(null);
+  const announcerRef = useRef<AnnouncerState | null>(null);
 
   useEffect(() => {
     void (async () => {
@@ -987,6 +1143,32 @@ export function BattleReplay({ battleId }: { battleId: string }) {
         const payload = await fetchBattlePackage(battleId);
         setBattle(payload);
         setPlayhead(0);
+        // Trigger announcer sequence: ROUND 1 → FIGHT!
+        const startAnnounce = (text: string, color: string, delay: number, duration: number) =>
+          new Promise<void>((resolve) => {
+            setTimeout(() => {
+              const startTime = performance.now();
+              const animate = (now: number) => {
+                const elapsed = now - startTime;
+                const t = elapsed / duration;
+                const alpha = t < 0.15 ? t / 0.15 : t > 0.7 ? Math.max(0, 1 - (t - 0.7) / 0.3) : 1;
+                const scale = t < 0.15 ? 0.5 + 0.5 * (t / 0.15) : 1;
+                const state = { text, color, scale, alpha };
+                announcerRef.current = state;
+                setAnnouncer({ ...state });
+                if (t < 1) {
+                  requestAnimationFrame(animate);
+                } else {
+                  announcerRef.current = null;
+                  setAnnouncer(null);
+                  resolve();
+                }
+              };
+              requestAnimationFrame(animate);
+            }, delay);
+          });
+        void startAnnounce("ROUND 1", "#ffd700", 300, 1400)
+          .then(() => startAnnounce("FIGHT!", "#ff2200", 200, 1000));
       } catch (loadError) {
         setError(loadError instanceof Error ? loadError.message : "战斗数据载入失败。");
       }
@@ -1018,6 +1200,7 @@ export function BattleReplay({ battleId }: { battleId: string }) {
     };
     loadStaticImg("/arena-bg.png", arenaBgRef);
     loadStaticImg("/arena-floor.png", arenaFloorRef);
+    loadStaticImg("/winner-crown.png", winnerCrownRef);
   }, []);
 
   const winnerCompetitorId = useMemo(() => {
@@ -1151,6 +1334,9 @@ export function BattleReplay({ battleId }: { battleId: string }) {
   // Keep latest replayState accessible inside RAF without closure capture
   useEffect(() => { replayStateRef.current = replayState; }, [replayState]);
 
+  // Keep latest announcer in ref for RAF access
+  useEffect(() => { announcerRef.current = announcer; }, [announcer]);
+
   // Track pose start time whenever playhead advances (new battle event)
   useEffect(() => {
     if (playhead !== lastPlayheadRef.current) {
@@ -1160,6 +1346,11 @@ export function BattleReplay({ battleId }: { battleId: string }) {
   }, [playhead]);
 
   // RAF animation loop — runs continuously while battle is loaded
+  const phase: "playing" | "complete" = reachedEnd ? "complete" : "playing";
+  const winnerName = battle
+    ? (battle.winnerId === battle.player.id ? battle.player.displayName : battle.defender.displayName)
+    : "";
+
   const startLoop = useCallback(() => {
     const loop = (time: number) => {
       const rs = replayStateRef.current;
@@ -1174,13 +1365,17 @@ export function BattleReplay({ battleId }: { battleId: string }) {
           avatarImageCacheRef.current,
           arenaBgRef.current,
           arenaFloorRef.current,
+          announcerRef.current,
+          phase,
+          winnerName,
+          winnerCrownRef.current,
         );
       }
       animFrameRef.current = requestAnimationFrame(loop);
     };
     animFrameRef.current = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(animFrameRef.current);
-  }, [battle, audienceMembers]);
+  }, [battle, audienceMembers, phase, winnerName]);
 
   useEffect(() => startLoop(), [startLoop]);
 

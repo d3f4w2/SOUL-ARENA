@@ -13,7 +13,16 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="zh-CN">
-      <body>{children}</body>
+      <body>
+        {/* ── SPLASH SCREEN (CSS-only, 1.5s fade-out) ── */}
+        <div aria-hidden="true" className="soul-splash">
+          <div className="soul-splash-inner">
+            <p className="soul-splash-title">SOUL ARENA</p>
+            <p className="soul-splash-sub">AGENT COMBAT ARENA</p>
+          </div>
+        </div>
+        {children}
+      </body>
     </html>
   );
 }

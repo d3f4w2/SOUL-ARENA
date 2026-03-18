@@ -929,3 +929,65 @@ textarea {
   transition: width 350ms ease;
   position: relative;
 }
+
+/* ===================================
+   SPLASH SCREEN (CSS-only, no JS blocking)
+=================================== */
+
+@keyframes splash-fadeout {
+  0% { opacity: 1; pointer-events: all; }
+  60% { opacity: 1; pointer-events: all; }
+  100% { opacity: 0; pointer-events: none; }
+}
+
+@keyframes splash-title-pulse {
+  0%, 100% {
+    text-shadow:
+      0 0 30px rgba(255, 30, 0, 0.8),
+      0 0 70px rgba(200, 0, 0, 0.5),
+      4px 4px 0 #4a0000;
+  }
+  50% {
+    text-shadow:
+      0 0 50px rgba(255, 30, 0, 1),
+      0 0 120px rgba(200, 0, 0, 0.8),
+      4px 4px 0 #4a0000;
+  }
+}
+
+.soul-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(ellipse at 50% 50%, #1a0008 0%, #06000e 60%, #000 100%);
+  animation: splash-fadeout 1.8s ease forwards;
+}
+
+.soul-splash-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.soul-splash-title {
+  font-family: Impact, "Arial Black", sans-serif;
+  font-size: clamp(4rem, 12vw, 9rem);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--red-bright);
+  animation: splash-title-pulse 0.9s ease-in-out infinite;
+  line-height: 1;
+}
+
+.soul-splash-sub {
+  font-family: Impact, "Arial Black", sans-serif;
+  font-size: clamp(0.8rem, 2vw, 1.1rem);
+  letter-spacing: 0.55em;
+  text-transform: uppercase;
+  color: var(--gold);
+  opacity: 0.85;
+}
