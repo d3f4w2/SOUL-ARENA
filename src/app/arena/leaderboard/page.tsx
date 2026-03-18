@@ -3,14 +3,48 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-import {
-  getArenaFeaturedCompetitor,
-  getArenaLeaderboard,
-} from "@/lib/arena-competition";
-
 export const dynamic = "force-dynamic";
 
-type LeaderboardEntry = ReturnType<typeof getArenaLeaderboard>[number];
+// Types matching what /api/arena/leaderboard returns
+interface LeaderboardSuggestion {
+  competitorId: string;
+  displayName: string;
+  projectedWinDelta: number;
+  projectedLossDelta: number;
+}
+
+interface LeaderboardEntry {
+  competitorId: string;
+  displayName: string;
+  rank: number | null;
+  rating: number;
+  wins: number;
+  losses: number;
+  winRate: number;
+  currentStreak: number;
+  bestStreak: number;
+  lastResult: "win" | "loss" | null;
+  recentForm: string[];
+  suggestion: LeaderboardSuggestion | null;
+}
+
+interface FeaturedCompetitor {
+  competitorId: string;
+  displayName: string;
+  rank: number | null;
+  rating: number;
+  wins: number;
+  losses: number;
+  winRate: number;
+  currentStreak: number;
+  bestStreak: number;
+  suggestion: LeaderboardSuggestion | null;
+}
+
+interface LeaderboardApiResponse {
+  leaderboard: LeaderboardEntry[];
+  featured: FeaturedCompetitor | null;
+}
 
 const resultLabel = (result: "win" | "loss" | null) => {
   if (result === "win") return "上一场获胜";
@@ -245,8 +279,21 @@ function LeaderboardRow({ entry, maxRating }: { entry: LeaderboardEntry; maxRati
 }
 
 export default function ArenaLeaderboardPage() {
-  const leaderboard = getArenaLeaderboard(20);
-  const featured = getArenaFeaturedCompetitor();
+  const [data, setData] = useState<LeaderboardApiResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/arena/leaderboard?limit=20")
+      .then((res) => res.json())
+      .then((json: LeaderboardApiResponse) => {
+        setData(json);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, []);
+
+  const leaderboard = data?.leaderboard ?? [];
+  const featured = data?.featured ?? null;
   const maxRating = leaderboard[0]?.rating ?? 1;
 
   return (
@@ -365,7 +412,11 @@ export default function ArenaLeaderboardPage() {
             <div>
               <div className="mk-label-red mb-2">排行榜</div>
               <h2 className="mk-section">
-                {leaderboard.length ? `共 ${leaderboard.length} 位上榜选手` : "尚未形成榜单"}
+                {loading
+                  ? "加载中..."
+                  : leaderboard.length
+                    ? `共 ${leaderboard.length} 位上榜选手`
+                    : "尚未形成榜单"}
               </h2>
             </div>
           </div>
@@ -373,7 +424,9 @@ export default function ArenaLeaderboardPage() {
           {/* Gold separator */}
           <div style={{ height: "1px", background: "linear-gradient(90deg, transparent, var(--gold-dim), transparent)", marginBottom: "20px" }} />
 
-          {leaderboard.length ? (
+          {loading ? (
+            <div className="mk-status">正在加载排行榜数据…</div>
+          ) : leaderboard.length ? (
             <div className="flex flex-col gap-3">
               {leaderboard.map((entry) => (
                 <LeaderboardRow key={entry.competitorId} entry={entry} maxRating={maxRating} />
