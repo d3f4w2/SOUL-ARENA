@@ -212,6 +212,179 @@ const buildMatchupSummary = (
   };
 };
 
+// ── Fighter info card (shared for alpha & beta) ──────────────────
+function FighterCard({
+  participant,
+  profile,
+  slot,
+  opponentProfile,
+  duplicateWarning,
+  onConnect,
+  onDisconnect,
+}: {
+  participant: ArenaParticipantSource | null;
+  profile: ArenaCompetitorProfile | null;
+  slot: "alpha" | "beta";
+  opponentProfile: ArenaCompetitorProfile | null;
+  duplicateWarning: string | null;
+  onConnect: () => void;
+  onDisconnect: () => Promise<void>;
+}) {
+  const isAlpha = slot === "alpha";
+  const panelClass = isAlpha ? "mk-fighter-card" : "mk-fighter-card-gold";
+  const labelColor = isAlpha ? "var(--red)" : "var(--gold)";
+  const accentColor = isAlpha ? "var(--red)" : "var(--gold-bright)";
+
+  return (
+    <article className={`${panelClass} p-6 flex flex-col gap-5`}>
+      {/* Header */}
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div className="mk-label mb-2" style={{ color: labelColor }}>
+            {participantTitle(slot)}
+          </div>
+          <p style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '1.3rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: accentColor, textShadow: isAlpha ? '0 0 12px rgba(200,0,0,0.4)' : '0 0 12px rgba(255,215,0,0.35)' }}>
+            {participantSubtitle(participant)}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {!participant?.connected ? (
+            <button
+              className="mk-button px-4 py-2"
+              onClick={onConnect}
+              type="button"
+              style={isAlpha ? {} : { background: 'linear-gradient(180deg, var(--gold) 0%, #7a5500 100%)', borderColor: 'var(--gold-bright)', color: '#1a0000' }}
+            >
+              连接 SecondMe
+            </button>
+          ) : (
+            <>
+              {slot === "beta" && duplicateWarning ? (
+                <button
+                  className="mk-button px-4 py-2"
+                  onClick={onConnect}
+                  type="button"
+                >
+                  重新连接乙方
+                </button>
+              ) : null}
+              <button
+                className="mk-button-ghost px-4 py-2"
+                onClick={() => void onDisconnect()}
+                type="button"
+              >
+                断开连接
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Competitive Profile */}
+      <div className="mk-panel-inset p-4">
+        <p style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '0.72rem', letterSpacing: '0.25em', textTransform: 'uppercase', color: labelColor, marginBottom: '10px' }}>
+          竞技档案
+        </p>
+        {profile ? (
+          <div style={{ fontFamily: "'Courier New', monospace", fontSize: '0.8rem', color: 'var(--text-dim)', lineHeight: '2' }}>
+            <p>排名：<span style={{ color: accentColor }}>{formatRank(profile)}</span> · 积分：<span style={{ color: accentColor }}>{profile.rating}</span></p>
+            <p>{profile.wins} 胜 {profile.losses} 负 · 胜率 {profile.winRate}%</p>
+            <p>当前连胜：{profile.currentStreak} · 最高连胜 {profile.bestStreak}</p>
+            <p>最近结果：{formatLastResult(profile)}</p>
+            <p>近况：{profile.recentForm.join(" ") || "暂无"}</p>
+            {profile.suggestion ? (
+              <p style={{ marginTop: '6px', color: 'var(--text-dim)' }}>
+                {profile.suggestion.competitorId === opponentProfile?.competitorId
+                  ? `当前对手就是建议挑战对象，胜出预计 +${profile.suggestion.projectedWinDelta}。`
+                  : `建议挑战：${profile.suggestion.displayName}，胜出预计 +${profile.suggestion.projectedWinDelta}。`}
+              </p>
+            ) : null}
+          </div>
+        ) : (
+          <p style={{ fontFamily: "'Courier New', monospace", fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+            连接后会在这里出现积分、连胜和建议挑战对象。
+          </p>
+        )}
+      </div>
+
+      {/* Auth */}
+      <div className="mk-panel-inset p-4">
+        <p style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '0.72rem', letterSpacing: '0.25em', textTransform: 'uppercase', color: labelColor, marginBottom: '8px' }}>
+          授权说明
+        </p>
+        <p style={{ fontFamily: "'Courier New', monospace", fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: '1.75' }}>
+          {slot === "alpha"
+            ? "甲方可以直接在当前窗口完成授权。"
+            : "乙方建议使用隐身窗口或另一浏览器完成授权，避免复用甲方的 SecondMe 登录态。"}
+        </p>
+      </div>
+
+      {/* Identity */}
+      <div className="mk-panel-inset p-4">
+        <p style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '0.72rem', letterSpacing: '0.25em', textTransform: 'uppercase', color: labelColor, marginBottom: '8px' }}>
+          身份信息
+        </p>
+        <p style={{ fontFamily: "'Courier New', monospace", fontSize: '0.78rem', color: 'var(--text-dim)', lineHeight: '1.8' }}>
+          主页路径：{userField(participant, "route") ?? "无"}
+        </p>
+        <p style={{ fontFamily: "'Courier New', monospace", fontSize: '0.78rem', color: 'var(--text-dim)', lineHeight: '1.8' }}>
+          简介：{userField(participant, "bio") ?? "无"}
+        </p>
+      </div>
+
+      {/* Shades */}
+      <div className="mk-panel-inset p-4">
+        <p style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '0.72rem', letterSpacing: '0.25em', textTransform: 'uppercase', color: labelColor, marginBottom: '10px' }}>
+          核心标签
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {topShades(participant).length ? (
+            topShades(participant).map((shade) => (
+              <span key={shade} className={isAlpha ? "mk-badge" : "mk-badge-gold"}>
+                {shade}
+              </span>
+            ))
+          ) : (
+            <p style={{ fontFamily: "'Courier New', monospace", fontSize: '0.75rem', color: 'var(--text-muted)' }}>当前没有可用标签。</p>
+          )}
+        </div>
+      </div>
+
+      {/* Memory */}
+      <div className="mk-panel-inset p-4">
+        <p style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '0.72rem', letterSpacing: '0.25em', textTransform: 'uppercase', color: labelColor, marginBottom: '10px' }}>
+          软记忆锚点
+        </p>
+        <div className="flex flex-col gap-2">
+          {memoryAnchors(participant).length ? (
+            memoryAnchors(participant).map((memory) => (
+              <p key={memory} style={{ fontFamily: "'Courier New', monospace", fontSize: '0.78rem', color: 'var(--text-dim)', lineHeight: '1.7' }}>
+                {memory}
+              </p>
+            ))
+          ) : (
+            <p style={{ fontFamily: "'Courier New', monospace", fontSize: '0.75rem', color: 'var(--text-muted)' }}>当前没有可用软记忆。</p>
+          )}
+        </div>
+      </div>
+
+      {/* Issues */}
+      {participant?.issues.length ? (
+        <div className="mk-warning">
+          {participant.issues.map((issue) => (
+            <p key={issue}>{issue}</p>
+          ))}
+          {slot === "beta" && duplicateWarning ? (
+            <p style={{ marginTop: '8px' }}>
+              建议点击上方"重新连接乙方"，并在隐身窗口或另一浏览器里完成登录。
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+    </article>
+  );
+}
+
 export function ArenaBuilder() {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -373,46 +546,45 @@ export function ArenaBuilder() {
   };
 
   return (
-    <main className="paper-grid grain relative min-h-screen overflow-hidden px-4 py-6 text-foreground sm:px-6 lg:px-10">
+    <main className="scanlines relative min-h-screen overflow-hidden px-4 py-6 sm:px-6 lg:px-10" style={{ color: 'var(--text)' }}>
       <div className="mx-auto flex max-w-7xl flex-col gap-6">
-        <section className="entry-fade paper-panel rounded-[2rem] px-6 py-8 sm:px-10">
+
+        {/* ── HERO ── */}
+        <section className="entry-fade mk-panel px-6 py-8 sm:px-10">
           <div className="grid gap-8 lg:grid-cols-[1.2fr_0.8fr]">
-            <div className="space-y-4">
-              <span className="accent-chip inline-flex rounded-full px-3 py-1 text-xs uppercase tracking-[0.28em]">
-                真实接入控制台
-              </span>
-              <h1 className="display-title">SecondMe 竞技台</h1>
-              <p className="max-w-3xl text-lg leading-8 text-stone-700">
+            <div className="flex flex-col gap-4">
+              <div className="mk-badge">真实接入控制台</div>
+              <h1 className="mk-title mk-title-anim">SecondMe 竞技台</h1>
+              <p style={{ fontFamily: "'Courier New', monospace", fontSize: '0.88rem', color: 'var(--text-dim)', lineHeight: '1.85', maxWidth: '56ch' }}>
                 连接两位真实 SecondMe 参赛者，用他们的资料、标签和软记忆生成构筑，再把结果直接送进真实排位战。
               </p>
             </div>
-            <div className="paper-panel-strong rounded-[1.6rem] p-6 text-sm leading-7">
-              <p className="text-xs uppercase tracking-[0.22em] text-stone-500">
-                竞技态势
-              </p>
-              <div className="mt-4 space-y-3">
-                <p>甲方：{alpha?.connected ? participantSubtitle(alpha) : "未连接"}</p>
-                <p>乙方：{beta?.connected ? participantSubtitle(beta) : "未连接"}</p>
+
+            <div className="mk-panel-gold p-5">
+              <div className="mk-label-red mb-3">竞技态势</div>
+              <div style={{ fontFamily: "'Courier New', monospace", fontSize: '0.82rem', color: 'var(--text-dim)', lineHeight: '2.1' }}>
+                <p>甲方：<span style={{ color: 'var(--red)' }}>{alpha?.connected ? participantSubtitle(alpha) : "未连接"}</span></p>
+                <p>乙方：<span style={{ color: 'var(--gold)' }}>{beta?.connected ? participantSubtitle(beta) : "未连接"}</span></p>
                 <p>当前辩题：{selectedTopic?.title ?? "载入中..."}</p>
                 <p>编排模式：{orchestrationLabel(preview)}</p>
-                <p>
-                  榜首：{featured ? `${featured.displayName} · ${featured.rating}` : "等待首战"}
-                </p>
+                <p>榜首：{featured ? `${featured.displayName} · ${featured.rating}` : "等待首战"}</p>
               </div>
               {matchupSummary ? (
-                <div className="mt-4 rounded-[1.15rem] border border-[var(--line)] bg-white/75 px-4 py-3">
-                  <p className="font-semibold">{matchupSummary.stakesLabel}</p>
-                  <p className="mt-2">
-                    若甲方胜出预计 +{matchupSummary.projectedWinDelta}，失利{" "}
-                    {matchupSummary.projectedLossDelta}
+                <div className="mk-status mt-3">
+                  <p style={{ color: 'var(--gold)', fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: '0.1em', textTransform: 'uppercase', fontSize: '0.78rem' }}>
+                    {matchupSummary.stakesLabel}
                   </p>
-                  <p className="mt-2 text-stone-600">{matchupSummary.reason}</p>
+                  <p style={{ marginTop: '5px' }}>
+                    若甲方胜出预计 <span style={{ color: 'var(--gold)' }}>+{matchupSummary.projectedWinDelta}</span>，
+                    失利 <span style={{ color: 'var(--red)' }}>{matchupSummary.projectedLossDelta}</span>
+                  </p>
+                  <p style={{ marginTop: '4px', color: 'var(--text-muted)' }}>{matchupSummary.reason}</p>
                 </div>
               ) : null}
               {duplicateWarning ? (
-                <div className="mt-4 rounded-[1.15rem] border border-amber-300 bg-amber-50 px-4 py-3 text-amber-900">
+                <div className="mk-warning mt-3">
                   <p>{duplicateWarning}</p>
-                  <p className="mt-2 text-sm">
+                  <p style={{ marginTop: '6px', fontSize: '0.78rem' }}>
                     如需真实双人，请让乙方使用隐身窗口或另一浏览器重新授权。
                   </p>
                 </div>
@@ -421,340 +593,250 @@ export function ArenaBuilder() {
           </div>
         </section>
 
-        <section className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
-          {[
-            { profile: alphaProfile, participant: alpha, slot: "alpha" as const, opponentProfile: betaProfile },
-            { profile: betaProfile, participant: beta, slot: "beta" as const, opponentProfile: alphaProfile },
-          ].map(({ participant, profile, slot, opponentProfile }) => (
-            <article
-              className="entry-fade paper-panel rounded-[1.75rem] p-6"
-              key={slot}
-            >
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.22em] text-stone-500">
-                    {participantTitle(slot)}
-                  </p>
-                  <h2 className="section-title mt-2">
-                    {participantSubtitle(participant)}
-                  </h2>
-                </div>
-                <div className="flex gap-3">
-                  {!participant?.connected ? (
-                    <button
-                      className="soft-button rounded-full bg-[var(--accent)] px-4 py-3 text-sm text-white"
-                      onClick={() => connectParticipant(slot)}
-                      type="button"
-                    >
-                      连接 SecondMe
-                    </button>
-                  ) : (
-                    <>
-                      {slot === "beta" && duplicateWarning ? (
-                        <button
-                          className="soft-button rounded-full bg-[var(--accent)] px-4 py-3 text-sm text-white"
-                          onClick={() => connectParticipant("beta")}
-                          type="button"
-                        >
-                          重新连接乙方
-                        </button>
-                      ) : null}
-                      <button
-                        className="soft-button rounded-full border border-[var(--line)] bg-white/70 px-4 py-3 text-sm"
-                        onClick={() => void disconnectParticipant(slot)}
-                        type="button"
-                      >
-                        断开连接
-                      </button>
-                    </>
-                  )}
-                </div>
-              </div>
+        {/* ── FIGHTER SELECT: ALPHA vs BETA ── */}
+        <section className="grid items-start gap-4 lg:grid-cols-[1fr_80px_1fr]">
+          {/* Alpha */}
+          <div className="slide-in-left">
+            <FighterCard
+              duplicateWarning={duplicateWarning}
+              onConnect={() => connectParticipant("alpha")}
+              onDisconnect={() => disconnectParticipant("alpha")}
+              opponentProfile={betaProfile}
+              participant={alpha}
+              profile={alphaProfile}
+              slot="alpha"
+            />
+          </div>
 
-              <div className="mt-5 grid gap-3 text-sm leading-7 text-stone-700">
-                <div className="rounded-[1.2rem] border border-[var(--line)] bg-white/75 p-4">
-                  <p className="font-semibold">竞技档案</p>
-                  {profile ? (
-                    <div className="mt-2 space-y-1 text-stone-600">
-                      <p>排名：{formatRank(profile)}</p>
-                      <p>积分：{profile.rating}</p>
-                      <p>
-                        战绩：{profile.wins} 胜 {profile.losses} 负 · 胜率 {profile.winRate}%
-                      </p>
-                      <p>
-                        当前连胜：{profile.currentStreak} · 最高连胜 {profile.bestStreak}
-                      </p>
-                      <p>最近结果：{formatLastResult(profile)}</p>
-                      <p>近况：{profile.recentForm.join(" ") || "暂无"}</p>
-                      {profile.suggestion ? (
-                        <p className="pt-2">
-                          {profile.suggestion.competitorId ===
-                          opponentProfile?.competitorId
-                            ? `当前对手就是建议挑战对象，胜出预计 +${profile.suggestion.projectedWinDelta}。`
-                            : `建议挑战：${profile.suggestion.displayName}，胜出预计 +${profile.suggestion.projectedWinDelta}。`}
-                        </p>
-                      ) : null}
-                    </div>
-                  ) : (
-                    <p className="mt-2 text-stone-600">
-                      连接后会在这里出现积分、连胜和建议挑战对象。
-                    </p>
-                  )}
-                </div>
+          {/* VS */}
+          <div className="flex items-center justify-center self-center py-8">
+            <div className="flex flex-col items-center gap-2">
+              <div style={{ width: '1px', height: '40px', background: 'linear-gradient(180deg, transparent, var(--red))' }} />
+              <span className="mk-vs">VS</span>
+              <div style={{ width: '1px', height: '40px', background: 'linear-gradient(180deg, var(--gold-dim), transparent)' }} />
+            </div>
+          </div>
 
-                <div className="rounded-[1.2rem] border border-[var(--line)] bg-white/75 p-4">
-                  <p className="font-semibold">授权说明</p>
-                  <p className="mt-2 text-stone-600">
-                    {slot === "alpha"
-                      ? "甲方可以直接在当前窗口完成授权。"
-                      : "乙方建议使用隐身窗口或另一浏览器完成授权，避免复用甲方的 SecondMe 登录态。"}
-                  </p>
-                </div>
-                <div className="rounded-[1.2rem] border border-[var(--line)] bg-white/75 p-4">
-                  <p className="font-semibold">身份信息</p>
-                  <p className="mt-2">主页路径：{userField(participant, "route") ?? "无"}</p>
-                  <p className="mt-1">简介：{userField(participant, "bio") ?? "无"}</p>
-                </div>
-                <div className="rounded-[1.2rem] border border-[var(--line)] bg-white/75 p-4">
-                  <p className="font-semibold">核心标签</p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {topShades(participant).length ? (
-                      topShades(participant).map((shade) => (
-                        <span key={shade} className="accent-chip rounded-full px-3 py-1 text-xs">
-                          {shade}
-                        </span>
-                      ))
-                    ) : (
-                      <p className="text-stone-500">当前没有可用标签。</p>
-                    )}
-                  </div>
-                </div>
-                <div className="rounded-[1.2rem] border border-[var(--line)] bg-white/75 p-4">
-                  <p className="font-semibold">软记忆锚点</p>
-                  <div className="mt-3 space-y-2">
-                    {memoryAnchors(participant).length ? (
-                      memoryAnchors(participant).map((memory) => (
-                        <p key={memory} className="text-stone-600">
-                          {memory}
-                        </p>
-                      ))
-                    ) : (
-                      <p className="text-stone-500">当前没有可用软记忆。</p>
-                    )}
-                  </div>
-                </div>
-                {participant?.issues.length ? (
-                  <div className="rounded-[1.2rem] border border-amber-300 bg-amber-50 p-4 text-amber-900">
-                    {participant.issues.map((issue) => (
-                      <p key={issue}>{issue}</p>
-                    ))}
-                    {slot === "beta" && duplicateWarning ? (
-                      <p className="mt-2">
-                        建议点击上方“重新连接乙方”，并在隐身窗口或另一浏览器里完成登录。
-                      </p>
-                    ) : null}
-                  </div>
-                ) : null}
-              </div>
-            </article>
-          ))}
+          {/* Beta */}
+          <div className="slide-in-right">
+            <FighterCard
+              duplicateWarning={duplicateWarning}
+              onConnect={() => connectParticipant("beta")}
+              onDisconnect={() => disconnectParticipant("beta")}
+              opponentProfile={alphaProfile}
+              participant={beta}
+              profile={betaProfile}
+              slot="beta"
+            />
+          </div>
         </section>
 
+        {/* ── TOPIC + BATTLE CONTROL ── */}
         <section className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-          <article className="entry-fade paper-panel rounded-[1.75rem] p-6">
-            <p className="text-xs uppercase tracking-[0.22em] text-stone-500">
-              辩题选择
-            </p>
-            <h2 className="section-title mt-2">选择本场排位辩题</h2>
-            <div className="mt-5 grid gap-3">
+
+          {/* Topic Selection */}
+          <article className="entry-fade mk-panel p-6">
+            <div className="mk-label-red mb-2">辩题选择</div>
+            <h2 className="mk-section mb-5">选择本场排位辩题</h2>
+            <div className="flex flex-col gap-3">
               {meta?.topics.map((topic) => (
                 <button
                   key={topic.id}
-                  className={`rounded-[1.3rem] border px-4 py-4 text-left ${
-                    topic.id === topicId
-                      ? "border-[var(--accent)] bg-white"
-                      : "border-[var(--line)] bg-white/75"
-                  }`}
+                  className={topic.id === topicId ? "mk-topic mk-topic-active" : "mk-topic"}
                   onClick={() => setTopicId(topic.id)}
                   type="button"
                 >
-                  <p className="text-base font-semibold">{topic.title}</p>
-                  <p className="mt-2 text-sm leading-7 text-stone-600">{topic.prompt}</p>
+                  <p style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '0.95rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: topic.id === topicId ? 'var(--red-bright)' : 'var(--text-bright)', marginBottom: '5px' }}>
+                    {topic.title}
+                  </p>
+                  <p style={{ fontFamily: "'Courier New', monospace", fontSize: '0.78rem', color: 'var(--text-dim)', lineHeight: '1.7' }}>
+                    {topic.prompt}
+                  </p>
                 </button>
               ))}
             </div>
           </article>
 
-          <article className="entry-fade paper-panel rounded-[1.75rem] p-6">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p className="text-xs uppercase tracking-[0.22em] text-stone-500">
-                  对战控制
-                </p>
-                <h2 className="section-title mt-2">预览后直接进入排位</h2>
-              </div>
-              <div className="flex gap-3">
-                <button
-                  className="soft-button rounded-full border border-[var(--line)] bg-white/70 px-4 py-3 text-sm"
-                  onClick={() => void previewBuild()}
-                  type="button"
-                >
-                  生成人格预览
-                </button>
-                <Link
-                  className="soft-button rounded-full border border-[var(--line)] bg-white/70 px-4 py-3 text-sm"
-                  href="/arena/leaderboard"
-                >
-                  查看榜单
-                </Link>
-                <button
-                  className="soft-button rounded-full bg-[var(--accent)] px-4 py-3 text-sm text-white"
-                  onClick={() => void startBattle()}
-                  type="button"
-                >
-                  开始排位对决
-                </button>
-              </div>
+          {/* Battle Control */}
+          <article className="entry-fade mk-panel p-6 flex flex-col gap-5">
+            <div>
+              <div className="mk-label-red mb-2">对战控制</div>
+              <h2 className="mk-section">预览后直接进入排位</h2>
             </div>
 
-            <div className="mt-4 rounded-[1.35rem] border border-[var(--line)] bg-white/75 p-4 text-sm leading-7 text-stone-600">
+            {/* Action Buttons */}
+            <div className="flex flex-wrap gap-3">
+              <button
+                className="mk-button-ghost px-4 py-3"
+                onClick={() => void previewBuild()}
+                type="button"
+              >
+                生成人格预览
+              </button>
+              <Link className="mk-button-ghost px-4 py-3" href="/arena/leaderboard">
+                查看榜单
+              </Link>
+            </div>
+
+            {/* Big FIGHT button */}
+            <button
+              className="mk-button py-4 w-full"
+              onClick={() => void startBattle()}
+              type="button"
+              style={{ fontSize: '1.2rem', letterSpacing: '0.3em' }}
+            >
+              ⚔ 开始排位对决
+            </button>
+
+            {/* Status */}
+            <div className="mk-status">
               {status ?? "连接双方参赛者后，即可生成预览或开始排位对决。"}
             </div>
+
             {matchupSummary ? (
-              <div className="mt-4 rounded-[1.35rem] border border-[var(--line)] bg-stone-50 p-4 text-sm leading-7 text-stone-700">
-                <p className="font-semibold">{matchupSummary.stakesLabel}</p>
-                <p className="mt-2">
-                  这场若甲方胜出预计 +{matchupSummary.projectedWinDelta}，失利{" "}
-                  {matchupSummary.projectedLossDelta}。
+              <div className="mk-panel-inset p-4">
+                <p style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '0.8rem', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: '8px' }}>
+                  {matchupSummary.stakesLabel}
                 </p>
-                <p className="mt-2 text-stone-600">{matchupSummary.reason}</p>
+                <p style={{ fontFamily: "'Courier New', monospace", fontSize: '0.8rem', color: 'var(--text-dim)', lineHeight: '1.8' }}>
+                  这场若甲方胜出预计 <span style={{ color: 'var(--gold)' }}>+{matchupSummary.projectedWinDelta}</span>，
+                  失利 <span style={{ color: 'var(--red)' }}>{matchupSummary.projectedLossDelta}</span>。
+                </p>
+                <p style={{ fontFamily: "'Courier New', monospace", fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '5px' }}>
+                  {matchupSummary.reason}
+                </p>
               </div>
             ) : null}
+
             {duplicateWarning ? (
-              <div className="mt-4 rounded-[1.35rem] border border-amber-300 bg-amber-50 p-4 text-sm leading-7 text-amber-900">
+              <div className="mk-warning">
                 <p>{duplicateWarning}</p>
-                <p className="mt-2">
+                <p style={{ marginTop: '6px' }}>
                   当前允许继续预览和开战，方便单人演示；如果要真实双人，请重新授权乙方。
                 </p>
               </div>
             ) : null}
 
-            <div className="mt-5 rounded-[1.35rem] border border-[var(--line)] bg-white/75 p-4">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-sm font-semibold">榜单速览</p>
+            {/* Leaderboard preview */}
+            <div className="mk-panel-inset p-4">
+              <div className="flex items-center justify-between gap-3 mb-3">
+                <p style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '0.78rem', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--red)' }}>
+                  榜单速览
+                </p>
                 {featured ? (
-                  <span className="accent-chip rounded-full px-3 py-1 text-xs">
-                    榜首 {featured.displayName}
-                  </span>
+                  <span className="mk-badge-gold">{featured.displayName}</span>
                 ) : null}
               </div>
-              <div className="mt-4 grid gap-3">
+              <div className="flex flex-col gap-2">
                 {leaderboard.length ? (
                   leaderboard.map((entry) => (
-                    <div
-                      key={entry.competitorId}
-                      className="flex flex-wrap items-center justify-between gap-3 rounded-[1rem] border border-[var(--line)] bg-stone-50 px-4 py-3 text-sm"
-                    >
-                      <div>
-                        <p className="font-semibold">
-                          #{entry.rank} {entry.displayName}
-                        </p>
-                        <p className="text-stone-600">
-                          积分 {entry.rating} · 连胜 {entry.currentStreak}
-                        </p>
+                    <div key={entry.competitorId} className="mk-rank-row" style={{ padding: '8px 12px' }}>
+                      <div className="flex items-center gap-3">
+                        <span className="mk-rank-number" style={{ fontSize: '1.1rem' }}>#{entry.rank}</span>
+                        <div>
+                          <p style={{ fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: '0.06em', textTransform: 'uppercase', fontSize: '0.85rem', color: 'var(--text-bright)' }}>
+                            {entry.displayName}
+                          </p>
+                          <p style={{ fontFamily: "'Courier New', monospace", fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                            积分 {entry.rating} · 连胜 {entry.currentStreak}
+                          </p>
+                        </div>
                       </div>
-                      <span className="accent-chip rounded-full px-3 py-1 text-xs">
-                        {entry.wins}W {entry.losses}L
-                      </span>
+                      <span className="mk-badge">{entry.wins}W {entry.losses}L</span>
                     </div>
                   ))
                 ) : (
-                  <p className="text-sm text-stone-500">
+                  <p style={{ fontFamily: "'Courier New', monospace", fontSize: '0.78rem', color: 'var(--text-muted)' }}>
                     还没有排位榜单，首场对局保存后就会出现。
                   </p>
                 )}
               </div>
             </div>
 
+            {/* Build Preview */}
             {preview ? (
-              <div className="mt-5 grid gap-4">
-                <div className="rounded-[1.35rem] border border-[var(--line)] bg-white/75 p-4">
-                  <p className="text-sm font-semibold">
-                    {preview.player.displayName} 对阵 {preview.defender.displayName}
+              <div className="flex flex-col gap-4">
+                <div className="mk-panel-inset p-4">
+                  <p style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '0.9rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-bright)', marginBottom: '6px' }}>
+                    {preview.player.displayName} <span style={{ color: 'var(--red)' }}>vs</span> {preview.defender.displayName}
                   </p>
-                  <p className="mt-2 text-sm text-stone-600">
+                  <p style={{ fontFamily: "'Courier New', monospace", fontSize: '0.8rem', color: 'var(--text-dim)', lineHeight: '1.75', marginBottom: '10px' }}>
                     {preview.matchUpCallout}
                   </p>
                   {preview.sourceMeta.issues.length ? (
-                    <div className="mt-4 rounded-[1.15rem] border border-amber-300 bg-amber-50 px-4 py-3 text-xs leading-6 text-amber-900">
+                    <div className="mk-warning">
                       {preview.sourceMeta.issues.map((issue) => (
                         <p key={issue}>{issue}</p>
                       ))}
                     </div>
                   ) : null}
-                  <div className="mt-4 grid gap-3 md:grid-cols-2">
-                    <div className="rounded-2xl border border-[var(--line)] bg-stone-50 px-4 py-3">
-                      <p className="text-sm font-semibold">赛前优势判断</p>
-                      <div className="mt-2 space-y-2 text-xs text-stone-600">
+                  <div className="grid gap-3 md:grid-cols-2 mt-3">
+                    <div className="mk-panel-inset p-3">
+                      <p style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '0.7rem', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--red)', marginBottom: '8px' }}>
+                        赛前优势判断
+                      </p>
+                      <div className="flex flex-col gap-1">
                         {preview.predictedEdges.map((edge) => (
-                          <p key={edge}>{edge}</p>
+                          <p key={edge} style={{ fontFamily: "'Courier New', monospace", fontSize: '0.75rem', color: 'var(--text-dim)', lineHeight: '1.6' }}>{edge}</p>
                         ))}
                       </div>
                     </div>
-                    <div className="rounded-2xl border border-[var(--line)] bg-stone-50 px-4 py-3">
-                      <p className="text-sm font-semibold">构筑提示</p>
-                      <div className="mt-2 space-y-2 text-xs text-stone-600">
+                    <div className="mk-panel-inset p-3">
+                      <p style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '0.7rem', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: '8px' }}>
+                        构筑提示
+                      </p>
+                      <div className="flex flex-col gap-1">
                         {preview.equipmentNotes.map((note) => (
-                          <p key={note}>{note}</p>
+                          <p key={note} style={{ fontFamily: "'Courier New', monospace", fontSize: '0.75rem', color: 'var(--text-dim)', lineHeight: '1.6' }}>{note}</p>
                         ))}
                       </div>
                     </div>
                   </div>
                 </div>
 
-                {[preview.player, preview.defender].map((fighter) => (
-                  <article
-                    key={fighter.id}
-                    className="rounded-[1.25rem] border border-[var(--line)] bg-white/75 px-4 py-4"
-                  >
-                    <div className="flex flex-wrap items-center justify-between gap-3">
+                {[preview.player, preview.defender].map((fighter, idx) => (
+                  <article key={fighter.id} className={idx === 0 ? "mk-fighter-card p-4" : "mk-fighter-card-gold p-4"}>
+                    <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
                       <div>
-                        <p className="text-sm font-semibold">
-                          {fighter.displayName} · {fighter.powerLabel}
+                        <p style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '1rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: idx === 0 ? 'var(--red-bright)' : 'var(--gold-bright)' }}>
+                          {fighter.displayName}
                         </p>
-                        <p className="mt-1 text-sm text-stone-600">{fighter.declaration}</p>
+                        <p style={{ fontFamily: "'Courier New', monospace", fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                          {fighter.powerLabel}
+                        </p>
                       </div>
-                      <div className="flex flex-wrap gap-2 text-xs">
-                        <span className="accent-chip rounded-full px-3 py-1">
-                          来源 {fighter.source.provider}
+                      <div className="flex flex-wrap gap-2">
+                        <span className={idx === 0 ? "mk-badge" : "mk-badge-gold"}>
+                          {fighter.source.provider}
                         </span>
-                        <span className="accent-chip rounded-full px-3 py-1">
-                          槽位 {fighter.source.slot === "alpha" ? "甲方" : "乙方"}
+                        <span className={idx === 0 ? "mk-badge" : "mk-badge-gold"}>
+                          {fighter.source.slot === "alpha" ? "甲方" : "乙方"}
                         </span>
                       </div>
                     </div>
-                    <div className="mt-4 grid gap-3 md:grid-cols-2">
-                      <div className="rounded-2xl border border-[var(--line)] bg-stone-50 px-4 py-3">
-                        <p className="text-xs uppercase tracking-[0.18em] text-stone-500">
+                    <p style={{ fontFamily: "'Courier New', monospace", fontSize: '0.78rem', color: 'var(--text-dim)', lineHeight: '1.7', marginBottom: '10px' }}>
+                      {fighter.declaration}
+                    </p>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <div className="mk-panel-inset p-3">
+                        <p style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '0.62rem', letterSpacing: '0.25em', textTransform: 'uppercase', color: idx === 0 ? 'var(--red)' : 'var(--gold)', marginBottom: '8px' }}>
                           身份摘要
                         </p>
-                        <div className="mt-2 space-y-2 text-sm text-stone-600">
-                          {fighter.identitySummary.map((item) => (
-                            <p key={item}>{item}</p>
-                          ))}
-                        </div>
+                        {fighter.identitySummary.map((item) => (
+                          <p key={item} style={{ fontFamily: "'Courier New', monospace", fontSize: '0.75rem', color: 'var(--text-dim)', lineHeight: '1.6' }}>{item}</p>
+                        ))}
                       </div>
-                      <div className="rounded-2xl border border-[var(--line)] bg-stone-50 px-4 py-3">
-                        <p className="text-xs uppercase tracking-[0.18em] text-stone-500">
+                      <div className="mk-panel-inset p-3">
+                        <p style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '0.62rem', letterSpacing: '0.25em', textTransform: 'uppercase', color: idx === 0 ? 'var(--red)' : 'var(--gold)', marginBottom: '8px' }}>
                           记忆锚点
                         </p>
-                        <div className="mt-2 space-y-2 text-sm text-stone-600">
-                          {fighter.memoryAnchors.length ? (
-                            fighter.memoryAnchors.map((item) => <p key={item}>{item}</p>)
-                          ) : (
-                            <p>暂无记忆锚点</p>
-                          )}
-                        </div>
+                        {fighter.memoryAnchors.length ? (
+                          fighter.memoryAnchors.map((item) => (
+                            <p key={item} style={{ fontFamily: "'Courier New', monospace", fontSize: '0.75rem', color: 'var(--text-dim)', lineHeight: '1.6' }}>{item}</p>
+                          ))
+                        ) : (
+                          <p style={{ fontFamily: "'Courier New', monospace", fontSize: '0.75rem', color: 'var(--text-muted)' }}>暂无记忆锚点</p>
+                        )}
                       </div>
                     </div>
                   </article>
@@ -764,23 +846,25 @@ export function ArenaBuilder() {
           </article>
         </section>
 
-        <section className="entry-fade paper-panel rounded-[1.75rem] p-6">
-          <p className="text-xs uppercase tracking-[0.22em] text-stone-500">
-            外部信号
-          </p>
-          <h2 className="section-title mt-2">知乎灵感信号</h2>
-          <div className="mt-5 flex flex-wrap gap-3">
+        {/* ── SIGNALS ── */}
+        <section className="entry-fade mk-panel p-6">
+          <div className="mk-label-red mb-2">外部信号</div>
+          <h2 className="mk-section mb-5">知乎灵感信号</h2>
+          <div className="flex flex-wrap gap-3">
             {meta?.signals?.length ? (
               meta.signals.map((signal) => (
-                <span key={signal} className="accent-chip rounded-full px-3 py-2 text-sm">
+                <span key={signal} className="mk-badge">
                   {signal}
                 </span>
               ))
             ) : (
-              <p className="text-sm text-stone-500">当前没有可用外部信号。</p>
+              <p style={{ fontFamily: "'Courier New', monospace", fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                当前没有可用外部信号。
+              </p>
             )}
           </div>
         </section>
+
       </div>
       {isPending ? null : null}
     </main>

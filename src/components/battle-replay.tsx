@@ -93,25 +93,59 @@ function drawStage(
 
   const { width, height } = canvas;
   const { currentEvent } = replayState;
-  const gradient = context.createLinearGradient(0, 0, width, height);
-  gradient.addColorStop(0, "#101b2d");
-  gradient.addColorStop(0.55, "#1d304d");
-  gradient.addColorStop(1, "#391a14");
-  context.fillStyle = gradient;
+
+  // Dark MK background
+  const bgGrad = context.createLinearGradient(0, 0, width, height);
+  bgGrad.addColorStop(0, "#030008");
+  bgGrad.addColorStop(0.4, "#0a0010");
+  bgGrad.addColorStop(0.7, "#100005");
+  bgGrad.addColorStop(1, "#060003");
+  context.fillStyle = bgGrad;
   context.fillRect(0, 0, width, height);
 
-  context.fillStyle = "rgba(255,255,255,0.08)";
-  context.fillRect(60, 56, width - 120, height - 112);
+  // Top red glow
+  const topGlow = context.createRadialGradient(width / 2, 0, 0, width / 2, 0, width * 0.6);
+  topGlow.addColorStop(0, "rgba(139,0,0,0.35)");
+  topGlow.addColorStop(1, "transparent");
+  context.fillStyle = topGlow;
+  context.fillRect(0, 0, width, height / 2);
 
-  context.fillStyle = "#f8f2e8";
-  context.font = "700 54px serif";
-  context.fillText("Soul Arena", 70, 92);
+  // Scanline effect
+  for (let y = 0; y < height; y += 4) {
+    context.fillStyle = "rgba(0,0,0,0.07)";
+    context.fillRect(0, y, width, 2);
+  }
 
-  context.font = "500 22px sans-serif";
-  context.fillStyle = "rgba(248, 242, 232, 0.9)";
-  context.fillText(battle.topic.title, 72, 130);
-  context.fillText(`第 ${Math.max(1, replayState.round)} 回合`, width - 250, 92);
+  // Title bar
+  context.fillStyle = "rgba(0,0,0,0.6)";
+  context.fillRect(0, 0, width, 80);
+  context.fillStyle = "rgba(139,0,0,0.5)";
+  context.fillRect(0, 78, width, 2);
 
+  // Soul Arena title
+  context.fillStyle = "#ff2200";
+  context.font = "700 48px Impact, Arial Black, sans-serif";
+  context.textAlign = "center";
+  context.shadowColor = "rgba(255,30,0,0.7)";
+  context.shadowBlur = 20;
+  context.fillText("SOUL ARENA", width / 2, 56);
+  context.shadowBlur = 0;
+
+  // Topic
+  context.font = "500 18px 'Courier New', monospace";
+  context.fillStyle = "rgba(232,212,184,0.6)";
+  context.fillText(battle.topic.title, width / 2, 100);
+
+  // Round indicator
+  context.font = "700 22px Impact, Arial Black, sans-serif";
+  context.fillStyle = "#d4a000";
+  context.shadowColor = "rgba(212,160,0,0.6)";
+  context.shadowBlur = 10;
+  context.fillText(`ROUND ${Math.max(1, replayState.round)}`, width / 2, 138);
+  context.shadowBlur = 0;
+  context.textAlign = "left";
+
+  // ─── Fighter panel helper ───
   const drawFighter = (
     x: number,
     fighter: BattlePackage["player"],
@@ -119,79 +153,143 @@ function drawStage(
     score: number,
     align: "left" | "right",
   ) => {
-    const panelWidth = 360;
-    const panelHeight = 420;
+    const pw = 370;
+    const ph = 440;
     const isRight = align === "right";
+    const accentColor = isRight ? "#d4a000" : "#cc0000";
+    const accentDim = isRight ? "rgba(180,120,0,0.3)" : "rgba(139,0,0,0.3)";
+    const accentGlow = isRight ? "rgba(212,160,0,0.5)" : "rgba(255,30,0,0.5)";
+
+    // Panel bg
+    const panelGrad = context.createLinearGradient(x, 160, x, 160 + ph);
+    panelGrad.addColorStop(0, "rgba(18,0,10,0.96)");
+    panelGrad.addColorStop(1, "rgba(6,0,3,0.98)");
+    context.fillStyle = panelGrad;
+    context.fillRect(x, 160, pw, ph);
+
+    // Top accent border
+    context.fillStyle = accentColor;
+    context.fillRect(x, 160, pw, 3);
+
+    // Side border
+    context.fillStyle = accentDim;
+    context.fillRect(x, 160, 1, ph);
+    context.fillRect(x + pw - 1, 160, 1, ph);
+
+    // Name
+    context.fillStyle = "#e8d4b8";
+    context.font = "700 28px Impact, Arial Black, sans-serif";
+    context.shadowColor = accentGlow;
+    context.shadowBlur = 12;
+    context.fillText(fighter.displayName, x + 20, 200);
+    context.shadowBlur = 0;
+
+    context.font = "500 15px 'Courier New', monospace";
+    context.fillStyle = accentColor;
+    context.fillText(fighter.powerLabel, x + 20, 222);
+
+    // Health bar track
+    const barX = x + 20;
+    const barW = pw - 40;
+    context.fillStyle = "rgba(0,0,0,0.8)";
+    context.fillRect(barX, 234, barW, 18);
+
+    // Health fill
+    const healthFill = (barW * health) / 100;
+    const hGrad = context.createLinearGradient(barX, 0, barX + healthFill, 0);
+    if (isRight) {
+      hGrad.addColorStop(0, "#7a5500");
+      hGrad.addColorStop(1, "#ffd700");
+    } else {
+      hGrad.addColorStop(0, "#8b0000");
+      hGrad.addColorStop(1, "#ff2200");
+    }
+    context.fillStyle = hGrad;
+    context.fillRect(barX, 234, healthFill, 18);
+
+    // Health bar shine
     context.fillStyle = "rgba(255,255,255,0.12)";
-    context.fillRect(x, 170, panelWidth, panelHeight);
-    context.strokeStyle = isRight ? "#f6a673" : "#7bd1ff";
-    context.lineWidth = 3;
-    context.strokeRect(x, 170, panelWidth, panelHeight);
+    context.fillRect(barX, 234, healthFill, 5);
 
-    context.fillStyle = "#f8f2e8";
-    context.font = "700 30px serif";
-    context.fillText(fighter.displayName, x + 24, 214);
-    context.font = "500 18px sans-serif";
-    context.fillText(fighter.powerLabel, x + 24, 244);
+    // Labels
+    context.font = "500 14px 'Courier New', monospace";
+    context.fillStyle = "#e8d4b8";
+    context.fillText(`HP ${health}`, barX, 272);
+    context.fillStyle = accentColor;
+    context.fillText(`SCORE ${score}`, barX + 180, 272);
 
-    context.fillStyle = "#2b1f17";
-    context.fillRect(x + 24, 270, panelWidth - 48, 20);
-    context.fillStyle = isRight ? "#f6a673" : "#7bd1ff";
-    context.fillRect(x + 24, 270, ((panelWidth - 48) * health) / 100, 20);
-    context.fillStyle = "#f8f2e8";
-    context.fillText(`生命 ${health}`, x + 24, 324);
-    context.fillText(`得分 ${score}`, x + 220, 324);
-
-    context.font = "500 16px sans-serif";
+    // Stats
+    context.font = "500 13px 'Courier New', monospace";
     formatSoul(fighter.soul).forEach((stat, index) => {
-      const y = 360 + index * 42;
-      context.fillStyle = "#f8f2e8";
-      context.fillText(stat.label, x + 24, y);
-      context.fillStyle = "rgba(255,255,255,0.12)";
-      context.fillRect(x + 106, y - 16, 180, 14);
-      context.fillStyle = isRight ? "#f6a673" : "#7bd1ff";
-      context.fillRect(x + 106, y - 16, (180 * stat.value) / 100, 14);
-      context.fillStyle = "#f8f2e8";
-      context.fillText(String(stat.value), x + 300, y);
+      const sy = 300 + index * 42;
+      context.fillStyle = "rgba(232,212,184,0.65)";
+      context.fillText(stat.label, barX, sy);
+
+      // Stat track
+      context.fillStyle = "rgba(0,0,0,0.7)";
+      context.fillRect(barX + 90, sy - 14, 200, 10);
+
+      // Stat fill
+      const sfGrad = context.createLinearGradient(barX + 90, 0, barX + 290, 0);
+      if (isRight) {
+        sfGrad.addColorStop(0, "rgba(120,80,0,0.8)");
+        sfGrad.addColorStop(1, "#d4a000");
+      } else {
+        sfGrad.addColorStop(0, "rgba(100,0,0,0.8)");
+        sfGrad.addColorStop(1, "#cc0000");
+      }
+      context.fillStyle = sfGrad;
+      context.fillRect(barX + 90, sy - 14, (200 * stat.value) / 100, 10);
+
+      context.fillStyle = "#e8d4b8";
+      context.fillText(String(stat.value), barX + 300, sy);
     });
   };
 
-  drawFighter(86, battle.player, replayState.playerHealth, replayState.playerScore, "left");
-  drawFighter(
-    width - 446,
-    battle.defender,
-    replayState.defenderHealth,
-    replayState.defenderScore,
-    "right",
-  );
+  drawFighter(60, battle.player, replayState.playerHealth, replayState.playerScore, "left");
+  drawFighter(width - 430, battle.defender, replayState.defenderHealth, replayState.defenderScore, "right");
 
-  context.fillStyle = "rgba(255,255,255,0.08)";
-  context.beginPath();
-  context.ellipse(width / 2, height - 150, 270, 64, 0, 0, Math.PI * 2);
-  context.fill();
+  // Center stage area
+  const centerX = width / 2;
+  const centerGlow = context.createRadialGradient(centerX, height - 100, 0, centerX, height - 100, 300);
+  centerGlow.addColorStop(0, "rgba(80,0,0,0.25)");
+  centerGlow.addColorStop(1, "transparent");
+  context.fillStyle = centerGlow;
+  context.fillRect(0, height - 350, width, 350);
 
-  context.fillStyle =
-    currentEvent?.type === "weakness_hit" ? "#ffdd66" : "rgba(248,242,232,0.94)";
-  context.font = "700 42px serif";
+  // Event title
+  const isWeaknessHit = currentEvent?.type === "weakness_hit";
   context.textAlign = "center";
-  context.fillText(currentEvent?.title ?? "战斗待命", width / 2, 224);
+  context.font = `700 ${isWeaknessHit ? 48 : 40}px Impact, Arial Black, sans-serif`;
+  context.fillStyle = isWeaknessHit ? "#ffd700" : "#e8d4b8";
+  context.shadowColor = isWeaknessHit ? "rgba(255,215,0,0.7)" : "rgba(200,0,0,0.5)";
+  context.shadowBlur = isWeaknessHit ? 25 : 15;
+  context.fillText(currentEvent?.title ?? "STAND BY", centerX, height - 200);
+  context.shadowBlur = 0;
 
-  context.font = "500 22px sans-serif";
-  context.fillStyle = "#f8f2e8";
+  // Event description
+  context.font = "500 18px 'Courier New', monospace";
+  context.fillStyle = "rgba(232,212,184,0.75)";
   context.fillText(
     currentEvent?.description ?? "等待战斗数据载入。",
-    width / 2,
-    272,
-    width - 200,
+    centerX,
+    height - 155,
+    width - 280,
   );
 
-  if (currentEvent?.type === "weakness_hit") {
-    context.strokeStyle = "#ffdd66";
-    context.lineWidth = 8;
+  // Weakness hit strike effect
+  if (isWeaknessHit) {
+    context.strokeStyle = "#ffd700";
+    context.lineWidth = 6;
+    context.shadowColor = "rgba(255,215,0,0.8)";
+    context.shadowBlur = 20;
     context.beginPath();
-    context.moveTo(width / 2 - 90, 360);
-    context.lineTo(width / 2 + 90, 300);
+    context.moveTo(centerX - 80, height - 120);
+    context.lineTo(centerX - 20, height - 170);
+    context.lineTo(centerX + 10, height - 140);
+    context.lineTo(centerX + 90, height - 190);
     context.stroke();
+    context.shadowBlur = 0;
   }
 
   context.textAlign = "left";
@@ -220,6 +318,18 @@ const winnerLabel = (battle: BattlePackage) =>
   battle.winnerId === battle.player.id
     ? `${battle.player.displayName} 获胜`
     : `${battle.defender.displayName} 守擂成功`;
+
+// Health bar component
+function HealthBar({ value, gold = false }: { value: number; gold?: boolean }) {
+  return (
+    <div className="mk-health-track" style={{ flex: 1 }}>
+      <div
+        className={gold ? "mk-health-fill-gold" : "mk-health-fill"}
+        style={{ width: `${value}%` }}
+      />
+    </div>
+  );
+}
 
 export function BattleReplay({ battleId }: { battleId: string }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -427,8 +537,8 @@ export function BattleReplay({ battleId }: { battleId: string }) {
 
   if (error) {
     return (
-      <main className="paper-grid min-h-screen px-4 py-6">
-        <div className="paper-panel mx-auto max-w-3xl rounded-[1.8rem] p-8 text-sm text-stone-700">
+      <main className="scanlines min-h-screen px-4 py-6" style={{ color: 'var(--text)' }}>
+        <div className="mk-panel mx-auto max-w-3xl p-8 mk-status">
           {error}
         </div>
       </main>
@@ -437,8 +547,8 @@ export function BattleReplay({ battleId }: { battleId: string }) {
 
   if (!battle || !replayState) {
     return (
-      <main className="paper-grid min-h-screen px-4 py-6">
-        <div className="paper-panel mx-auto max-w-3xl rounded-[1.8rem] p-8 text-sm text-stone-700">
+      <main className="scanlines min-h-screen px-4 py-6" style={{ color: 'var(--text)' }}>
+        <div className="mk-panel mx-auto max-w-3xl p-8 mk-status">
           正在载入战斗包...
         </div>
       </main>
@@ -446,22 +556,58 @@ export function BattleReplay({ battleId }: { battleId: string }) {
   }
 
   return (
-    <main className="paper-grid grain relative min-h-screen overflow-hidden px-4 py-6 text-foreground sm:px-6 lg:px-10">
+    <main className="scanlines relative min-h-screen overflow-hidden px-4 py-6 sm:px-6 lg:px-10" style={{ color: 'var(--text)' }}>
       <div className="mx-auto flex max-w-7xl flex-col gap-6">
-        <section className="entry-fade paper-panel rounded-[1.9rem] px-6 py-8 sm:px-10">
+
+        {/* ── HUD HEADER ── */}
+        <section className="entry-fade mk-panel px-6 py-5 sm:px-8">
+          {/* Fighter HP bars */}
+          <div className="flex items-center gap-4 mb-4">
+            <div className="flex-1">
+              <div className="flex items-center justify-between mb-1">
+                <p style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '0.85rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--red-bright)', textShadow: '0 0 8px rgba(255,30,0,0.5)' }}>
+                  {battle.player.displayName}
+                </p>
+                <p style={{ fontFamily: "'Courier New', monospace", fontSize: '0.72rem', color: 'var(--red)' }}>
+                  {replayState.playerHealth}%
+                </p>
+              </div>
+              <HealthBar value={replayState.playerHealth} />
+            </div>
+
+            <div className="flex flex-col items-center gap-1 px-3">
+              <p style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '0.6rem', letterSpacing: '0.3em', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                第 {replayState.round} 回合
+              </p>
+              <span className="mk-vs" style={{ fontSize: '1.6rem' }}>VS</span>
+            </div>
+
+            <div className="flex-1">
+              <div className="flex items-center justify-between mb-1">
+                <p style={{ fontFamily: "'Courier New', monospace", fontSize: '0.72rem', color: 'var(--gold)' }}>
+                  {replayState.defenderHealth}%
+                </p>
+                <p style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '0.85rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--gold-bright)', textShadow: '0 0 8px rgba(255,215,0,0.4)', textAlign: 'right' }}>
+                  {battle.defender.displayName}
+                </p>
+              </div>
+              <HealthBar value={replayState.defenderHealth} gold />
+            </div>
+          </div>
+
+          <hr className="mk-divider mb-4" />
+
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <span className="accent-chip inline-flex rounded-full px-3 py-1 text-xs uppercase tracking-[0.24em]">
-                实时战斗回放
-              </span>
-              <h1 className="section-title mt-3">{battle.roomTitle}</h1>
-              <p className="mt-2 text-sm leading-7 text-stone-600">
+              <div className="mk-badge mb-2">实时战斗回放</div>
+              <h1 className="mk-section">{battle.roomTitle}</h1>
+              <p style={{ fontFamily: "'Courier New', monospace", fontSize: '0.78rem', color: 'var(--text-dim)', lineHeight: '1.7', marginTop: '6px' }}>
                 {battle.topic.prompt}
               </p>
             </div>
             <div className="flex flex-wrap gap-3">
               <button
-                className="soft-button rounded-full border border-[var(--line)] bg-white/70 px-4 py-3 text-sm"
+                className="mk-button-ghost px-4 py-3"
                 onClick={() => setIsPlaying((current) => !current)}
                 type="button"
               >
@@ -469,16 +615,16 @@ export function BattleReplay({ battleId }: { battleId: string }) {
               </button>
               {!recording ? (
                 <button
-                  className="soft-button rounded-full bg-[var(--accent)] px-4 py-3 text-sm text-white"
+                  className="mk-button px-4 py-3"
                   disabled={!canRecord}
                   onClick={startRecording}
                   type="button"
                 >
-                  {canRecord ? "录制 WebM" : "当前浏览器不支持录制"}
+                  {canRecord ? "录制 WebM" : "不支持录制"}
                 </button>
               ) : (
                 <button
-                  className="soft-button rounded-full bg-[var(--olive)] px-4 py-3 text-sm text-white"
+                  className="mk-button-ghost px-4 py-3"
                   onClick={stopRecording}
                   type="button"
                 >
@@ -487,7 +633,7 @@ export function BattleReplay({ battleId }: { battleId: string }) {
               )}
               {downloadUrl ? (
                 <a
-                  className="soft-button rounded-full border border-[var(--line)] bg-white/70 px-4 py-3 text-sm"
+                  className="mk-button-ghost px-4 py-3"
                   download={`${battle.roomTitle}.webm`}
                   href={downloadUrl}
                 >
@@ -498,96 +644,111 @@ export function BattleReplay({ battleId }: { battleId: string }) {
           </div>
         </section>
 
+        {/* ── CANVAS + SIDEBAR ── */}
         <section className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-          <article className="entry-fade paper-panel rounded-[1.75rem] p-6">
+
+          {/* Canvas */}
+          <article className="entry-fade mk-panel p-4">
             <canvas
-              className="w-full rounded-[1.45rem] border border-[var(--line)] bg-[#101b2d]"
+              className="w-full"
               height={720}
               ref={canvasRef}
+              style={{ display: 'block', background: '#030008', borderTop: '2px solid var(--red)' }}
               width={1280}
             />
-            <div className="mt-4">
+            <div className="mt-4 px-1">
               <input
-                className="w-full accent-[var(--accent)]"
+                className="w-full"
                 max={battle.events.length - 1}
                 min={0}
                 onChange={(event) => {
                   setPlayhead(Number(event.target.value));
                   setIsPlaying(false);
                 }}
+                style={{ accentColor: 'var(--red)', cursor: 'pointer' }}
                 type="range"
                 value={playhead}
               />
             </div>
+            {/* Score display */}
+            <div className="flex justify-between mt-2 px-1">
+              <p style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '0.8rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--red)' }}>
+                {battle.player.displayName} · {replayState.playerScore}
+              </p>
+              <p style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '0.8rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--gold)' }}>
+                {replayState.defenderScore} · {battle.defender.displayName}
+              </p>
+            </div>
           </article>
 
-          <div className="grid gap-6">
+          {/* Sidebar */}
+          <div className="flex flex-col gap-5">
+
+            {/* Competition results */}
             {battle.competition ? (
-              <article className="entry-fade paper-panel rounded-[1.75rem] p-6">
-                <p className="text-xs uppercase tracking-[0.22em] text-stone-500">
-                  排位结算
-                </p>
-                <h2 className="section-title mt-2">{battle.competition.stakesLabel}</h2>
-                <div className="mt-4 grid gap-3 text-sm leading-7 text-stone-700">
+              <article className="entry-fade mk-panel p-5">
+                <div className="mk-label-red mb-2">排位结算</div>
+                <h2 className="mk-section mb-4">{battle.competition.stakesLabel}</h2>
+                <div style={{ fontFamily: "'Courier New', monospace", fontSize: '0.82rem', color: 'var(--text-dim)', lineHeight: '2.1' }}>
                   <p>
-                    获胜方积分变化：{winnerCompetition?.displayName ?? "胜者"}{" "}
-                    {formatScoreDelta(winnerCompetition)}
+                    获胜：<span style={{ color: 'var(--gold)' }}>{winnerCompetition?.displayName ?? "胜者"}</span>{" "}
+                    <span style={{ color: 'var(--gold-bright)' }}>{formatScoreDelta(winnerCompetition)}</span>
                   </p>
                   <p>
-                    失利方积分变化：{loserCompetition?.displayName ?? "败者"}{" "}
-                    {formatScoreDelta(loserCompetition)}
+                    失利：<span style={{ color: 'var(--red)' }}>{loserCompetition?.displayName ?? "败者"}</span>{" "}
+                    <span style={{ color: 'var(--red)' }}>{formatScoreDelta(loserCompetition)}</span>
                   </p>
                   <p>
-                    获胜方排名：{winnerCompetition?.rankBefore ?? "-"} →{" "}
-                    {winnerCompetition?.rankAfter ?? "-"}
+                    排名：{winnerCompetition?.rankBefore ?? "-"} → <span style={{ color: 'var(--gold)' }}>{winnerCompetition?.rankAfter ?? "-"}</span>
                   </p>
                   <p>
-                    获胜方连胜：{winnerCompetition?.streakBefore ?? 0} →{" "}
-                    {winnerCompetition?.streakAfter ?? 0}
+                    连胜：{winnerCompetition?.streakBefore ?? 0} → <span style={{ color: 'var(--gold-bright)' }}>{winnerCompetition?.streakAfter ?? 0}</span>
                   </p>
                   {battle.competition.endedOpponentStreak ? (
-                    <p>本局成功终结对手 {battle.competition.endedOpponentStreakCount} 连胜。</p>
+                    <p style={{ color: 'var(--red)', marginTop: '4px' }}>
+                      终结对手 {battle.competition.endedOpponentStreakCount} 连胜。
+                    </p>
                   ) : null}
-                  {battle.competition.isUpsetWin ? <p>这是一场下克上胜利。</p> : null}
+                  {battle.competition.isUpsetWin ? (
+                    <p style={{ color: 'var(--gold-bright)', marginTop: '4px' }}>⚡ 下克上胜利</p>
+                  ) : null}
                 </div>
               </article>
             ) : null}
 
-            <article className="entry-fade paper-panel rounded-[1.75rem] p-6">
-              <p className="text-xs uppercase tracking-[0.22em] text-stone-500">
-                战斗解释
-              </p>
-              <h2 className="section-title mt-2">
+            {/* Current event */}
+            <article className="entry-fade mk-panel p-5">
+              <div className="mk-label-red mb-2">战斗解释</div>
+              <h2 className="mk-section mb-3">
                 {replayState.currentEvent?.title ?? "等待战斗开始"}
               </h2>
-              <p className="mt-4 text-sm leading-7 text-stone-700">
+              <p style={{ fontFamily: "'Courier New', monospace", fontSize: '0.82rem', color: 'var(--text-dim)', lineHeight: '1.8' }}>
                 {replayState.currentEvent?.description}
               </p>
-              <div className="mt-4 flex flex-wrap gap-2">
-                {(replayState.currentEvent?.tags ?? []).map((tag) => (
-                  <span key={tag} className="accent-chip rounded-full px-3 py-1 text-xs">
-                    {tag}
-                  </span>
-                ))}
-              </div>
+              {(replayState.currentEvent?.tags ?? []).length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-4">
+                  {(replayState.currentEvent?.tags ?? []).map((tag) => (
+                    <span key={tag} className="mk-badge">{tag}</span>
+                  ))}
+                </div>
+              )}
             </article>
 
-            <article className="entry-fade paper-panel rounded-[1.75rem] p-6">
-              <p className="text-xs uppercase tracking-[0.22em] text-stone-500">
-                事件流
-              </p>
-              <div className="mt-4 grid max-h-[320px] gap-3 overflow-y-auto pr-1">
+            {/* Event stream */}
+            <article className="entry-fade mk-panel p-5">
+              <div className="mk-label-red mb-3">事件流</div>
+              <div className="flex flex-col gap-2 max-h-80 overflow-y-auto pr-1">
                 {battle.events.map((event, index) => (
                   <div
-                    className={`rounded-[1.15rem] border px-4 py-3 text-sm ${
-                      index === playhead
-                        ? "border-[var(--accent)] bg-white"
-                        : "border-[var(--line)] bg-white/75"
-                    }`}
                     key={event.id}
+                    className={index === playhead ? "mk-event-item mk-event-item-active" : "mk-event-item"}
                   >
-                    <p className="font-semibold">{event.title}</p>
-                    <p className="mt-1 text-stone-600">{event.description}</p>
+                    <p style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '0.8rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: index === playhead ? 'var(--red-bright)' : 'var(--text)', marginBottom: '3px' }}>
+                      {event.title}
+                    </p>
+                    <p style={{ fontFamily: "'Courier New', monospace", fontSize: '0.72rem', color: 'var(--text-muted)', lineHeight: '1.6' }}>
+                      {event.description}
+                    </p>
                   </div>
                 ))}
               </div>
@@ -595,89 +756,93 @@ export function BattleReplay({ battleId }: { battleId: string }) {
           </div>
         </section>
 
+        {/* ── HIGHLIGHTS + RESULTS ── */}
         <section className="grid gap-6 lg:grid-cols-[1fr_0.95fr]">
-          <article className="entry-fade paper-panel rounded-[1.75rem] p-6">
-            <p className="text-xs uppercase tracking-[0.22em] text-stone-500">
-              战斗战报
-            </p>
-            <h2 className="section-title mt-2">三大高光</h2>
-            <div className="mt-5 grid gap-4">
+
+          {/* Highlights + judges */}
+          <article className="entry-fade mk-panel p-6">
+            <div className="mk-label-red mb-2">战斗战报</div>
+            <h2 className="mk-section mb-5">三大高光</h2>
+            <div className="flex flex-col gap-4">
               {battle.highlights.map((highlight) => (
-                <article
-                  className="rounded-[1.25rem] border border-[var(--line)] bg-white/75 px-4 py-4"
-                  key={highlight.id}
-                >
-                  <p className="text-xs uppercase tracking-[0.18em] text-stone-500">
-                    {highlight.label}
+                <article key={highlight.id} className="mk-highlight">
+                  <div className="mk-badge mb-2">{highlight.label}</div>
+                  <p style={{ fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: '0.08em', textTransform: 'uppercase', fontSize: '0.95rem', color: 'var(--text-bright)', marginBottom: '6px' }}>
+                    {highlight.title}
                   </p>
-                  <p className="mt-2 text-base font-semibold">{highlight.title}</p>
-                  <p className="mt-2 text-sm leading-7 text-stone-600">
+                  <p style={{ fontFamily: "'Courier New', monospace", fontSize: '0.8rem', color: 'var(--text-dim)', lineHeight: '1.75' }}>
                     {highlight.description}
                   </p>
                 </article>
               ))}
             </div>
-            <div className="mt-6 grid gap-3 md:grid-cols-3">
+
+            <hr className="mk-divider my-5" />
+
+            <div className="grid gap-3 md:grid-cols-3">
               {battle.judges.map((judge) => (
-                <div
-                  className="rounded-[1.25rem] border border-[var(--line)] bg-white/75 px-4 py-4 text-sm"
-                  key={judge.id}
-                >
-                  <p className="font-semibold">{judge.title}</p>
-                  <p className="mt-2">
-                    {judge.playerScore} : {judge.defenderScore}
+                <div key={judge.id} className="mk-panel-inset p-3">
+                  <p style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '0.78rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: '6px' }}>
+                    {judge.title}
                   </p>
-                  <p className="mt-2 text-stone-600">{judge.commentary}</p>
+                  <p style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '1.1rem', color: 'var(--text-bright)', marginBottom: '5px' }}>
+                    <span style={{ color: 'var(--red)' }}>{judge.playerScore}</span>
+                    {" : "}
+                    <span style={{ color: 'var(--gold)' }}>{judge.defenderScore}</span>
+                  </p>
+                  <p style={{ fontFamily: "'Courier New', monospace", fontSize: '0.72rem', color: 'var(--text-muted)', lineHeight: '1.65' }}>
+                    {judge.commentary}
+                  </p>
                 </div>
               ))}
             </div>
           </article>
 
-          <div className="grid gap-6">
-            <article className="entry-fade paper-panel rounded-[1.75rem] p-6">
-              <p className="text-xs uppercase tracking-[0.22em] text-stone-500">
-                终局比分
-              </p>
-              <h2 className="section-title mt-2">{winnerLabel(battle)}</h2>
-              <div className="mt-4 grid gap-3 text-sm leading-7 text-stone-700">
+          {/* Final score + next challenge */}
+          <div className="flex flex-col gap-5">
+            <article className="entry-fade mk-panel p-5">
+              <div className="mk-label-red mb-2">终局比分</div>
+              <h2 className="mk-section mb-4">{winnerLabel(battle)}</h2>
+              <div style={{ fontFamily: "'Courier New', monospace", fontSize: '0.85rem', color: 'var(--text-dim)', lineHeight: '2.1' }}>
                 <p>
-                  终局总分 {battle.finalScore.player} : {battle.finalScore.defender}
+                  终局总分{" "}
+                  <span style={{ color: 'var(--red)', fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '1.1rem' }}>{battle.finalScore.player}</span>
+                  {" : "}
+                  <span style={{ color: 'var(--gold)', fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '1.1rem' }}>{battle.finalScore.defender}</span>
                 </p>
                 <p>
-                  观众热度 {battle.crowdScore.player} : {battle.crowdScore.defender}
+                  观众热度{" "}
+                  <span style={{ color: 'var(--red)' }}>{battle.crowdScore.player}</span>
+                  {" : "}
+                  <span style={{ color: 'var(--gold)' }}>{battle.crowdScore.defender}</span>
                 </p>
               </div>
             </article>
 
-            <article className="entry-fade paper-panel rounded-[1.75rem] p-6">
-              <p className="text-xs uppercase tracking-[0.22em] text-stone-500">
-                下一战推荐
-              </p>
-              <h2 className="section-title mt-2">
+            <article className="entry-fade mk-panel p-5">
+              <div className="mk-label-red mb-2">下一战推荐</div>
+              <h2 className="mk-section mb-4">
                 {winnerProfile?.suggestion
                   ? `建议挑战 ${winnerProfile.suggestion.displayName}`
                   : `下一位焦点：${battle.challengerPreview.displayName}`}
               </h2>
               {winnerProfile?.suggestion ? (
-                <div className="mt-4 grid gap-3 text-sm leading-7 text-stone-700">
+                <div style={{ fontFamily: "'Courier New', monospace", fontSize: '0.82rem', color: 'var(--text-dim)', lineHeight: '2' }}>
                   <p>{winnerProfile.suggestion.reason}</p>
+                  <p>对手积分 <span style={{ color: 'var(--gold)' }}>{winnerProfile.suggestion.rating}</span> · 连胜 {winnerProfile.suggestion.currentStreak}</p>
                   <p>
-                    对手当前积分 {winnerProfile.suggestion.rating} · 当前连胜{" "}
-                    {winnerProfile.suggestion.currentStreak}
-                  </p>
-                  <p>
-                    若继续胜出预计 +{winnerProfile.suggestion.projectedWinDelta}，失利{" "}
-                    {winnerProfile.suggestion.projectedLossDelta}
+                    继续胜出预计 <span style={{ color: 'var(--gold)' }}>+{winnerProfile.suggestion.projectedWinDelta}</span>，
+                    失利 <span style={{ color: 'var(--red)' }}>{winnerProfile.suggestion.projectedLossDelta}</span>
                   </p>
                 </div>
               ) : (
                 <>
-                  <p className="mt-4 text-sm leading-7 text-stone-700">
+                  <p style={{ fontFamily: "'Courier New', monospace", fontSize: '0.82rem', color: 'var(--text-dim)', lineHeight: '1.8', marginBottom: '12px' }}>
                     {battle.challengerPreview.declaration}
                   </p>
-                  <div className="mt-4 flex flex-wrap gap-2 text-xs">
+                  <div className="flex flex-wrap gap-2">
                     {formatSoul(battle.challengerPreview.soul).map((stat) => (
-                      <span key={stat.key} className="accent-chip rounded-full px-3 py-1">
+                      <span key={stat.key} className="mk-badge">
                         {stat.label} {stat.value}
                       </span>
                     ))}
@@ -687,6 +852,7 @@ export function BattleReplay({ battleId }: { battleId: string }) {
             </article>
           </div>
         </section>
+
       </div>
     </main>
   );
