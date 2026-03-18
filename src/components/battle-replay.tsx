@@ -124,6 +124,8 @@ function drawStage(
   energyOrb: HTMLImageElement | null,
   fightText: HTMLImageElement | null,
   roundBanner: HTMLImageElement | null,
+  koText: HTMLImageElement | null,
+  victoryText: HTMLImageElement | null,
 ) {
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
@@ -1032,19 +1034,31 @@ function drawStage(
     ctx.shadowBlur = 40;
     ctx.fillText(winnerName.toUpperCase(), W / 2, H / 2 - 40);
     ctx.shadowBlur = 0;
-
-    // "WINS!" below
-    ctx.font = `bold 64px Impact, "Arial Black", sans-serif`;
-    ctx.strokeStyle = "#000";
-    ctx.lineWidth = 8;
-    ctx.strokeText("WINS!", W / 2, H / 2 + 50);
-    ctx.fillStyle = "#ff2200";
-    ctx.shadowColor = "rgba(255,30,0,1)";
-    ctx.shadowBlur = 30;
-    ctx.fillText("WINS!", W / 2, H / 2 + 50);
-    ctx.shadowBlur = 0;
     ctx.textBaseline = "alphabetic";
     ctx.restore();
+
+    // AI victory/ko image below name
+    const resultImg = isPlayerWinner ? koText : victoryText;
+    if (resultImg) {
+      ctx.save();
+      const imgW = 360;
+      const imgH = imgW * (resultImg.naturalHeight / Math.max(1, resultImg.naturalWidth));
+      ctx.shadowColor = isPlayerWinner ? "rgba(255,0,0,0.9)" : "rgba(255,215,0,0.9)";
+      ctx.shadowBlur = 40;
+      ctx.drawImage(resultImg, W / 2 - imgW / 2, H / 2 + 30, imgW, imgH);
+      ctx.restore();
+    } else {
+      ctx.save();
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.font = `bold 64px Impact, "Arial Black", sans-serif`;
+      ctx.strokeStyle = "#000"; ctx.lineWidth = 8;
+      ctx.strokeText("WINS!", W / 2, H / 2 + 70);
+      ctx.fillStyle = "#ff2200"; ctx.shadowColor = "rgba(255,30,0,1)"; ctx.shadowBlur = 30;
+      ctx.fillText("WINS!", W / 2, H / 2 + 70);
+      ctx.shadowBlur = 0; ctx.textBaseline = "alphabetic";
+      ctx.restore();
+    }
   }
 
   // ── 8. ANNOUNCER TEXT OVERLAY ─────────────────────────────────
@@ -1184,6 +1198,8 @@ export function BattleReplay({ battleId }: { battleId: string }) {
   const energyOrbRef = useRef<HTMLImageElement | null>(null);
   const fightTextRef = useRef<HTMLImageElement | null>(null);
   const roundBannerRef = useRef<HTMLImageElement | null>(null);
+  const koTextRef = useRef<HTMLImageElement | null>(null);
+  const victoryTextRef = useRef<HTMLImageElement | null>(null);
   const animFrameRef = useRef(0);
   const replayStateRef = useRef<ReplayState | null>(null);
   const poseStartTimeRef = useRef(0);
@@ -1289,6 +1305,8 @@ export function BattleReplay({ battleId }: { battleId: string }) {
     loadStaticImg("/energy-orb.png", energyOrbRef);
     loadStaticImg("/fight-text.png", fightTextRef);
     loadStaticImg("/round-banner.png", roundBannerRef);
+    loadStaticImg("/ko-text.png", koTextRef);
+    loadStaticImg("/victory-text.png", victoryTextRef);
   }, []);
 
   const winnerCompetitorId = useMemo(() => {
@@ -1462,6 +1480,8 @@ export function BattleReplay({ battleId }: { battleId: string }) {
           energyOrbRef.current,
           fightTextRef.current,
           roundBannerRef.current,
+          koTextRef.current,
+          victoryTextRef.current,
         );
       }
       animFrameRef.current = requestAnimationFrame(loop);
