@@ -831,6 +831,32 @@ export function ArenaBuilder() {
     [alphaProfile, betaProfile],
   );
 
+  // Auto-generate sprites when a participant connects and has no sprite cached
+  useEffect(() => {
+    const slots: Array<{ slot: "alpha" | "beta"; participant: typeof alpha }> = [
+      { slot: "alpha", participant: alpha },
+      { slot: "beta", participant: beta },
+    ];
+    for (const { slot, participant } of slots) {
+      if (!participant?.connected || !participant.displayName) continue;
+      const key = `soul-arena:sprite:${slot}`;
+      if (typeof window !== "undefined" && localStorage.getItem(key)) continue;
+      const tags = topShades(participant);
+      fetch("/api/arena/generate-sprite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: participant.displayName, tags, slot }),
+      })
+        .then((r) => r.ok ? r.json() : null)
+        .then((data: { dataUrl?: string } | null) => {
+          if (data?.dataUrl && typeof window !== "undefined") {
+            localStorage.setItem(key, data.dataUrl);
+          }
+        })
+        .catch(() => { /* silent — AvatarUploader manual button is the fallback */ });
+    }
+  }, [alpha?.connected, beta?.connected, alpha?.displayName, beta?.displayName]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const fetchArenaData = async () => {
     const [nextMeta, nextParticipants, nextProfiles, nextLeaderboard] =
       await Promise.all([

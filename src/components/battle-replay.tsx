@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { soulLabels } from "@/lib/arena-presets";
 import type {
@@ -90,6 +90,8 @@ function drawStage(
   defenderAvatar: HTMLImageElement | null,
   playerSprite: HTMLImageElement | null,
   defenderSprite: HTMLImageElement | null,
+  animTime: number,
+  poseAge: number,
 ) {
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
@@ -300,6 +302,7 @@ function drawStage(
     avatar: HTMLImageElement | null,
     sprite: HTMLImageElement | null,
     displayName: string, score: number,
+    phaseOffset: number,
   ) => {
     const f = facing;
     const headR = 27;
@@ -359,11 +362,22 @@ function drawStage(
         backArmEndX = -f * (shoulderW / 2 - 5); backArmEndY = shoulderY + armUpperH * 0.9;
     }
 
-    const bx = cx + leanX;
-    const by = leanY;
+    // ── Animation: idle breathing + pose transition easing ──────────
+    // Continuous idle bob (each fighter has opposite phase for variety)
+    const idleBob = Math.sin(animTime * 0.0024 + phaseOffset) * 2.8;
+    // Pose transition: half-sine from 0→1→0 over 420ms (punch out and return)
+    const poseTNorm = Math.min(1, poseAge / 420);
+    const poseEase = Math.sin(poseTNorm * Math.PI); // 0→1→0 arc
 
-    // Shadow ellipse
-    ctx.beginPath(); ctx.ellipse(cx, groundY + 6, 48, 11, 0, 0, Math.PI * 2);
+    // Scale pose offsets by poseEase (they start at 0, peak at ~210ms, return to 0)
+    const animLeanX = leanX * poseEase;
+    const animLeanY = leanY * poseEase + idleBob;
+
+    const bx = cx + animLeanX;
+    const by = animLeanY;
+
+    // Shadow ellipse (shifts slightly with lean)
+    ctx.beginPath(); ctx.ellipse(cx + animLeanX * 0.3, groundY + 6, 48, 11, 0, 0, Math.PI * 2);
     ctx.fillStyle = "rgba(0,0,0,0.6)"; ctx.fill();
 
     // ── AI SPRITE (full-body image, drawn instead of stick figure) ──
@@ -373,12 +387,21 @@ function drawStage(
       const spriteX = cx - spriteW / 2;
       const spriteY = groundY - spriteH;
 
-      // Pose-based lean / shake
-      let offsetX = 0, offsetY = 0;
-      if (pose === "big_hit") { offsetX = -facing * 28; offsetY = 8; }
-      else if (pose === "melee_attack") { offsetX = facing * 18; }
-      else if (pose === "hit") { offsetX = -facing * 14; }
-      else if (pose === "ranged_attack") { offsetY = -8; }
+      // Animated pose offsets (rise and fall with poseEase)
+      let offsetX = 0, offsetY = idleBob;
+      if (pose === "big_hit") { offsetX = -facing * 32 * poseEase; offsetY += 10 * poseEase; }
+      else if (pose === "melee_attack") { offsetX = facing * 22 * poseEase; }
+      else if (pose === "hit") { offsetX = -facing * 16 * poseEase; }
+      else if (pose === "ranged_attack") { offsetY -= 10 * poseEase; }
+      else if (pose === "victory") { offsetY -= 8 * Math.abs(Math.sin(animTime * 0.003)); }
+
+      // Pose-driven scale: attack = bigger, hit = shrink, victory = gentle pulse
+      let poseScale = 1;
+      if (pose === "melee_attack") poseScale = 1 + 0.07 * poseEase;
+      else if (pose === "ranged_attack") poseScale = 1 + 0.04 * poseEase;
+      else if (pose === "hit") poseScale = 1 - 0.06 * poseEase;
+      else if (pose === "big_hit") poseScale = 1 - 0.1 * poseEase;
+      else if (pose === "victory") poseScale = 1 + 0.03 * Math.abs(Math.sin(animTime * 0.003));
 
       ctx.save();
       // Flip horizontally for defender (facing left)
@@ -389,24 +412,52 @@ function drawStage(
       // Apply pose offset
       ctx.translate(offsetX * facing, offsetY);
 
-      // Glow halo behind sprite
+      // Scale from bottom-center (ground-pin)
+      if (poseScale !== 1) {
+        ctx.translate(cx, groundY);
+        ctx.scale(poseScale, poseScale);
+        ctx.translate(-cx, -groundY);
+      }
+
+      // Glow halo behind sprite — brighter during attacks
+      const haloAlpha = (pose === "melee_attack" || pose === "ranged_attack") ? 0.38 : 0.22;
       const halo = ctx.createRadialGradient(cx, groundY - spriteH * 0.5, 30, cx, groundY - spriteH * 0.5, 140);
-      halo.addColorStop(0, `${glowColor.replace("0.8", "0.25").replace("0.85", "0.25")}`);
+      halo.addColorStop(0, glowColor.replace(/[\d.]+\)$/, `${haloAlpha})`));
       halo.addColorStop(1, "transparent");
       ctx.fillStyle = halo;
       ctx.fillRect(spriteX - 60, spriteY - 40, spriteW + 120, spriteH + 60);
 
-      // Draw sprite with multiply-like blend
+      // Draw sprite
       ctx.globalCompositeOperation = "source-over";
       ctx.drawImage(sprite, spriteX, spriteY, spriteW, spriteH);
 
-      // Colored tint overlay on top for team identification
+      // Team color tint
       ctx.globalCompositeOperation = "color";
       ctx.globalAlpha = 0.22;
       ctx.fillStyle = bodyColor;
       ctx.fillRect(spriteX, spriteY, spriteW, spriteH);
       ctx.globalAlpha = 1;
       ctx.globalCompositeOperation = "source-over";
+
+      // Hit flash: red overlay pulse when taking damage
+      if ((pose === "hit" || pose === "big_hit") && poseEase > 0.05) {
+        ctx.globalCompositeOperation = "source-over";
+        ctx.globalAlpha = 0.55 * poseEase;
+        ctx.fillStyle = pose === "big_hit" ? "#ff0000" : "#cc2200";
+        ctx.fillRect(spriteX, spriteY, spriteW, spriteH);
+        ctx.globalAlpha = 1;
+        ctx.globalCompositeOperation = "source-over";
+      }
+
+      // Attack charge: bright white flash at peak of attack
+      if ((pose === "melee_attack" || pose === "ranged_attack") && poseEase > 0.7) {
+        ctx.globalCompositeOperation = "lighter";
+        ctx.globalAlpha = (poseEase - 0.7) / 0.3 * 0.18;
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(spriteX, spriteY, spriteW, spriteH);
+        ctx.globalAlpha = 1;
+        ctx.globalCompositeOperation = "source-over";
+      }
 
       // Avatar face overlay in head area (top-center of sprite)
       if (avatar) {
@@ -520,8 +571,8 @@ function drawStage(
     ctx.fillText(`${displayName} · ${score}pts`, cx, groundY + 26);
   };
 
-  drawFighterFigure(285, floorY, 1, playerPose, "#cc0000", "rgba(255,30,0,0.85)", playerAvatar, playerSprite, battle.player.displayName, replayState.playerScore);
-  drawFighterFigure(W - 285, floorY, -1, defenderPose, "#c8900a", "rgba(255,200,0,0.8)", defenderAvatar, defenderSprite, battle.defender.displayName, replayState.defenderScore);
+  drawFighterFigure(285, floorY, 1, playerPose, "#cc0000", "rgba(255,30,0,0.85)", playerAvatar, playerSprite, battle.player.displayName, replayState.playerScore, 0);
+  drawFighterFigure(W - 285, floorY, -1, defenderPose, "#c8900a", "rgba(255,200,0,0.8)", defenderAvatar, defenderSprite, battle.defender.displayName, replayState.defenderScore, Math.PI);
 
   // ── 4. ATTACK EFFECTS ──────────────────────────────────────────
   const isWeaknessHit = evType === "weakness_hit";
@@ -712,6 +763,10 @@ export function BattleReplay({ battleId }: { battleId: string }) {
   const defenderAvatarRef = useRef<HTMLImageElement | null>(null);
   const playerSpriteRef = useRef<HTMLImageElement | null>(null);
   const defenderSpriteRef = useRef<HTMLImageElement | null>(null);
+  const animFrameRef = useRef(0);
+  const replayStateRef = useRef<ReplayState | null>(null);
+  const poseStartTimeRef = useRef(0);
+  const lastPlayheadRef = useRef(-1);
   const [battle, setBattle] = useState<BattlePackage | null>(null);
   const [playhead, setPlayhead] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
@@ -841,13 +896,37 @@ export function BattleReplay({ battleId }: { battleId: string }) {
       : battle.competition.player;
   }, [battle]);
 
-  useEffect(() => {
-    if (!battle || !replayState || !canvasRef.current) {
-      return;
-    }
+  // Keep latest replayState accessible inside RAF without closure capture
+  useEffect(() => { replayStateRef.current = replayState; }, [replayState]);
 
-    drawStage(canvasRef.current, battle, replayState, playerAvatarRef.current, defenderAvatarRef.current, playerSpriteRef.current, defenderSpriteRef.current);
-  }, [battle, replayState]);
+  // Track pose start time whenever playhead advances (new battle event)
+  useEffect(() => {
+    if (playhead !== lastPlayheadRef.current) {
+      poseStartTimeRef.current = performance.now();
+      lastPlayheadRef.current = playhead;
+    }
+  }, [playhead]);
+
+  // RAF animation loop — runs continuously while battle is loaded
+  const startLoop = useCallback(() => {
+    const loop = (time: number) => {
+      const rs = replayStateRef.current;
+      if (canvasRef.current && rs && battle) {
+        const poseAge = time - poseStartTimeRef.current;
+        drawStage(
+          canvasRef.current, battle, rs,
+          playerAvatarRef.current, defenderAvatarRef.current,
+          playerSpriteRef.current, defenderSpriteRef.current,
+          time, poseAge,
+        );
+      }
+      animFrameRef.current = requestAnimationFrame(loop);
+    };
+    animFrameRef.current = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(animFrameRef.current);
+  }, [battle]);
+
+  useEffect(() => startLoop(), [startLoop]);
 
   useEffect(() => {
     if (!battle || !playbackActive) {
