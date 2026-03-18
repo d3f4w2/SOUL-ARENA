@@ -65,10 +65,13 @@ export const getDynamicZhihuTopics = async () => {
 };
 
 export const getArenaTopics = async () => {
-  const presetTopics = getPresetTopics();
-  const dynamicTopics = await getDynamicZhihuTopics();
+  const [presetTopics, dynamicTopics] = await Promise.all([
+    Promise.resolve(getPresetTopics()),
+    getDynamicZhihuTopics(),
+  ]);
 
-  return [...presetTopics, ...dynamicTopics];
+  // Put zhihu dynamic topics first so they appear at top of selector
+  return [...dynamicTopics, ...presetTopics];
 };
 
 export const resolveArenaTopic = async ({

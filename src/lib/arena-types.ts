@@ -407,6 +407,15 @@ export type LiveSession = {
   updatedAt: string;
 };
 
+export type VoteSide = "player" | "defender";
+export type Vote = {
+  id: string;
+  sessionId: string;
+  battleId: string;
+  side: VoteSide;
+  createdAt: string;
+};
+
 export type BattlePackage = {
   challengerPreview: BattlePreview;
   classicLabel: string;

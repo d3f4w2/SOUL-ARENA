@@ -842,6 +842,8 @@ export function BattleReplay({ battleId }: { battleId: string }) {
   const [audienceMembers, setAudienceMembers] = useState<AudienceMemberCanvas[]>([]);
   const [liveStartAt, setLiveStartAt] = useState<string | null>(null);
   const [goLivePending, setGoLivePending] = useState(false);
+  const [votes, setVotes] = useState({ player: 0, defender: 0 });
+  const [votePending, setVotePending] = useState(false);
 
   useEffect(() => {
     void (async () => {
@@ -961,6 +963,22 @@ export function BattleReplay({ battleId }: { battleId: string }) {
     return () => clearInterval(interval);
   }, []);
 
+  // Poll vote counts every 5 seconds
+  useEffect(() => {
+    if (!battle) return;
+    const fetchVotes = () => {
+      void fetch(`/api/arena/vote?battleId=${encodeURIComponent(battle.id)}`, { cache: "no-store" })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data: { player: number; defender: number } | null) => {
+          if (data) setVotes(data);
+        })
+        .catch(() => null);
+    };
+    fetchVotes();
+    const interval = setInterval(fetchVotes, 5_000);
+    return () => clearInterval(interval);
+  }, [battle]);
+
   // Poll live session for auto-start
   useEffect(() => {
     const poll = () => {
@@ -1068,6 +1086,24 @@ export function BattleReplay({ battleId }: { battleId: string }) {
   const stopRecording = () => {
     recorderRef.current?.stop();
     setRecording(false);
+  };
+
+  const handleVote = async (side: "player" | "defender") => {
+    if (!battle || votePending) return;
+    setVotePending(true);
+    try {
+      const res = await fetch("/api/arena/vote", {
+        body: JSON.stringify({ battleId: battle.id, side }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+      if (res.ok) {
+        const data = (await res.json()) as { ok: boolean; player: number; defender: number };
+        setVotes({ player: data.player, defender: data.defender });
+      }
+    } finally {
+      setVotePending(false);
+    }
   };
 
   const handleRematch = async () => {
@@ -1495,6 +1531,50 @@ export function BattleReplay({ battleId }: { battleId: string }) {
                   <span style={{ color: 'var(--gold)' }}>{battle.crowdScore.defender}</span>
                 </p>
               </div>
+            </article>
+
+            <article className="entry-fade mk-panel p-5">
+              <div className="mk-label-red mb-3">观众投票</div>
+              <div className="flex gap-2 mb-3">
+                <button
+                  className="mk-button px-3 py-2 flex-1"
+                  disabled={votePending}
+                  onClick={() => void handleVote("player")}
+                  style={{ fontSize: '0.78rem', background: 'rgba(180,0,0,0.18)', borderColor: 'var(--red)' }}
+                  type="button"
+                >
+                  <span style={{ fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--red-bright)', fontSize: '0.85rem' }}>
+                    {battle.player.displayName}
+                  </span>
+                  <br />
+                  <span style={{ color: 'var(--text-dim)', fontSize: '0.72rem' }}>{votes.player} 票</span>
+                </button>
+                <button
+                  className="mk-button px-3 py-2 flex-1"
+                  disabled={votePending}
+                  onClick={() => void handleVote("defender")}
+                  style={{ fontSize: '0.78rem', background: 'rgba(180,140,0,0.12)', borderColor: 'var(--gold)' }}
+                  type="button"
+                >
+                  <span style={{ fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--gold)', fontSize: '0.85rem' }}>
+                    {battle.defender.displayName}
+                  </span>
+                  <br />
+                  <span style={{ color: 'var(--text-dim)', fontSize: '0.72rem' }}>{votes.defender} 票</span>
+                </button>
+              </div>
+              {(votes.player + votes.defender) > 0 && (
+                <div style={{ height: '8px', borderRadius: '4px', overflow: 'hidden', background: 'rgba(255,255,255,0.06)', display: 'flex' }}>
+                  <div style={{ width: `${Math.round(votes.player / (votes.player + votes.defender) * 100)}%`, background: 'var(--red)', transition: 'width 0.4s ease' }} />
+                  <div style={{ flex: 1, background: 'var(--gold)', opacity: 0.75 }} />
+                </div>
+              )}
+              {(votes.player + votes.defender) === 0 && (
+                <div style={{ height: '8px', borderRadius: '4px', background: 'rgba(255,255,255,0.06)' }} />
+              )}
+              <p style={{ fontFamily: "'Courier New', monospace", fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '6px', textAlign: 'center' }}>
+                共 {votes.player + votes.defender} 票
+              </p>
             </article>
 
             <article className="entry-fade mk-panel p-5">

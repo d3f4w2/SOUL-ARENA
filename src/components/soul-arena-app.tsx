@@ -88,6 +88,7 @@ export function SoulArenaApp() {
                 <Link className="mk-button px-6 py-3" href="/arena">进入竞技场</Link>
                 <Link className="mk-button-ghost px-5 py-3" href="/arena/leaderboard">查看排行榜</Link>
                 <Link className="mk-button-ghost px-5 py-3" href="/arena/history">查看战绩中心</Link>
+                <Link className="mk-button-ghost px-5 py-3" href="/arena/watch">观战入场</Link>
               </div>
             </div>
 

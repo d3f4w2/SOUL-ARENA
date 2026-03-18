@@ -1585,29 +1585,89 @@ export function ArenaBuilder() {
             <div className="mk-label-red mb-2">辩题选择</div>
             <h2 className="mk-section mb-5">选择本场排位辩题</h2>
             <div className="flex flex-col gap-3">
-              {meta?.topics.map((topic) => (
-                <button
-                  key={topic.id}
-                  className={topic.id === topicId ? "mk-topic mk-topic-active" : "mk-topic"}
-                  onClick={() => {
-                    setTopicId(topic.id);
-                    setTopicSnapshot(topic);
-                  }}
-                  type="button"
-                >
-                  <div className="flex flex-wrap items-center gap-3 mb-2">
-                    <p style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '0.95rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: topic.id === topicId ? 'var(--red-bright)' : 'var(--text-bright)' }}>
-                      {topic.title}
-                    </p>
-                    <span className="mk-badge" style={{ fontSize: '0.55rem' }}>
-                      {topic.source === "zhihu_dynamic" ? "知乎动态题" : "预设题"}
-                    </span>
-                  </div>
-                  <p style={{ fontFamily: "'Courier New', monospace", fontSize: '0.78rem', color: 'var(--text-dim)', lineHeight: '1.7' }}>
-                    {topic.prompt}
-                  </p>
-                </button>
-              ))}
+              {(() => {
+                const zhihuTopics = meta?.topics.filter((t) => t.source === "zhihu_dynamic") ?? [];
+                const presetTopics = meta?.topics.filter((t) => t.source !== "zhihu_dynamic") ?? [];
+                return (
+                  <>
+                    {zhihuTopics.length > 0 && (
+                      <>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '4px 0' }}>
+                          <span style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '0.6rem', letterSpacing: '0.28em', textTransform: 'uppercase', color: 'var(--gold)', textShadow: '0 0 10px rgba(212,160,0,0.5)' }}>
+                            知乎热榜
+                          </span>
+                          <div style={{ flex: 1, height: '1px', background: 'var(--border-gold)' }} />
+                          <span style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '0.55rem', letterSpacing: '0.12em', color: 'var(--gold-bright)', background: 'rgba(212,160,0,0.12)', border: '1px solid var(--border-gold)', borderRadius: '2px', padding: '2px 6px' }}>
+                            实时
+                          </span>
+                        </div>
+                        {zhihuTopics.map((topic) => (
+                          <button
+                            key={topic.id}
+                            className={topic.id === topicId ? "mk-topic mk-topic-active" : "mk-topic"}
+                            onClick={() => {
+                              setTopicId(topic.id);
+                              setTopicSnapshot(topic);
+                            }}
+                            style={{ border: topic.id === topicId ? '1px solid var(--gold-bright)' : '1px solid var(--border-gold)', boxShadow: topic.id === topicId ? '0 0 12px rgba(212,160,0,0.3)' : '0 0 6px rgba(212,160,0,0.1)' }}
+                            type="button"
+                          >
+                            <div className="flex flex-wrap items-center gap-3 mb-2">
+                              <p style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '0.95rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: topic.id === topicId ? 'var(--gold-bright)' : 'var(--gold)' }}>
+                                {topic.title}
+                              </p>
+                              <span className="mk-badge" style={{ fontSize: '0.55rem', borderColor: 'var(--gold)', color: 'var(--gold)' }}>
+                                知乎热榜
+                              </span>
+                              {topic.sourceMeta?.rankHint && (
+                                <span style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '0.55rem', color: 'var(--red)', letterSpacing: '0.1em' }}>
+                                  #{topic.sourceMeta.rankHint}
+                                </span>
+                              )}
+                            </div>
+                            <p style={{ fontFamily: "'Courier New', monospace", fontSize: '0.78rem', color: 'var(--text-dim)', lineHeight: '1.7' }}>
+                              {topic.prompt}
+                            </p>
+                          </button>
+                        ))}
+                      </>
+                    )}
+                    {presetTopics.length > 0 && (
+                      <>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '4px 0', marginTop: zhihuTopics.length > 0 ? '8px' : '0' }}>
+                          <span style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '0.6rem', letterSpacing: '0.28em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
+                            预设辩题
+                          </span>
+                          <div style={{ flex: 1, height: '1px', background: 'var(--border)' }} />
+                        </div>
+                        {presetTopics.map((topic) => (
+                          <button
+                            key={topic.id}
+                            className={topic.id === topicId ? "mk-topic mk-topic-active" : "mk-topic"}
+                            onClick={() => {
+                              setTopicId(topic.id);
+                              setTopicSnapshot(topic);
+                            }}
+                            type="button"
+                          >
+                            <div className="flex flex-wrap items-center gap-3 mb-2">
+                              <p style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '0.95rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: topic.id === topicId ? 'var(--red-bright)' : 'var(--text-bright)' }}>
+                                {topic.title}
+                              </p>
+                              <span className="mk-badge" style={{ fontSize: '0.55rem' }}>
+                                预设题
+                              </span>
+                            </div>
+                            <p style={{ fontFamily: "'Courier New', monospace", fontSize: '0.78rem', color: 'var(--text-dim)', lineHeight: '1.7' }}>
+                              {topic.prompt}
+                            </p>
+                          </button>
+                        ))}
+                      </>
+                    )}
+                  </>
+                );
+              })()}
             </div>
           </article>
 
@@ -1632,6 +1692,13 @@ export function ArenaBuilder() {
               </Link>
               <Link className="mk-button-ghost px-4 py-3" href="/arena/history">
                 历史战报
+              </Link>
+              <Link
+                className="mk-button-ghost px-4 py-3"
+                href="/arena/watch"
+                style={{ borderColor: 'var(--border-gold)', color: 'var(--gold)', fontSize: '0.82rem' }}
+              >
+                观众入场 →
               </Link>
             </div>
 

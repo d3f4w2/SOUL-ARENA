@@ -13,6 +13,8 @@ import type {
   OpenClawBindCodeRecord,
   OpenClawBindingInput,
   OpenClawBindingRecord,
+  Vote,
+  VoteSide,
 } from "@/lib/arena-types";
 
 type SQLiteDatabase = {
@@ -163,6 +165,15 @@ const initDatabase = () => {
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS votes (
+      id TEXT PRIMARY KEY,
+      session_id TEXT NOT NULL,
+      battle_id TEXT NOT NULL,
+      side TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_votes_battle ON votes(session_id, battle_id);
   `);
 
   return db;
@@ -671,4 +682,66 @@ export const getLiveSession = (sessionId: string): LiveSession | null => {
   );
   const row = statement.get(sessionId);
   return row ? toLiveSession(row) : null;
+};
+
+// ── Votes ────────────────────────────────────────────────────────────────────
+
+type VoteRow = {
+  id: string;
+  session_id: string;
+  battle_id: string;
+  side: string;
+  created_at: string;
+};
+
+type VoteCountRow = {
+  side: string;
+  count: number;
+};
+
+const toVote = (row: VoteRow): Vote => ({
+  id: row.id,
+  sessionId: row.session_id,
+  battleId: row.battle_id,
+  side: row.side as VoteSide,
+  createdAt: row.created_at,
+});
+
+export const saveVote = ({
+  sessionId,
+  battleId,
+  side,
+}: {
+  sessionId: string;
+  battleId: string;
+  side: VoteSide;
+}): Vote => {
+  const now = new Date().toISOString();
+  const id = randomUUID();
+  const statement = db.prepare(`
+    INSERT INTO votes (id, session_id, battle_id, side, created_at)
+    VALUES (?, ?, ?, ?, ?)
+  `);
+  statement.run(id, sessionId, battleId, side, now);
+  return toVote({ id, session_id: sessionId, battle_id: battleId, side, created_at: now });
+};
+
+export const countVotes = ({
+  sessionId,
+  battleId,
+}: {
+  sessionId: string;
+  battleId: string;
+}): { player: number; defender: number } => {
+  const statement = db.prepare<VoteCountRow>(
+    "SELECT side, COUNT(*) as count FROM votes WHERE session_id = ? AND battle_id = ? GROUP BY side",
+  );
+  const rows = statement.all(sessionId, battleId);
+  let player = 0;
+  let defender = 0;
+  for (const row of rows) {
+    if (row.side === "player") player = Number(row.count);
+    else if (row.side === "defender") defender = Number(row.count);
+  }
+  return { player, defender };
 };
