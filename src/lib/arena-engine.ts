@@ -1,7 +1,12 @@
 import { createHash, randomUUID } from "node:crypto";
 
-import { buildFighterInputFromParticipant, buildIdentitySummary, buildMemoryAnchors, participantSlotLabel } from "@/lib/arena-participants";
-import { challengerPresets, soulLabels, topicPresets } from "@/lib/arena-presets";
+import {
+  buildFighterInputFromParticipant,
+  buildIdentitySummary,
+  buildMemoryAnchors,
+  participantSlotLabel,
+} from "@/lib/arena-participants";
+import { soulLabels, topicPresets } from "@/lib/arena-presets";
 import { fetchSecondMeActForSlot } from "@/lib/secondme";
 import type {
   ArenaBattleSetup,
@@ -11,7 +16,6 @@ import type {
   BattleEvent,
   BattleHighlight,
   BattlePackage,
-  BattlePreview,
   BuildCard,
   BuildCardKind,
   FighterBuildInput,
@@ -31,55 +35,104 @@ type ExchangeResult = {
   weaknessHit: boolean;
 };
 
-type ActOverlay = {
-  aggression?: number;
+type MoveStance = "attack" | "defense";
+
+type BattleMove = {
+  actorId: string;
+  pressure: number;
+  source: "ai" | "fallback";
+  stance: MoveStance;
+  summary: string;
+  tags: string[];
+  title: string;
+  weaknessIntent: boolean;
+};
+
+type MoveProposal = {
   pressure?: number;
+  stance?: MoveStance;
   summary?: string;
   tags?: string[];
   title?: string;
-  weakness?: boolean;
+  weaknessIntent?: boolean;
+};
+
+type JudgeDecision = {
+  defenderDamageToPlayer: number;
+  defenderScoreDelta: number;
+  defenderWeaknessHit: boolean;
+  playerDamageToDefender: number;
+  playerScoreDelta: number;
+  playerWeaknessHit: boolean;
+  roundWinner: "player" | "defender" | "draw";
+  source: "ai" | "fallback";
+  summary: string;
+  tags: string[];
+  title: string;
+};
+
+type JudgeProposal = {
+  defenderDamageToPlayer?: number;
+  defenderScoreDelta?: number;
+  defenderWeaknessHit?: boolean;
+  playerDamageToDefender?: number;
+  playerScoreDelta?: number;
+  playerWeaknessHit?: boolean;
+  roundWinner?: "player" | "defender" | "draw";
+  summary?: string;
+  tags?: string[];
+  title?: string;
 };
 
 const attackKeywords = [
+  "必须",
+  "压制",
+  "击穿",
+  "主导",
+  "夺取",
   "must",
   "force",
   "break",
   "win",
   "pressure",
-  "replace",
-  "capture",
   "dominate",
-  "attack",
 ];
 const defenseKeywords = [
+  "边界",
+  "稳定",
+  "保护",
+  "约束",
+  "防守",
+  "balance",
   "boundary",
   "stable",
   "protect",
   "constraint",
   "defend",
-  "resilient",
-  "balance",
-  "rule",
-  "guard",
 ];
 const penetrationKeywords = [
+  "弱点",
+  "裂缝",
+  "前提",
+  "矛盾",
+  "反证",
   "weakness",
   "crack",
   "contradiction",
   "expose",
   "premise",
-  "loophole",
   "counter",
-  "assumption",
 ];
 const speedKeywords = [
-  "fast",
+  "速度",
+  "节奏",
+  "先手",
+  "爆发",
   "tempo",
   "burst",
-  "instant",
+  "fast",
   "rapid",
   "first",
-  "swing",
   "pivot",
 ];
 
@@ -141,7 +194,10 @@ const createRadar = (text: string, seed: number) => {
       22 +
         lengthScore +
         countHits(trimmed, defenseKeywords) * 10 +
-        countHits(trimmed, ["if", "because", "therefore", "boundary"]) * 5 +
+        countHits(
+          trimmed,
+          ["如果", "因为", "所以", "边界", "if", "because", "therefore"],
+        ) * 5 +
         rng() * 10,
       18,
       96,
@@ -156,10 +212,10 @@ const createRadar = (text: string, seed: number) => {
 
 const createCardTrait = (card: Pick<BuildCard, "atk" | "def" | "pen" | "spd">) => {
   const pairs = [
-    ["Armor Break", card.pen],
-    ["Tempo Seize", card.spd],
-    ["Heavy Claim", card.atk],
-    ["Wall Hold", card.def],
+    ["破甲反问", card.pen],
+    ["抢节奏", card.spd],
+    ["重锤主张", card.atk],
+    ["稳守壁垒", card.def],
   ] as const;
 
   return [...pairs].sort((a, b) => b[1] - a[1])[0][0];
@@ -167,20 +223,16 @@ const createCardTrait = (card: Pick<BuildCard, "atk" | "def" | "pen" | "spd">) =
 
 const createCardHint = (kind: BuildCardKind, card: BuildCard) => {
   const prefix =
-    kind === "viewpoint"
-      ? "Viewpoint"
-      : kind === "rule"
-        ? "Rule"
-        : "Taboo";
-  const posture = card.atk >= card.def ? "leans aggressive" : "leans stable";
+    kind === "viewpoint" ? "观点卡" : kind === "rule" ? "规则卡" : "禁忌卡";
+  const posture = card.atk >= card.def ? "偏进攻" : "偏稳守";
   const focus =
     card.pen >= 14
-      ? "good at opening cracks"
+      ? "适合击穿隐藏弱点"
       : card.spd >= 14
-        ? "good at stealing tempo"
-        : "good at trading safely";
+        ? "适合抢先手和转节奏"
+        : "适合稳住场面换血";
 
-  return `${prefix} ${posture}; ${focus}.`;
+  return `${prefix}${posture}，${focus}。`;
 };
 
 const createCard = (
@@ -205,7 +257,7 @@ const createCard = (
   const pen = clampInt(
     radar.originality / 10 +
       countHits(text, penetrationKeywords) * 2 +
-      countHits(text, ["but", "however", "unless"]) * 1.4 +
+      countHits(text, ["但是", "然而", "unless", "however", "but"]) * 1.4 +
       rng() * 2,
     4,
     18,
@@ -230,10 +282,10 @@ const createCard = (
     text,
     title:
       kind === "viewpoint"
-        ? `Viewpoint ${index + 1}`
+        ? `观点 ${index + 1}`
         : kind === "rule"
-          ? "Core Rule"
-          : "Critical Taboo",
+          ? "核心规则"
+          : "关键禁忌",
     trait: "",
   };
 
@@ -283,11 +335,11 @@ const summarizeBuild = (
   const steadyCard = [...cards].sort((a, b) => b.def + b.spd - (a.def + a.spd))[0];
 
   return unique([
-    heavyCard ? `Primary threat: ${heavyCard.trait}.` : null,
-    steadyCard ? `Stability comes from ${steadyCard.trait}.` : null,
-    `Soul core: ${getPowerLabel(soul)}.`,
-    identitySummary[0] ? `Identity anchor: ${identitySummary[0]}.` : null,
-    memoryAnchors[0] ? `Memory anchor: ${memoryAnchors[0]}.` : null,
+    heavyCard ? `主要威胁来自「${heavyCard.trait}」。` : null,
+    steadyCard ? `稳定性依靠「${steadyCard.trait}」。` : null,
+    `魂核倾向：${getPowerLabel(soul)}。`,
+    identitySummary[0] ? `身份锚点：${identitySummary[0]}。` : null,
+    memoryAnchors[0] ? `记忆锚点：${memoryAnchors[0]}。` : null,
   ]).slice(0, 4);
 };
 
@@ -358,14 +410,14 @@ const createMatchUpCallout = (player: FighterProfile, defender: FighterProfile) 
   const insightGap = player.soul.insight - defender.soul.resolve;
 
   if (insightGap >= 12) {
-    return `${player.displayName} has the cleaner read on hidden assumptions.`;
+    return `${player.displayName} 更擅长读穿隐藏前提，这会是这场对战最锋利的切口。`;
   }
 
   if (offenseGap >= 12) {
-    return `${player.displayName} can probably seize tempo before ${defender.displayName} stabilizes.`;
+    return `${player.displayName} 更有机会抢到节奏，在 ${defender.displayName} 站稳之前先打出压制。`;
   }
 
-  return `This matchup is close. Whoever protects identity coherence while landing one crack first should take it.`;
+  return "这是一场胶着对局，谁能先守住自我一致性，再撕开一处裂缝，谁就更可能拿下这一局。";
 };
 
 const buildEquipmentNotes = (fighter: FighterProfile) =>
@@ -374,15 +426,13 @@ const buildEquipmentNotes = (fighter: FighterProfile) =>
     fighter.cards[1]?.hint,
     fighter.cards[3]?.hint,
     fighter.memoryAnchors[0]
-      ? `Keep the memory anchor visible: ${fighter.memoryAnchors[0]}`
+      ? `记得把这段记忆带上台面：${fighter.memoryAnchors[0]}`
       : null,
   ]).slice(0, 4);
 
 const buildSourceIssues = (sources: ArenaParticipantSource[]) =>
   sources.flatMap((source) =>
-    source.issues.map(
-      (issue) => `${participantSlotLabel(source.slot)}: ${issue}`,
-    ),
+    source.issues.map((issue) => `${participantSlotLabel(source.slot)}：${issue}`),
   );
 
 export const buildArenaPreview = (
@@ -404,16 +454,16 @@ export const buildArenaPreview = (
     "challenger",
     alpha,
     playerBuild,
-    `${participantSlotLabel(alpha.ref.slot)} Real Persona`,
-    "Signal Blue",
+    `${participantSlotLabel(alpha.ref.slot)}真实人格`,
+    "信标蓝",
     "player",
   );
   const defender = buildFighterProfile(
     "defender",
     beta,
     defenderBuild,
-    `${participantSlotLabel(beta.ref.slot)} Real Persona`,
-    "Flare Amber",
+    `${participantSlotLabel(beta.ref.slot)}真实人格`,
+    "琥珀焰",
     "defender",
   );
 
@@ -424,11 +474,11 @@ export const buildArenaPreview = (
     participantRefs: setup.participants,
     player,
     predictedEdges: unique([
-      `Player edge: ${getPowerLabel(player.soul)}`,
-      `Defender edge: ${getPowerLabel(defender.soul)}`,
+      `先手优势：${player.displayName} 的魂核是 ${getPowerLabel(player.soul)}`,
+      `防守优势：${defender.displayName} 的魂核是 ${getPowerLabel(defender.soul)}`,
       createMatchUpCallout(player, defender),
       player.memoryAnchors[0]
-        ? `${player.displayName} can weaponize memory anchor: ${player.memoryAnchors[0]}`
+        ? `${player.displayName} 可以把记忆锚点打成进攻切口：${player.memoryAnchors[0]}`
         : null,
     ]).slice(0, 4),
     sourceMeta: {
@@ -438,6 +488,7 @@ export const buildArenaPreview = (
       aiAssistUsed: false,
       generationMode: "orchestrated",
       issues: buildSourceIssues(sources),
+      orchestrationMode: "hybrid",
     },
     topic,
   };
@@ -461,7 +512,7 @@ const runExchange = (
     card.pen * 1.6 + attacker.soul.insight * 0.24 - defender.soul.guard * 0.14;
   const weaknessHit =
     penetrationPower > defensePower * 0.72 ||
-    card.trait === "Armor Break" ||
+    card.trait === "破甲反问" ||
     rng() > 0.84;
   const defenderDamage = clampInt(
     attackPower * 0.18 -
@@ -481,16 +532,38 @@ const runExchange = (
   return {
     defenderDamage,
     description: weaknessHit
-      ? `${attacker.displayName} uses ${card.title} to split open a hidden contradiction in ${defender.displayName}'s stance.`
-      : `${attacker.displayName} lands a stable exchange through ${card.trait}.`,
+      ? `${attacker.displayName} 用 ${card.title} 撕开了 ${defender.displayName} 的隐藏前提。`
+      : `${attacker.displayName} 依靠 ${card.trait} 稳稳换下一手节奏。`,
     scoreDelta,
-    tags: weaknessHit ? ["crack", "pressure"] : ["tempo", "trade"],
-    title: weaknessHit ? "Critical crack" : "Pressure trade",
+    tags: weaknessHit ? ["裂缝", "穿透"] : ["换血", "节奏"],
+    title: weaknessHit ? "击穿前提" : "稳住换手",
     weaknessHit,
   };
 };
 
-const normalizeOverlay = (value: unknown): ActOverlay | null => {
+const buildFallbackMove = (
+  attacker: FighterProfile,
+  defender: FighterProfile,
+  card: BuildCard,
+): BattleMove => {
+  const stance: MoveStance = card.def >= card.atk + 2 ? "defense" : "attack";
+
+  return {
+    actorId: attacker.id,
+    pressure: clampInt(card.atk * 4 + card.spd * 2, 28, 92),
+    source: "fallback",
+    stance,
+    summary:
+      stance === "attack"
+        ? `${attacker.displayName} 以「${card.trait}」为核心，试图逼 ${defender.displayName} 暴露隐藏破绽。`
+        : `${attacker.displayName} 先用「${card.trait}」稳住结构，避免被 ${defender.displayName} 牵着节奏走。`,
+    tags: stance === "attack" ? ["进攻", "压制"] : ["稳守", "回气"],
+    title: stance === "attack" ? "主动出招" : "稳守待机",
+    weaknessIntent: card.pen >= 14 || card.trait === "破甲反问",
+  };
+};
+
+const normalizeMoveProposal = (value: unknown): MoveProposal | null => {
   if (!value || typeof value !== "object") {
     return null;
   }
@@ -499,56 +572,65 @@ const normalizeOverlay = (value: unknown): ActOverlay | null => {
   const tags = Array.isArray(candidate.tags)
     ? candidate.tags.filter((item): item is string => typeof item === "string")
     : undefined;
+  const stance =
+    candidate.stance === "attack" || candidate.stance === "defense"
+      ? candidate.stance
+      : undefined;
 
   return {
-    aggression:
-      typeof candidate.aggression === "number" ? candidate.aggression : undefined,
     pressure:
       typeof candidate.pressure === "number" ? candidate.pressure : undefined,
+    stance,
     summary:
       typeof candidate.summary === "string" ? candidate.summary.trim() : undefined,
     tags,
     title: typeof candidate.title === "string" ? candidate.title.trim() : undefined,
-    weakness:
-      typeof candidate.weakness === "boolean" ? candidate.weakness : undefined,
+    weaknessIntent:
+      typeof candidate.weaknessIntent === "boolean"
+        ? candidate.weaknessIntent
+        : undefined,
   };
 };
 
-const requestActOverlay = async (
+const requestBattleMove = async (
   attacker: FighterProfile,
   defender: FighterProfile,
-  topic: TopicPreset,
+  card: BuildCard,
   round: number,
+  topic: TopicPreset,
 ) => {
   if (attacker.source.provider !== "secondme") {
     return null;
   }
 
-  const slot = attacker.source.slot;
-  const overlay = await fetchSecondMeActForSlot<ActOverlay>(slot, {
+  const result = await fetchSecondMeActForSlot<MoveProposal>(attacker.source.slot, {
     actionControl: [
-      'Return only valid JSON.',
-      'Shape:',
-      '{"title":string,"summary":string,"tags":string[],"aggression":number,"pressure":number,"weakness":boolean}',
-      'title: 2-5 words.',
-      'summary: one sentence, max 160 chars, no markdown.',
-      'tags: 1-3 short lowercase strings.',
-      'aggression and pressure: integers 0-100.',
-      'weakness: true only if the opponent was forced into a visible contradiction.',
+      "只输出合法 JSON。",
+      "结构：",
+      '{"title":string,"summary":string,"tags":string[],"stance":"attack"|"defense","pressure":number,"weaknessIntent":boolean}',
+      "title 2-6 个中文字符。",
+      "summary 1 句话，最多 70 个中文字符。",
+      "tags 1-3 个简短中文词。",
+      'stance 只能是 "attack" 或 "defense"。',
+      "pressure 为 0-100 的整数。",
+      "weaknessIntent 只有在明确试图击穿前提时才为 true。",
     ].join(" "),
     message: JSON.stringify({
       attacker: {
-        buildSummary: attacker.buildSummary,
         declaration: attacker.declaration,
         displayName: attacker.displayName,
         identitySummary: attacker.identitySummary,
         memoryAnchors: attacker.memoryAnchors,
       },
+      card: {
+        hint: card.hint,
+        text: card.text,
+        title: card.title,
+        trait: card.trait,
+      },
       defender: {
         buildSummary: defender.buildSummary,
-        declaration: defender.declaration,
         displayName: defender.displayName,
-        identitySummary: defender.identitySummary,
       },
       round,
       topic: {
@@ -556,52 +638,278 @@ const requestActOverlay = async (
         title: topic.title,
       },
     }),
-    systemPrompt: `You are ${attacker.displayName}. Stay consistent with the provided identity and memory anchors.`,
+    systemPrompt: `你现在扮演 ${attacker.displayName}。你只能基于给定身份锚点、记忆锚点和卡牌内容出招，禁止编造设定。`,
   }).catch(() => null);
 
-  return normalizeOverlay(overlay);
+  return normalizeMoveProposal(result);
 };
 
-const runOrchestratedExchange = async (
+const createBattleMove = async (
   attacker: FighterProfile,
   defender: FighterProfile,
   card: BuildCard,
   round: number,
   topic: TopicPreset,
 ) => {
-  const base = runExchange(attacker, defender, card, round);
-  const overlay = await requestActOverlay(attacker, defender, topic, round);
+  const fallback = buildFallbackMove(attacker, defender, card);
+  const proposal = await requestBattleMove(attacker, defender, card, round, topic);
 
-  if (!overlay) {
-    return {
-      exchange: base,
-      usedAi: false,
-    };
+  if (!proposal) {
+    return fallback;
   }
 
-  const aggressionBoost = clampInt(((overlay.aggression ?? 50) - 50) / 20, -2, 4);
-  const pressureBoost = clampInt(((overlay.pressure ?? 50) - 50) / 20, -1, 3);
-  const weaknessHit = base.weaknessHit || Boolean(overlay.weakness);
+  return {
+    actorId: attacker.id,
+    pressure: clampInt(proposal.pressure ?? fallback.pressure, 0, 100),
+    source: "ai",
+    stance: proposal.stance ?? fallback.stance,
+    summary: proposal.summary || fallback.summary,
+    tags: proposal.tags?.slice(0, 3) ?? fallback.tags,
+    title: proposal.title || fallback.title,
+    weaknessIntent: proposal.weaknessIntent ?? fallback.weaknessIntent,
+  } satisfies BattleMove;
+};
+
+const applyMoveBias = (exchange: ExchangeResult, move: BattleMove) => {
+  const pressureBoost = clampInt((move.pressure - 50) / 18, -2, 4);
+  const stanceBoost = move.stance === "attack" ? 2 : -2;
+  const scoreBias = move.stance === "defense" ? 1 : 0;
+  const weaknessHit = exchange.weaknessHit || move.weaknessIntent;
 
   return {
-    exchange: {
-      defenderDamage: clampInt(
-        base.defenderDamage + aggressionBoost + (weaknessHit ? 2 : 0),
-        5,
-        26,
-      ),
-      description: overlay.summary || base.description,
-      scoreDelta: clampInt(
-        base.scoreDelta + pressureBoost + (weaknessHit ? 2 : 0),
-        4,
-        20,
-      ),
-      tags: overlay.tags?.slice(0, 3) ?? base.tags,
-      title: overlay.title || base.title,
-      weaknessHit,
-    },
-    usedAi: true,
+    ...exchange,
+    defenderDamage: clampInt(
+      exchange.defenderDamage + pressureBoost + stanceBoost + (weaknessHit ? 1 : 0),
+      0,
+      26,
+    ),
+    scoreDelta: clampInt(
+      exchange.scoreDelta + pressureBoost + scoreBias + (weaknessHit ? 1 : 0),
+      1,
+      20,
+    ),
+    weaknessHit,
+  } satisfies ExchangeResult;
+};
+
+const buildFallbackJudgeDecision = (
+  round: number,
+  playerExchange: ExchangeResult,
+  defenderExchange: ExchangeResult,
+  playerMove: BattleMove,
+  defenderMove: BattleMove,
+): JudgeDecision => {
+  const playerImpact =
+    playerExchange.scoreDelta + playerExchange.defenderDamage * 0.4;
+  const defenderImpact =
+    defenderExchange.scoreDelta + defenderExchange.defenderDamage * 0.4;
+  const gap = playerImpact - defenderImpact;
+  const roundWinner =
+    Math.abs(gap) <= 2 ? "draw" : gap > 0 ? "player" : "defender";
+
+  return {
+    defenderDamageToPlayer: defenderExchange.defenderDamage,
+    defenderScoreDelta: defenderExchange.scoreDelta,
+    defenderWeaknessHit: defenderExchange.weaknessHit,
+    playerDamageToDefender: playerExchange.defenderDamage,
+    playerScoreDelta: playerExchange.scoreDelta,
+    playerWeaknessHit: playerExchange.weaknessHit,
+    roundWinner,
+    source: "fallback",
+    summary:
+      roundWinner === "draw"
+        ? `第 ${round} 回合双方都没有完全压住对手，节奏与结构保持胶着。`
+        : roundWinner === "player"
+          ? `${playerMove.title} 更有效地兑现成了舞台优势，甲方拿下这一回合。`
+          : `${defenderMove.title} 更完整地守住了论证框架，乙方拿下这一回合。`,
+    tags: unique([
+      ...playerMove.tags,
+      ...defenderMove.tags,
+      roundWinner === "draw" ? "胶着" : roundWinner === "player" ? "甲方占优" : "乙方占优",
+    ]).slice(0, 4),
+    title:
+      roundWinner === "draw"
+        ? "裁判判定：胶着"
+        : roundWinner === "player"
+          ? "裁判判定：甲方占优"
+          : "裁判判定：乙方占优",
   };
+};
+
+const normalizeJudgeProposal = (value: unknown): JudgeProposal | null => {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const candidate = value as Record<string, unknown>;
+  const tags = Array.isArray(candidate.tags)
+    ? candidate.tags.filter((item): item is string => typeof item === "string")
+    : undefined;
+  const roundWinner =
+    candidate.roundWinner === "player" ||
+    candidate.roundWinner === "defender" ||
+    candidate.roundWinner === "draw"
+      ? candidate.roundWinner
+      : undefined;
+
+  return {
+    defenderDamageToPlayer:
+      typeof candidate.defenderDamageToPlayer === "number"
+        ? candidate.defenderDamageToPlayer
+        : undefined,
+    defenderScoreDelta:
+      typeof candidate.defenderScoreDelta === "number"
+        ? candidate.defenderScoreDelta
+        : undefined,
+    defenderWeaknessHit:
+      typeof candidate.defenderWeaknessHit === "boolean"
+        ? candidate.defenderWeaknessHit
+        : undefined,
+    playerDamageToDefender:
+      typeof candidate.playerDamageToDefender === "number"
+        ? candidate.playerDamageToDefender
+        : undefined,
+    playerScoreDelta:
+      typeof candidate.playerScoreDelta === "number"
+        ? candidate.playerScoreDelta
+        : undefined,
+    playerWeaknessHit:
+      typeof candidate.playerWeaknessHit === "boolean"
+        ? candidate.playerWeaknessHit
+        : undefined,
+    roundWinner,
+    summary:
+      typeof candidate.summary === "string" ? candidate.summary.trim() : undefined,
+    tags,
+    title: typeof candidate.title === "string" ? candidate.title.trim() : undefined,
+  };
+};
+
+const requestJudgeDecision = async (
+  topic: TopicPreset,
+  round: number,
+  player: FighterProfile,
+  defender: FighterProfile,
+  playerMove: BattleMove,
+  defenderMove: BattleMove,
+) => {
+  const judgeSlot =
+    player.source.provider === "secondme"
+      ? player.source.slot
+      : defender.source.provider === "secondme"
+        ? defender.source.slot
+        : null;
+
+  if (!judgeSlot) {
+    return null;
+  }
+
+  const result = await fetchSecondMeActForSlot<JudgeProposal>(judgeSlot, {
+    actionControl: [
+      "你是中立裁判。只输出合法 JSON。",
+      "结构：",
+      '{"title":string,"summary":string,"tags":string[],"roundWinner":"player"|"defender"|"draw","playerDamageToDefender":number,"defenderDamageToPlayer":number,"playerScoreDelta":number,"defenderScoreDelta":number,"playerWeaknessHit":boolean,"defenderWeaknessHit":boolean}',
+      "title 用中文，8 个字以内。",
+      "summary 用中文，一句话，最多 90 个中文字符。",
+      "tags 为 1-4 个简短中文词。",
+      "damage 为 0-26 的整数。",
+      "scoreDelta 为 0-20 的整数。",
+      "只有在明确撕开前提、结构或一致性时 weaknessHit 才为 true。",
+    ].join(" "),
+    message: JSON.stringify({
+      defenderMove,
+      fighterA: {
+        buildSummary: player.buildSummary,
+        declaration: player.declaration,
+        displayName: player.displayName,
+      },
+      fighterB: {
+        buildSummary: defender.buildSummary,
+        declaration: defender.declaration,
+        displayName: defender.displayName,
+      },
+      playerMove,
+      round,
+      topic: {
+        prompt: topic.prompt,
+        title: topic.title,
+      },
+    }),
+    systemPrompt:
+      "你是 Soul Arena 的中立裁判，任务是比较双方动作的有效性，并输出结构化裁决，不要偏袒任一方。",
+  }).catch(() => null);
+
+  return normalizeJudgeProposal(result);
+};
+
+const createJudgeDecision = async (
+  round: number,
+  topic: TopicPreset,
+  player: FighterProfile,
+  defender: FighterProfile,
+  playerCard: BuildCard,
+  defenderCard: BuildCard,
+  playerMove: BattleMove,
+  defenderMove: BattleMove,
+) => {
+  const playerExchange = applyMoveBias(
+    runExchange(player, defender, playerCard, round),
+    playerMove,
+  );
+  const defenderExchange = applyMoveBias(
+    runExchange(defender, player, defenderCard, round),
+    defenderMove,
+  );
+  const fallback = buildFallbackJudgeDecision(
+    round,
+    playerExchange,
+    defenderExchange,
+    playerMove,
+    defenderMove,
+  );
+  const proposal = await requestJudgeDecision(
+    topic,
+    round,
+    player,
+    defender,
+    playerMove,
+    defenderMove,
+  );
+
+  if (!proposal) {
+    return fallback;
+  }
+
+  return {
+    defenderDamageToPlayer: clampInt(
+      proposal.defenderDamageToPlayer ?? fallback.defenderDamageToPlayer,
+      0,
+      26,
+    ),
+    defenderScoreDelta: clampInt(
+      proposal.defenderScoreDelta ?? fallback.defenderScoreDelta,
+      0,
+      20,
+    ),
+    defenderWeaknessHit:
+      proposal.defenderWeaknessHit ?? fallback.defenderWeaknessHit,
+    playerDamageToDefender: clampInt(
+      proposal.playerDamageToDefender ?? fallback.playerDamageToDefender,
+      0,
+      26,
+    ),
+    playerScoreDelta: clampInt(
+      proposal.playerScoreDelta ?? fallback.playerScoreDelta,
+      0,
+      20,
+    ),
+    playerWeaknessHit: proposal.playerWeaknessHit ?? fallback.playerWeaknessHit,
+    roundWinner: proposal.roundWinner ?? fallback.roundWinner,
+    source: "ai",
+    summary: proposal.summary || fallback.summary,
+    tags: proposal.tags?.slice(0, 4) ?? fallback.tags,
+    title: proposal.title || fallback.title,
+  } satisfies JudgeDecision;
 };
 
 const createJudgeBoard = (
@@ -614,19 +922,27 @@ const createJudgeBoard = (
     {
       commentary:
         playerScore >= defenderScore
-          ? `${player.displayName} kept the cleaner logic chain under pressure.`
-          : `${defender.displayName} preserved the more complete reasoning frame.`,
-      defenderScore: clampInt(defenderScore * 0.46 + defender.soul.guard * 0.16, 18, 48),
+          ? `${player.displayName} 在高压下仍保住了更完整的逻辑链。`
+          : `${defender.displayName} 在被持续施压时仍守住了更完整的论证框架。`,
+      defenderScore: clampInt(
+        defenderScore * 0.46 + defender.soul.guard * 0.16,
+        18,
+        48,
+      ),
       id: "logic-censor",
-      playerScore: clampInt(playerScore * 0.46 + player.soul.insight * 0.16, 18, 48),
-      title: "Logic board",
+      playerScore: clampInt(
+        playerScore * 0.46 + player.soul.insight * 0.16,
+        18,
+        48,
+      ),
+      title: "逻辑评委",
     },
     {
       commentary:
         average(player.cards.map((card) => card.radar.originality)) >=
         average(defender.cards.map((card) => card.radar.originality))
-          ? `${player.displayName} presented the sharper configuration.`
-          : `${defender.displayName} showed the more coherent configuration.`,
+          ? `${player.displayName} 的构筑组合更锋利。`
+          : `${defender.displayName} 的构筑整体更完整。`,
       defenderScore: clampInt(
         average(defender.cards.map((card) => card.radar.originality)) * 0.18 +
           defender.soul.resolve * 0.2,
@@ -640,17 +956,25 @@ const createJudgeBoard = (
         14,
         42,
       ),
-      title: "Build board",
+      title: "构筑评委",
     },
     {
       commentary:
         player.soul.tempo >= defender.soul.tempo
-          ? `${player.displayName} controlled more of the visible tempo.`
-          : `${defender.displayName} handled stage tempo more cleanly.`,
-      defenderScore: clampInt(defenderScore * 0.2 + defender.soul.tempo * 0.12, 10, 34),
+          ? `${player.displayName} 抢下了更多舞台节奏。`
+          : `${defender.displayName} 对舞台节奏的掌控更强。`,
+      defenderScore: clampInt(
+        defenderScore * 0.2 + defender.soul.tempo * 0.12,
+        10,
+        34,
+      ),
       id: "crowd-broker",
-      playerScore: clampInt(playerScore * 0.2 + player.soul.tempo * 0.12, 10, 34),
-      title: "Crowd board",
+      playerScore: clampInt(
+        playerScore * 0.2 + player.soul.tempo * 0.12,
+        10,
+        34,
+      ),
+      title: "观众热度",
     },
   ] satisfies JudgeVerdict[];
 
@@ -666,44 +990,44 @@ const buildHighlights = (events: BattleEvent[]) => {
   const strongest = [...scoredAttacks].sort((a, b) => b.damage - a.damage)[0];
   const rebuttal =
     [...scoredAttacks]
-      .filter((event) => event.title.toLowerCase().includes("crack"))
+      .filter((event) => event.title.includes("裂缝") || event.title.includes("击穿"))
       .sort((a, b) => b.damage - a.damage)[0] ?? strongest;
   const flaw =
     events.find((event) => event.type === "weakness_hit") ??
-    events.find((event) => event.type === "defense") ??
+    events.find((event) => event.type === "judge_decision") ??
     events[events.length - 1];
 
   return [
     {
       actorId: strongest?.actorId ?? "player",
-      description: strongest?.description ?? "No clean strike recorded.",
+      description: strongest?.description ?? "这一场没有出现真正意义上的重击。",
       id: "highlight-strongest-hit",
-      label: "Strongest strike",
-      title: strongest?.title ?? "Closing hit",
+      label: "最强一击",
+      title: strongest?.title ?? "终局重锤",
     },
     {
       actorId: rebuttal?.actorId ?? "defender",
-      description: rebuttal?.description ?? "No decisive rebuttal recorded.",
+      description: rebuttal?.description ?? "这一场没有形成明确的反制瞬间。",
       id: "highlight-best-rebuttal",
-      label: "Best rebuttal",
-      title: rebuttal?.title ?? "Counter frame",
+      label: "最佳反制",
+      title: rebuttal?.title ?? "反手拆解",
     },
     {
       actorId: flaw?.actorId ?? "defender",
-      description: flaw?.description ?? "No critical flaw recorded.",
+      description: flaw?.description ?? "这一场没有出现明确的致命裂缝。",
       id: "highlight-fatal-flaw",
-      label: "Fatal flaw",
-      title: flaw?.title ?? "Break point",
+      label: "关键裂缝",
+      title: flaw?.title ?? "破绽时刻",
     },
   ] satisfies BattleHighlight[];
 };
 
-const createReplayAnchorPreview = (fighter: FighterProfile): BattlePreview => ({
+const createReplayAnchorPreview = (fighter: FighterProfile) => ({
   archetype: fighter.archetype,
   aura: fighter.aura,
   declaration: fighter.declaration,
   displayName: fighter.displayName,
-  label: "Rematch target",
+  label: "复盘锚点",
   soul: fighter.soul,
 });
 
@@ -734,7 +1058,7 @@ export const createBattlePackage = async (
 
   pushEvent({
     atMs,
-    description: `${player.displayName} and ${defender.displayName} enter with real SecondMe-derived personas.`,
+    description: `${player.displayName} 与 ${defender.displayName} 将以真实 SecondMe 人格进入这场对战。`,
     round: 0,
     title: preview.topic.title,
     type: "intro",
@@ -743,97 +1067,103 @@ export const createBattlePackage = async (
     atMs: atMs + 1200,
     description: preview.matchUpCallout,
     round: 0,
-    title: "Profile read",
+    title: "赛前判读",
     type: "build_hint",
   });
 
   for (let round = 1; round <= 3; round += 1) {
     pushEvent({
       atMs: atMs + 1400,
-      description: `Round ${round} opens on topic: ${preview.topic.prompt}`,
+      description: `第 ${round} 回合开始，辩题聚焦在：${preview.topic.prompt}`,
       round,
-      title: `Round ${round}`,
+      title: `第 ${round} 回合`,
       type: "round_start",
     });
 
     const playerCard = player.cards[(round - 1) % player.cards.length];
-    const playerRun = await runOrchestratedExchange(
+    const defenderCard = defender.cards[(round + 1) % defender.cards.length];
+    const [playerMove, defenderMove] = await Promise.all([
+      createBattleMove(player, defender, playerCard, round, preview.topic),
+      createBattleMove(defender, player, defenderCard, round, preview.topic),
+    ]);
+    aiAssistUsed ||= playerMove.source === "ai" || defenderMove.source === "ai";
+
+    const judgeDecision = await createJudgeDecision(
+      round,
+      preview.topic,
       player,
       defender,
       playerCard,
-      round,
-      preview.topic,
+      defenderCard,
+      playerMove,
+      defenderMove,
     );
-    aiAssistUsed ||= playerRun.usedAi;
+    aiAssistUsed ||= judgeDecision.source === "ai";
+
     defenderHealth = clampInt(
-      defenderHealth - playerRun.exchange.defenderDamage,
+      defenderHealth - judgeDecision.playerDamageToDefender,
       0,
       100,
     );
-    playerScore += playerRun.exchange.scoreDelta;
+    playerScore += judgeDecision.playerScoreDelta;
     pushEvent({
       actorId: player.id,
-      atMs: atMs + 1250,
-      description: playerRun.exchange.description,
+      atMs: atMs + 1100,
+      description: playerMove.summary,
       effect: {
-        healthDelta: -playerRun.exchange.defenderDamage,
-        scoreDelta: playerRun.exchange.scoreDelta,
+        healthDelta: -judgeDecision.playerDamageToDefender,
+        scoreDelta: judgeDecision.playerScoreDelta,
       },
       round,
-      tags: playerRun.exchange.tags,
+      tags: playerMove.tags,
       targetId: defender.id,
-      title: playerRun.exchange.title,
-      type: playerRun.exchange.weaknessHit ? "weakness_hit" : "attack",
+      title: playerMove.title,
+      type: judgeDecision.playerWeaknessHit
+        ? "weakness_hit"
+        : playerMove.stance === "defense"
+          ? "defense"
+          : "attack",
     });
 
-    defenderScore += 2;
-    pushEvent({
-      actorId: defender.id,
-      atMs: atMs + 900,
-      description: `${defender.displayName} keeps structural coherence and avoids collapse.`,
-      effect: {
-        scoreDelta: 2,
-      },
-      round,
-      title: "Hold line",
-      type: "defense",
-    });
-
-    const defenderCard = defender.cards[(round + 1) % defender.cards.length];
-    const defenderRun = await runOrchestratedExchange(
-      defender,
-      player,
-      defenderCard,
-      round,
-      preview.topic,
-    );
-    aiAssistUsed ||= defenderRun.usedAi;
     playerHealth = clampInt(
-      playerHealth - defenderRun.exchange.defenderDamage,
+      playerHealth - judgeDecision.defenderDamageToPlayer,
       0,
       100,
     );
-    defenderScore += defenderRun.exchange.scoreDelta;
+    defenderScore += judgeDecision.defenderScoreDelta;
     pushEvent({
       actorId: defender.id,
-      atMs: atMs + 1250,
-      description: defenderRun.exchange.description,
+      atMs: atMs + 1050,
+      description: defenderMove.summary,
       effect: {
-        healthDelta: -defenderRun.exchange.defenderDamage,
-        scoreDelta: defenderRun.exchange.scoreDelta,
+        healthDelta: -judgeDecision.defenderDamageToPlayer,
+        scoreDelta: judgeDecision.defenderScoreDelta,
       },
       round,
-      tags: defenderRun.exchange.tags,
+      tags: defenderMove.tags,
       targetId: player.id,
-      title: defenderRun.exchange.title,
-      type: defenderRun.exchange.weaknessHit ? "weakness_hit" : "attack",
+      title: defenderMove.title,
+      type: judgeDecision.defenderWeaknessHit
+        ? "weakness_hit"
+        : defenderMove.stance === "defense"
+          ? "defense"
+          : "attack",
     });
 
     pushEvent({
-      atMs: atMs + 950,
+      atMs: atMs + 900,
+      description: judgeDecision.summary,
+      round,
+      tags: judgeDecision.tags,
+      title: judgeDecision.title,
+      type: "judge_decision",
+    });
+
+    pushEvent({
+      atMs: atMs + 900,
       description: `${player.displayName} ${playerScore} : ${defenderScore} ${defender.displayName}`,
       round,
-      title: "Score update",
+      title: "比分更新",
       type: "score_update",
     });
   }
@@ -856,10 +1186,10 @@ export const createBattlePackage = async (
     atMs: atMs + 1400,
     description:
       winnerId === player.id
-        ? `${player.displayName} closes the match with the sharper profile-to-argument conversion.`
-        : `${defender.displayName} survives and wins through stronger defensive coherence.`,
+        ? `${player.displayName} 把真实人格资料转成了更锋利的战斗构筑，成功拿下这局。`
+        : `${defender.displayName} 靠更稳的结构和反制能力守住了这场对战。`,
     round: 4,
-    title: "Final ruling",
+    title: "终局裁定",
     type: "match_end",
   });
 
@@ -869,15 +1199,15 @@ export const createBattlePackage = async (
   pushEvent({
     actorId: winnerId,
     atMs: atMs + 1600,
-    description: `${replayAnchor.displayName} becomes the rematch anchor for the next real-data bout.`,
+    description: `${replayAnchor.displayName} 将成为下一场真实对战的复盘锚点。`,
     round: 4,
-    title: "Rematch anchor",
+    title: "复盘锚点",
     type: "challenger_preview",
   });
 
   return {
     challengerPreview: replayAnchor,
-    classicLabel: "SecondMe vs SecondMe",
+    classicLabel: "SecondMe 真实对战",
     createdAt: new Date().toISOString(),
     crowdScore,
     defender: {
@@ -894,31 +1224,13 @@ export const createBattlePackage = async (
       ...player,
       health: playerHealth,
     },
-    roomTitle: `${preview.topic.title} | ${player.displayName} vs ${defender.displayName}`,
+    roomTitle: `${preview.topic.title}｜${player.displayName} 对阵 ${defender.displayName}`,
     sourceMeta: {
       ...preview.sourceMeta,
       aiAssistUsed,
+      orchestrationMode: "hybrid",
     },
     topic: preview.topic,
     winnerId,
   } satisfies BattlePackage;
-};
-
-export const getSuggestedFollowUpPreview = () => {
-  const challenger = challengerPresets[0];
-
-  return {
-    archetype: challenger.archetype,
-    aura: challenger.aura,
-    declaration: challenger.declaration,
-    displayName: challenger.displayName,
-    label: "Classic challenger",
-    soul: {
-      ferocity: 74,
-      guard: 76,
-      insight: 72,
-      resolve: 79,
-      tempo: 68,
-    },
-  } satisfies BattlePreview;
 };

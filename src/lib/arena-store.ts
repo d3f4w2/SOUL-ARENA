@@ -27,6 +27,10 @@ type BattleSummaryRow = {
   winner_id: string;
 };
 
+type BattlePackageRow = {
+  battle_package_json: string;
+};
+
 const globalArenaStore = globalThis as GlobalArenaStore;
 
 const initDatabase = () => {
@@ -132,6 +136,42 @@ export const getBattlePackage = (battleId: string) => {
   const row = statement.get(battleId);
 
   return parseBattlePackage(row?.battle_package_json);
+};
+
+export const listBattlePackages = ({
+  limit,
+  order = "desc",
+}: {
+  limit?: number;
+  order?: "asc" | "desc";
+} = {}) => {
+  const safeOrder = order === "asc" ? "ASC" : "DESC";
+
+  if (typeof limit === "number" && Number.isFinite(limit)) {
+    const safeLimit = Math.max(1, Math.min(500, Math.floor(limit)));
+    const statement = db.prepare<BattlePackageRow>(`
+      SELECT battle_package_json
+      FROM battles
+      ORDER BY created_at ${safeOrder}
+      LIMIT ?
+    `);
+
+    return statement
+      .all(safeLimit)
+      .map((row) => parseBattlePackage(row.battle_package_json))
+      .filter((battle): battle is BattlePackage => Boolean(battle));
+  }
+
+  const statement = db.prepare<BattlePackageRow>(`
+    SELECT battle_package_json
+    FROM battles
+    ORDER BY created_at ${safeOrder}
+  `);
+
+  return statement
+    .all()
+    .map((row) => parseBattlePackage(row.battle_package_json))
+    .filter((battle): battle is BattlePackage => Boolean(battle));
 };
 
 export const listBattleSummaries = (limit = 50) => {

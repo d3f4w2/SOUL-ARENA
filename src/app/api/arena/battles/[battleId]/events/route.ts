@@ -12,7 +12,7 @@ export async function GET(
   if (!battle) {
     return NextResponse.json(
       {
-        message: "battle not found",
+        message: "未找到战斗包",
       },
       { status: 404 },
     );

@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
   if (!body.topicId || !body.participants?.length) {
     return NextResponse.json(
       {
-        message: "topicId and participants are required",
+        message: "缺少 topicId 或 participants",
       },
       { status: 400 },
     );
@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
   if (disconnected.length > 0) {
     return NextResponse.json(
       {
-        message: "Both participants must be connected to SecondMe",
+        message: "甲方和乙方都必须先连接 SecondMe",
         participants,
       },
       { status: 400 },

@@ -1,5 +1,24 @@
 # 实现日志
 
+## 2026-03-18（混合编排与中文化）
+- 将 battle 从“单层出招 + overlay 修饰”升级为混合编排：
+  - 双方先各自产生回合动作
+  - 裁判再聚合双方动作并输出回合裁决
+- battle event stream 新增裁判判定事件
+- `sourceMeta` 增加 `orchestrationMode`
+- `/arena`、`/arena/history` 与 replay 新增用户文案统一收口到中文
+- 首页展示文案改为稳定中文，不再依赖旧 demo 文本中的乱码字段
+
+## 2026-03-18（同机双人授权提示）
+- 增加甲乙重复身份检测
+  - 如果 `alpha` 与 `beta` 实际上是同一个 `SecondMe` 账号，会在 participant `issues` 中返回 warning
+- `/arena` 增加同机双人授权说明
+  - 甲方可在当前窗口授权
+  - 乙方建议使用隐身窗口或另一个浏览器授权
+- 检测到同账号时：
+  - 允许继续 preview / battle
+  - 但会在 UI 中醒目提示，并提供“重新连接乙方”的动作
+
 ## 2026-03-18（持久化补充）
 - 用本地 SQLite 替换 battle 内存 `Map`
 - battle package 现在会在生成后落到本地数据库
@@ -58,3 +77,11 @@
 - 已通过：
   - `npm run lint`
   - `npm run build`
+## 2026-03-18
+
+### Lightweight Competitive Ladder
+- Added a derived competition layer on top of persisted battle packages instead of introducing a new season table
+- Extended battle payloads with `competition` settlement metadata for replay and history views
+- Added leaderboard/profile APIs and a dedicated `/arena/leaderboard` page
+- Reworked `/`, `/arena`, `/arena/[battleId]`, and `/arena/history` around ranking, streaks, and next-challenge loops
+- Kept classic mock battles as teaching/demo content and excluded them from live ranking

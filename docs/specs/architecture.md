@@ -35,7 +35,9 @@
 - `src/lib/arena-engine.ts`
   - 真实 preview 生成
   - 真实 battle package 生成
-  - best-effort `SecondMe Act` overlay
+  - 双方回合动作生成
+  - 裁判聚合与裁决
+  - AI 失败时的确定性回退
 - `src/lib/arena.ts`
   - 首页经典 demo battle 数据
 
@@ -66,9 +68,11 @@
 8. 用户点击开始对战
 9. 前端调用 `/api/arena/battles`
 10. 后端生成 battle package
-11. 后端 best-effort 写回 `SecondMe agent_memory`
-12. 前端跳转 `/arena/[battleId]`
-13. 回放页消费 battle package，驱动 canvas 舞台与事件流
+11. 双方先各自产生回合动作
+12. 裁判聚合双方动作并输出回合裁决
+13. 后端 best-effort 写回 `SecondMe agent_memory`
+14. 前端跳转 `/arena/[battleId]`
+15. 回放页消费 battle package，驱动 canvas 舞台与事件流
 
 ### 流程 B：首页经典 demo
 1. 首页读取本地经典 battle 数据
@@ -104,8 +108,9 @@ battle package 仍然是当前最关键的内部稳定契约。它连接：
 
 - 双方真实 `SecondMe` 资料
 - 真实 fighter profile 组装
-- best-effort `SecondMe Act` 结构化 overlay
-- overlay 失败时的确定性 fallback
+- 双方动作生成
+- 裁判聚合裁决
+- 任一步骤失败时的确定性 fallback
 
 这保证了主流程能稳定运行，但还没有到最终形态。
 

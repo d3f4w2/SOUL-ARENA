@@ -1,18 +1,18 @@
 import { NextResponse } from "next/server";
 
-import { getBattlePackage } from "@/lib/arena-store";
+import { getArenaBattlePackageWithCompetition } from "@/lib/arena-competition";
 
 export async function GET(
   _request: Request,
   context: { params: Promise<{ battleId: string }> },
 ) {
   const { battleId } = await context.params;
-  const battle = getBattlePackage(battleId);
+  const battle = getArenaBattlePackageWithCompetition(battleId);
 
   if (!battle) {
     return NextResponse.json(
       {
-        message: "battle not found",
+        message: "未找到战斗包",
       },
       { status: 404 },
     );

@@ -10,6 +10,10 @@ export type SoulStats = Record<SoulStatKey, number>;
 export type ParticipantProvider = "secondme" | "openclaw";
 export type ArenaParticipantSlot = "alpha" | "beta";
 export type ArenaGenerationMode = "mock" | "orchestrated";
+export type BattleOrchestrationMode =
+  | "deterministic"
+  | "judge_only"
+  | "hybrid";
 
 export type TopicPreset = {
   id: string;
@@ -120,6 +124,7 @@ export type BattleSourceMeta = {
   aiAssistUsed: boolean;
   generationMode: ArenaGenerationMode;
   issues: string[];
+  orchestrationMode?: BattleOrchestrationMode;
 };
 
 export type FighterProfile = {
@@ -163,6 +168,7 @@ export type BattleEventType =
   | "attack"
   | "defense"
   | "weakness_hit"
+  | "judge_decision"
   | "score_update"
   | "spotlight"
   | "match_end"
@@ -210,7 +216,76 @@ export type BattlePreview = {
   soul: SoulStats;
 };
 
+export type ArenaBattleResult = "win" | "loss";
+export type ArenaRecentForm = "W" | "L";
+
+export type ArenaCompetitorIdentity = {
+  competitorId: string;
+  displayName: string;
+  provider: ParticipantProvider;
+  secondMeUserId: string | null;
+  slot: ArenaParticipantSlot | null;
+};
+
+export type ArenaBattleCompetitionSide = {
+  competitorId: string | null;
+  displayName: string;
+  ratingBefore: number;
+  ratingAfter: number;
+  rankBefore: number | null;
+  rankAfter: number | null;
+  streakBefore: number;
+  streakAfter: number;
+  scoreDelta: number;
+  result: ArenaBattleResult;
+};
+
+export type ArenaBattleCompetition = {
+  endedOpponentStreak: boolean;
+  endedOpponentStreakCount: number;
+  isUpsetWin: boolean;
+  stakesLabel: string;
+  player: ArenaBattleCompetitionSide | null;
+  defender: ArenaBattleCompetitionSide | null;
+};
+
+export type ArenaChallengeSuggestion = {
+  competitorId: string;
+  currentStreak: number;
+  displayName: string;
+  projectedLossDelta: number;
+  projectedWinDelta: number;
+  rank: number | null;
+  rating: number;
+  reason: string;
+};
+
+export type ArenaCompetitorProfile = ArenaCompetitorIdentity & {
+  bestStreak: number;
+  currentStreak: number;
+  lastBattleAt: string | null;
+  lastBattleId: string | null;
+  lastBattleTitle: string | null;
+  lastResult: ArenaBattleResult | null;
+  losses: number;
+  rank: number | null;
+  rating: number;
+  recentForm: ArenaRecentForm[];
+  suggestion: ArenaChallengeSuggestion | null;
+  totalMatches: number;
+  winRate: number;
+  wins: number;
+};
+
+export type ArenaLeaderboardEntry = ArenaCompetitorProfile;
+
+export type ArenaParticipantCompetitiveProfile = {
+  profile: ArenaCompetitorProfile | null;
+  slot: ArenaParticipantSlot;
+};
+
 export type BattleSummary = {
+  competition?: ArenaBattleCompetition | null;
   createdAt: string;
   defenderDisplayName: string;
   generationMode: ArenaGenerationMode;
@@ -224,6 +299,7 @@ export type BattleSummary = {
 export type BattlePackage = {
   challengerPreview: BattlePreview;
   classicLabel: string;
+  competition?: ArenaBattleCompetition | null;
   createdAt: string;
   crowdScore: {
     defender: number;

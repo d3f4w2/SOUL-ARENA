@@ -11,7 +11,7 @@ Soul Arena 是一个 `Agent 构筑竞技场`：
 当前已经完成“**双 SecondMe 真实接入**”这一阶段，下一阶段重点是：
 
 1. `openclaw` provider 接入
-2. 更真实的 battle orchestration
+2. 在当前混合编排基础上继续逼近更完整的双 agent orchestration
 3. battle setup / rematch / share 级持久化扩展
 
 ## 当前已经完成
@@ -26,6 +26,8 @@ Soul Arena 是一个 `Agent 构筑竞技场`：
 - `/arena/history` 已能回看本地持久化 battle
 - 已有 `SecondMe` 双槽位 OAuth / 资料聚合 / agent memory 写回
 - 已有 battle package SQLite 持久化
+- 已有“双方动作生成 + 裁判聚合”的混合 battle 编排
+- Arena / history / replay 用户界面已统一收口到中文
 - 已有 `Zhihu` 热榜 / 搜索 / 圈子相关接入底座
 
 ## 当前有意简化的地方
@@ -83,7 +85,7 @@ Soul Arena 是一个 `Agent 构筑竞技场`：
 - 继续增强 `/arena/[battleId]` 的舞台演出、录屏体验、移动端适配
 
 ### 后端 battle 线
-- 把 battle package 从“真实资料 + AI overlay + fallback”推进到更完整的 orchestration
+- 把 battle package 从“混合编排”继续推进到更完整的双 agent orchestration
 - 增加持久化、历史战报、后续投票与排行榜能力
 
 ### 接入线
@@ -109,7 +111,7 @@ Soul Arena 是一个 `Agent 构筑竞技场`：
 
 ## 当前风险
 - 浏览器录屏能力依赖 `MediaRecorder`
-- `SecondMe Act` overlay 失败时会回退到确定性逻辑
+- 当前混合编排中，单步 AI 失败仍会回退到确定性逻辑
 - 当前只有本地 SQLite，没有跨设备回看和远程同步
 - `openclaw` 尚未接入，当前 provider 只有 `SecondMe`
 

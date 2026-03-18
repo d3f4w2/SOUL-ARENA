@@ -15,6 +15,9 @@ Use SecondMe as the real profile and memory source for both fighters in `/arena`
 - Fighter profile assembly from real participant data.
 - Arena preview generation from two real SecondMe participants.
 - Battle generation from two real SecondMe participants.
+- Hybrid battle orchestration:
+  - fighter-side move generation
+  - judge-side aggregation
 - Best-effort battle outcome writeback to `agent_memory/ingest`.
 
 ## Current code entry points
@@ -38,12 +41,12 @@ Use SecondMe as the real profile and memory source for both fighters in `/arena`
 ## Behavioral notes
 - `/arena` now expects both `alpha` and `beta` to be connected before starting a real battle.
 - The generated fighter profile is deterministic from the participant data plus optional overrides.
-- Battle orchestration attempts to use SecondMe Act output for round overlays.
-- If the AI overlay fails, battle generation falls back to deterministic exchange logic instead of failing the whole match.
+- Battle orchestration now uses a hybrid flow where both fighters first generate round moves and a judge step then aggregates the result.
+- If any AI step fails, battle generation falls back to deterministic exchange logic instead of failing the whole match.
 
 ## Remaining gaps
 - `openclaw` is not connected yet.
-- Battle packages are still stored in the in-memory battle store.
+- Battle persistence still only covers battle snapshots, not rematch/setup/share-level data.
 - The home page classic battle previews still use local preset data.
 - Primary-slot compatibility endpoints (`/api/me`, `/api/secondme/*`) still map to `alpha` only.
 

@@ -3,7 +3,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { soulLabels } from "@/lib/arena-presets";
-import type { BattleEvent, BattlePackage, SoulStats } from "@/lib/arena-types";
+import type {
+  ArenaBattleCompetitionSide,
+  ArenaCompetitorProfile,
+  BattleEvent,
+  BattlePackage,
+  SoulStats,
+} from "@/lib/arena-types";
 
 const battleStorageKey = (battleId: string) => `soul-arena:battle:${battleId}`;
 
@@ -14,6 +20,13 @@ type ReplayState = {
   playerHealth: number;
   playerScore: number;
   round: number;
+};
+
+type ProfileResponse = {
+  profiles: Array<{
+    competitorId: string;
+    profile: ArenaCompetitorProfile | null;
+  }>;
 };
 
 const formatSoul = (soul: SoulStats) =>
@@ -92,7 +105,7 @@ function drawStage(
 
   context.fillStyle = "#f8f2e8";
   context.font = "700 54px serif";
-  context.fillText("SOUL ARENA", 70, 92);
+  context.fillText("Soul Arena", 70, 92);
 
   context.font = "500 22px sans-serif";
   context.fillStyle = "rgba(248, 242, 232, 0.9)";
@@ -200,6 +213,14 @@ async function fetchBattlePackage(battleId: string) {
   return JSON.parse(local) as BattlePackage;
 }
 
+const formatScoreDelta = (side: ArenaBattleCompetitionSide | null) =>
+  side ? `${side.scoreDelta > 0 ? "+" : ""}${side.scoreDelta}` : "-";
+
+const winnerLabel = (battle: BattlePackage) =>
+  battle.winnerId === battle.player.id
+    ? `${battle.player.displayName} 获胜`
+    : `${battle.defender.displayName} 守擂成功`;
+
 export function BattleReplay({ battleId }: { battleId: string }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -210,6 +231,10 @@ export function BattleReplay({ battleId }: { battleId: string }) {
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const [recording, setRecording] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [winnerProfileState, setWinnerProfileState] = useState<{
+    competitorId: string;
+    profile: ArenaCompetitorProfile | null;
+  } | null>(null);
 
   useEffect(() => {
     void (async () => {
@@ -223,6 +248,67 @@ export function BattleReplay({ battleId }: { battleId: string }) {
     })();
   }, [battleId]);
 
+  const winnerCompetitorId = useMemo(() => {
+    if (!battle?.competition) {
+      return null;
+    }
+
+    return battle.winnerId === battle.player.id
+      ? battle.competition.player?.competitorId ?? null
+      : battle.competition.defender?.competitorId ?? null;
+  }, [battle]);
+
+  useEffect(() => {
+    if (!winnerCompetitorId) {
+      return;
+    }
+
+    let active = true;
+
+    void (async () => {
+      try {
+        const payload = await fetch(
+          `/api/arena/profile?competitorId=${encodeURIComponent(winnerCompetitorId)}`,
+          { cache: "no-store" },
+        );
+
+        if (!payload.ok || !active) {
+          return;
+        }
+
+        const data = (await payload.json()) as ProfileResponse;
+
+        if (!active) {
+          return;
+        }
+
+        setWinnerProfileState({
+          competitorId: winnerCompetitorId,
+          profile: data.profiles[0]?.profile ?? null,
+        });
+      } catch {
+        if (active) {
+          setWinnerProfileState({
+            competitorId: winnerCompetitorId,
+            profile: null,
+          });
+        }
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [winnerCompetitorId]);
+
+  const winnerProfile = useMemo(
+    () =>
+      winnerProfileState?.competitorId === winnerCompetitorId
+        ? winnerProfileState.profile
+        : null,
+    [winnerCompetitorId, winnerProfileState],
+  );
+
   const replayState = useMemo(
     () => (battle ? deriveReplayState(battle, playhead) : null),
     [battle, playhead],
@@ -234,6 +320,24 @@ export function BattleReplay({ battleId }: { battleId: string }) {
     typeof HTMLCanvasElement !== "undefined";
   const reachedEnd = Boolean(battle && playhead >= battle.events.length - 1);
   const playbackActive = isPlaying && !reachedEnd;
+  const winnerCompetition = useMemo(() => {
+    if (!battle?.competition) {
+      return null;
+    }
+
+    return battle.winnerId === battle.player.id
+      ? battle.competition.player
+      : battle.competition.defender;
+  }, [battle]);
+  const loserCompetition = useMemo(() => {
+    if (!battle?.competition) {
+      return null;
+    }
+
+    return battle.winnerId === battle.player.id
+      ? battle.competition.defender
+      : battle.competition.player;
+  }, [battle]);
 
   useEffect(() => {
     if (!battle || !replayState || !canvasRef.current) {
@@ -418,6 +522,37 @@ export function BattleReplay({ battleId }: { battleId: string }) {
           </article>
 
           <div className="grid gap-6">
+            {battle.competition ? (
+              <article className="entry-fade paper-panel rounded-[1.75rem] p-6">
+                <p className="text-xs uppercase tracking-[0.22em] text-stone-500">
+                  排位结算
+                </p>
+                <h2 className="section-title mt-2">{battle.competition.stakesLabel}</h2>
+                <div className="mt-4 grid gap-3 text-sm leading-7 text-stone-700">
+                  <p>
+                    获胜方积分变化：{winnerCompetition?.displayName ?? "胜者"}{" "}
+                    {formatScoreDelta(winnerCompetition)}
+                  </p>
+                  <p>
+                    失利方积分变化：{loserCompetition?.displayName ?? "败者"}{" "}
+                    {formatScoreDelta(loserCompetition)}
+                  </p>
+                  <p>
+                    获胜方排名：{winnerCompetition?.rankBefore ?? "-"} →{" "}
+                    {winnerCompetition?.rankAfter ?? "-"}
+                  </p>
+                  <p>
+                    获胜方连胜：{winnerCompetition?.streakBefore ?? 0} →{" "}
+                    {winnerCompetition?.streakAfter ?? 0}
+                  </p>
+                  {battle.competition.endedOpponentStreak ? (
+                    <p>本局成功终结对手 {battle.competition.endedOpponentStreakCount} 连胜。</p>
+                  ) : null}
+                  {battle.competition.isUpsetWin ? <p>这是一场下克上胜利。</p> : null}
+                </div>
+              </article>
+            ) : null}
+
             <article className="entry-fade paper-panel rounded-[1.75rem] p-6">
               <p className="text-xs uppercase tracking-[0.22em] text-stone-500">
                 战斗解释
@@ -463,7 +598,7 @@ export function BattleReplay({ battleId }: { battleId: string }) {
         <section className="grid gap-6 lg:grid-cols-[1fr_0.95fr]">
           <article className="entry-fade paper-panel rounded-[1.75rem] p-6">
             <p className="text-xs uppercase tracking-[0.22em] text-stone-500">
-                战斗战报
+              战斗战报
             </p>
             <h2 className="section-title mt-2">三大高光</h2>
             <div className="mt-5 grid gap-4">
@@ -503,11 +638,7 @@ export function BattleReplay({ battleId }: { battleId: string }) {
               <p className="text-xs uppercase tracking-[0.22em] text-stone-500">
                 终局比分
               </p>
-              <h2 className="section-title mt-2">
-                {battle.winnerId === battle.player.id
-                  ? `${battle.player.displayName} 获胜`
-                  : `${battle.defender.displayName} 守擂成功`}
-              </h2>
+              <h2 className="section-title mt-2">{winnerLabel(battle)}</h2>
               <div className="mt-4 grid gap-3 text-sm leading-7 text-stone-700">
                 <p>
                   终局总分 {battle.finalScore.player} : {battle.finalScore.defender}
@@ -520,23 +651,39 @@ export function BattleReplay({ battleId }: { battleId: string }) {
 
             <article className="entry-fade paper-panel rounded-[1.75rem] p-6">
               <p className="text-xs uppercase tracking-[0.22em] text-stone-500">
-                {battle.challengerPreview.label ?? "挑战者预告"}
+                下一战推荐
               </p>
               <h2 className="section-title mt-2">
-                {battle.challengerPreview.label
-                  ? `${battle.challengerPreview.label}：${battle.challengerPreview.displayName}`
-                  : `下一位挑战者：${battle.challengerPreview.displayName}`}
+                {winnerProfile?.suggestion
+                  ? `建议挑战 ${winnerProfile.suggestion.displayName}`
+                  : `下一位焦点：${battle.challengerPreview.displayName}`}
               </h2>
-              <p className="mt-4 text-sm leading-7 text-stone-700">
-                {battle.challengerPreview.declaration}
-              </p>
-              <div className="mt-4 flex flex-wrap gap-2 text-xs">
-                {formatSoul(battle.challengerPreview.soul).map((stat) => (
-                  <span key={stat.key} className="accent-chip rounded-full px-3 py-1">
-                    {stat.label} {stat.value}
-                  </span>
-                ))}
-              </div>
+              {winnerProfile?.suggestion ? (
+                <div className="mt-4 grid gap-3 text-sm leading-7 text-stone-700">
+                  <p>{winnerProfile.suggestion.reason}</p>
+                  <p>
+                    对手当前积分 {winnerProfile.suggestion.rating} · 当前连胜{" "}
+                    {winnerProfile.suggestion.currentStreak}
+                  </p>
+                  <p>
+                    若继续胜出预计 +{winnerProfile.suggestion.projectedWinDelta}，失利{" "}
+                    {winnerProfile.suggestion.projectedLossDelta}
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <p className="mt-4 text-sm leading-7 text-stone-700">
+                    {battle.challengerPreview.declaration}
+                  </p>
+                  <div className="mt-4 flex flex-wrap gap-2 text-xs">
+                    {formatSoul(battle.challengerPreview.soul).map((stat) => (
+                      <span key={stat.key} className="accent-chip rounded-full px-3 py-1">
+                        {stat.label} {stat.value}
+                      </span>
+                    ))}
+                  </div>
+                </>
+              )}
             </article>
           </div>
         </section>

@@ -15,6 +15,8 @@
 2. 系统读取 `/api/participants`
 3. 页面显示 `alpha` / `beta` 两个参与者槽位
 4. 用户分别连接两个 `SecondMe` 账号
+   - 甲方可在当前窗口授权
+   - 乙方推荐在隐身窗口或另一个浏览器里授权
 5. 页面显示双方真实：
    - 身份信息
    - `shades`
@@ -23,6 +25,7 @@
 成功标准：
 - 用户知道当前 battle 是谁和谁在对战
 - 用户能明确看到双方是否都已连接完成
+- 如果甲乙其实是同一个账号，系统会警告但不强制打断
 
 ## 流程 3：预览真实 persona build
 1. 用户选择辩题
@@ -41,21 +44,23 @@
 
 ## 流程 4：开始真实 battle
 1. 用户点击开始对战
-2. 后端生成 battle package
-3. battle package 同时记录：
+2. 双方先各自产生本回合动作
+3. 裁判聚合双方动作并输出回合裁决
+4. 后端生成 battle package
+5. battle package 同时记录：
    - `participantRefs`
    - `sourceMeta`
-4. 系统 best-effort 写回 `SecondMe agent_memory`
-5. 前端跳转 `/arena/[battleId]`
+6. 系统 best-effort 写回 `SecondMe agent_memory`
+7. 前端跳转 `/arena/[battleId]`
 
 成功标准：
 - battle 能从真实双参与者资料出发生成
-- 即使 AI overlay 失败，battle 主流程仍能继续
+- 即使 move 或 judge 任一步骤失败，battle 主流程仍能继续
 
 ## 流程 5：观战与理解
 1. 用户进入 `/arena/[battleId]`
 2. 回放自动开始
-3. 用户看到回合推进、攻击、防守、弱点命中
+3. 用户看到回合推进、双方动作、裁判判定、弱点命中
 4. 用户能理解为什么血量和比分发生变化
 5. 用户看到终局结果与三大高光
 

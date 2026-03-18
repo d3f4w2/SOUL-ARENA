@@ -36,6 +36,9 @@
     - `shades`
     - `softMemory`
     - `issues`
+  - Notes:
+    - if `alpha` and `beta` resolve to the same `secondMeUserId`, both participants return warning text in `issues`
+    - duplicate identity is a warning, not a hard error
 
 - `DELETE /api/participants?slot=alpha|beta`
   - `implemented`
@@ -90,6 +93,7 @@
   - Behavior:
     - requires both requested participants to be connected
     - assembles real fighter profiles from `user info + shades + soft memory`
+    - if both participants are actually the same `SecondMe` account, preview still succeeds and returns warning text in `sourceMeta.issues`
   - Response includes:
     - `topic`
     - `player`
@@ -105,8 +109,10 @@
   - Request body matches `build-preview`.
   - Behavior:
     - requires both requested participants to be connected
-    - generates an orchestrated battle package from the two real participant profiles
+    - generates a hybrid battle package from the two real participant profiles
+    - each round includes fighter-side move generation plus judge-side aggregation
     - best-effort writes battle outcome back to SecondMe agent memory for both slots
+    - if both participants are actually the same `SecondMe` account, battle still succeeds and returns warning text in `sourceMeta.issues`
   - Response includes:
     - classic `battle package` fields used by replay
     - `participantRefs`
@@ -153,9 +159,50 @@
     - `generationMode`
     - `aiAssistEnabled`
     - `aiAssistUsed`
+    - `orchestrationMode`
     - `issues`
+
+- Current replay event stream may include:
+  - `attack`
+  - `defense`
+  - `weakness_hit`
+  - `judge_decision`
+  - `score_update`
 
 ## Remaining gaps
 - `openclaw` provider is typed but not implemented.
 - Persistence is local SQLite only; there is no remote/shared store yet.
 - The home page still uses classic demo battles generated from local presets.
+## 2026-03-18 竞技化补充
+
+### `GET /api/arena/leaderboard`
+- 返回：
+  - `featured`: 当前竞技焦点选手，可为空
+  - `leaderboard`: 排行榜条目数组
+- 条目包含：
+  - `rank`
+  - `rating`
+  - `wins` / `losses`
+  - `currentStreak` / `bestStreak`
+  - `recentForm`
+  - `suggestion`
+
+### `GET /api/arena/profile`
+- 查询方式一：`?competitorId=...`
+  - 返回指定选手的竞技档案
+- 查询方式二：`?slot=alpha&slot=beta`
+  - 返回当前已连接槽位对应的竞技档案
+
+### `BattlePackage.competition`
+- 回放与结算使用的竞技字段
+- 包含：
+  - `stakesLabel`
+  - `isUpsetWin`
+  - `endedOpponentStreak`
+  - `endedOpponentStreakCount`
+  - `player`
+  - `defender`
+
+### `BattleSummary.competition`
+- 历史战报列表使用的轻量结算字段
+- 保持与 `BattlePackage.competition` 一致，但只用于列表摘要展示

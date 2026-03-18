@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 
 import { NextRequest, NextResponse } from "next/server";
 
+import { getArenaBattlePackageWithCompetition } from "@/lib/arena-competition";
 import { resolveArenaParticipants } from "@/lib/arena-participants";
 import { createBattlePackage } from "@/lib/arena-engine";
 import { saveBattlePackage } from "@/lib/arena-store";
@@ -17,7 +18,7 @@ const buildMemoryEvent = (battle: BattlePackage, slot: "alpha" | "beta") => {
 
   return {
     action: won ? "battle_win" : "battle_loss",
-    actionLabel: won ? "Won battle" : "Lost battle",
+    actionLabel: won ? "赢下对战" : "输掉对战",
     channel: {
       id: battle.id,
       kind: "soul_arena",
@@ -26,8 +27,8 @@ const buildMemoryEvent = (battle: BattlePackage, slot: "alpha" | "beta") => {
       },
       url: `/arena/${battle.id}`,
     },
-    displayText: `${fighter.displayName} ${won ? "won" : "lost"} ${battle.roomTitle}`,
-    eventDesc: `${fighter.displayName} ${won ? "won" : "lost"} a Soul Arena battle.`,
+    displayText: `${fighter.displayName}${won ? "赢下了" : "输掉了"}《${battle.roomTitle}》`,
+    eventDesc: `${fighter.displayName}${won ? "赢下了" : "输掉了"}一场 Soul Arena 对战。`,
     eventTime: Date.now(),
     idempotencyKey: idempotencyKey(slot, battle.id),
     importance: won ? 0.84 : 0.62,
@@ -44,7 +45,7 @@ const buildMemoryEvent = (battle: BattlePackage, slot: "alpha" | "beta") => {
         objectType: "battle",
         snapshot: {
           capturedAt: Date.now(),
-          text: `${battle.roomTitle}. Winner: ${battle.winnerId}. ${fighter.displayName}: ${fighter.buildSummary.join(" ")}`,
+          text: `${battle.roomTitle}。胜者：${battle.winnerId}。${fighter.displayName}：${fighter.buildSummary.join(" ")}`,
         },
         type: "battle_result",
         url: `/arena/${battle.id}`,
@@ -59,7 +60,7 @@ export async function POST(request: NextRequest) {
   if (!body.topicId || !body.participants?.length) {
     return NextResponse.json(
       {
-        message: "topicId and participants are required",
+        message: "缺少 topicId 或 participants",
       },
       { status: 400 },
     );
@@ -71,7 +72,7 @@ export async function POST(request: NextRequest) {
   if (disconnected.length > 0) {
     return NextResponse.json(
       {
-        message: "Both participants must be connected to SecondMe",
+        message: "甲方和乙方都必须先连接 SecondMe",
         participants,
       },
       { status: 400 },
@@ -80,6 +81,8 @@ export async function POST(request: NextRequest) {
 
   const battle = await createBattlePackage(body as ArenaBattleSetup, participants);
   saveBattlePackage(battle);
+  const hydratedBattle =
+    getArenaBattlePackageWithCompetition(battle.id) ?? battle;
   await Promise.allSettled(
     body.participants
       .filter(
@@ -102,5 +105,5 @@ export async function POST(request: NextRequest) {
       ),
   );
 
-  return NextResponse.json(battle);
+  return NextResponse.json(hydratedBattle);
 }

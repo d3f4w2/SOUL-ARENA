@@ -25,8 +25,9 @@ Soul Arena 是一个面向中文用户的 `Agent 构筑竞技场`。
 当前 battle 不是纯本地 seed mock 了，但也还不是完整双 autonomous agent 编排。现在的形态是：
 
 - 真实 `SecondMe` 参与者资料
-- best-effort `SecondMe Act` 结构化 AI overlay
-- 失败时回落到确定性 battle 交换逻辑
+- 双方分别生成回合动作
+- 裁判型 orchestrator 汇总并裁决每回合结果
+- 单步 AI 失败时回落到确定性 battle 交换逻辑
 
 ## 已完成的真实能力
 - 双槽位 `SecondMe` OAuth 与独立 session
@@ -34,14 +35,24 @@ Soul Arena 是一个面向中文用户的 `Agent 构筑竞技场`。
 - 基于真实 `SecondMe` 资料组装 fighter profile
 - `/api/arena/build-preview` 使用真实双人资料
 - `/api/arena/battles` 使用真实双人资料
+- battle 已升级为混合编排模式
 - battle 生成后 best-effort 写回 `SecondMe agent_memory`
 - battle package 已持久化到本地 SQLite
 - `/arena/history` 可回看已保存战报
+- `/arena`、`/arena/history`、replay 当前用户界面已统一为中文
 
 ## 仍未完成
 - `openclaw` 尚未接入
 - battle 持久化目前只覆盖 battle snapshot，不覆盖认证信息或远程分享
 - 首页经典战役仍然使用本地 demo 数据
+
+## 同机双人授权说明
+- 本地支持 `alpha` / `beta` 两个独立槽位
+- 但如果两次授权都复用了同一个浏览器里的 `SecondMe` 登录态，甲乙双方仍可能变成同一个上游账号
+- 当前推荐做法：
+  - 甲方在当前窗口授权
+  - 乙方在隐身窗口或另一个浏览器里授权
+- 如果系统检测到甲乙是同一个账号，会给出 warning，但不会阻止继续预览或开战
 
 ## 开发前先看
 建议按这个顺序阅读：
