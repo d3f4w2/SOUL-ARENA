@@ -16,6 +16,29 @@ const filters: Array<{ id: BattleFilter; label: string }> = [
   { id: "loss", label: "失败" },
 ];
 
+function CopyLinkButton({ battleId }: { battleId: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    const url = `${window.location.origin}/arena/${battleId}`;
+    void navigator.clipboard.writeText(url).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  return (
+    <button
+      className="mk-button-ghost px-4 py-2"
+      onClick={handleCopy}
+      style={{ fontSize: "0.75rem" }}
+      type="button"
+    >
+      {copied ? "已复制 ✓" : "复制链接"}
+    </button>
+  );
+}
+
 const winnerLabel = (
   winnerId: string,
   playerName: string,
@@ -68,53 +91,49 @@ export function ArenaHistoryBoard({
   });
 
   return (
-    <section className="entry-fade paper-panel rounded-[1.75rem] p-6">
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <article className="rounded-[1.25rem] border border-[var(--line)] bg-white/75 p-4">
-          <p className="text-xs uppercase tracking-[0.18em] text-stone-500">
-            排位总场次
+    <section className="entry-fade mk-panel p-6">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4 mb-6">
+        <article className="mk-panel-inset p-4">
+          <div className="mk-label mb-3">排位总场次</div>
+          <p style={{ fontFamily: "Impact, Arial Black, sans-serif", fontSize: "2.5rem", color: "var(--red)", textShadow: "0 0 12px rgba(200,0,0,0.5)", lineHeight: 1, marginBottom: "8px" }}>
+            {competitiveBattles.length}
           </p>
-          <p className="mt-3 text-3xl font-semibold">{competitiveBattles.length}</p>
-          <p className="mt-2 text-sm text-stone-600">
-            当前挑战者侧战绩 {playerWins} 胜 {playerLosses} 负
+          <p style={{ fontFamily: "'Courier New', monospace", fontSize: "0.75rem", color: "var(--text-muted)" }}>
+            {playerWins} 胜 {playerLosses} 负
           </p>
         </article>
-        <article className="rounded-[1.25rem] border border-[var(--line)] bg-white/75 p-4">
-          <p className="text-xs uppercase tracking-[0.18em] text-stone-500">
-            当前榜首
-          </p>
-          <p className="mt-3 text-xl font-semibold">
+
+        <article className="mk-panel-inset p-4">
+          <div className="mk-label mb-3">当前榜首</div>
+          <p style={{ fontFamily: "Impact, Arial Black, sans-serif", fontSize: "1.1rem", letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--gold-bright)", lineHeight: 1.2, marginBottom: "8px" }}>
             {featured ? featured.displayName : "尚未开赛"}
           </p>
-          <p className="mt-2 text-sm text-stone-600">
+          <p style={{ fontFamily: "'Courier New', monospace", fontSize: "0.75rem", color: "var(--text-muted)" }}>
             {featured
-              ? `积分 ${featured.rating} · 当前连胜 ${featured.currentStreak}`
-              : "等待第一场真实对局写入榜单"}
+              ? `积分 ${featured.rating} · 连胜 ${featured.currentStreak}`
+              : "等待第一场真实对局"}
           </p>
         </article>
-        <article className="rounded-[1.25rem] border border-[var(--line)] bg-white/75 p-4">
-          <p className="text-xs uppercase tracking-[0.18em] text-stone-500">
-            下克上
+
+        <article className="mk-panel-inset p-4">
+          <div className="mk-label mb-3">下克上</div>
+          <p style={{ fontFamily: "Impact, Arial Black, sans-serif", fontSize: "2.5rem", color: "var(--gold)", textShadow: "0 0 12px rgba(212,160,0,0.4)", lineHeight: 1, marginBottom: "8px" }}>
+            {upsetWins}
           </p>
-          <p className="mt-3 text-3xl font-semibold">{upsetWins}</p>
-          <p className="mt-2 text-sm text-stone-600">
-            挑战者越级冲榜成功的关键局数量
+          <p style={{ fontFamily: "'Courier New', monospace", fontSize: "0.75rem", color: "var(--text-muted)" }}>
+            越级冲榜成功局数
           </p>
         </article>
-        <article className="rounded-[1.25rem] border border-[var(--line)] bg-white/75 p-4">
-          <p className="text-xs uppercase tracking-[0.18em] text-stone-500">
-            列表筛选
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2">
+
+        <article className="mk-panel-inset p-4">
+          <div className="mk-label mb-3">列表筛选</div>
+          <div className="flex flex-wrap gap-2 mt-2">
             {filters.map((item) => (
               <button
-                className={`rounded-full border px-3 py-2 text-sm ${
-                  item.id === filter
-                    ? "border-[var(--accent)] bg-white"
-                    : "border-[var(--line)] bg-stone-50"
-                }`}
                 key={item.id}
+                className={item.id === filter ? "mk-button px-3 py-2" : "mk-button-ghost px-3 py-2"}
                 onClick={() => setFilter(item.id)}
+                style={{ fontSize: "0.75rem", letterSpacing: "0.15em" }}
                 type="button"
               >
                 {item.label}
@@ -124,87 +143,80 @@ export function ArenaHistoryBoard({
         </article>
       </div>
 
+      <hr className="mk-divider mb-6" />
+
       {filteredBattles.length ? (
-        <div className="mt-6 grid gap-4">
+        <div className="flex flex-col gap-4">
           {filteredBattles.map((battle) => (
-            <article
-              className="rounded-[1.35rem] border border-[var(--line)] bg-white/75 px-5 py-5"
-              key={battle.id}
-            >
+            <article key={battle.id} className="mk-highlight">
               <div className="flex flex-wrap items-start justify-between gap-4">
-                <div className="space-y-2">
-                  <p className="text-xs uppercase tracking-[0.18em] text-stone-500">
-                    {battle.generationMode === "mock" ? "经典演示" : "真实排位"} ·{" "}
-                    {new Date(battle.createdAt).toLocaleString()}
+                <div className="flex flex-col gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="mk-badge">
+                      {battle.generationMode === "mock" ? "经典演示" : "真实排位"}
+                    </div>
+                    <p style={{ fontFamily: "'Courier New', monospace", fontSize: "0.68rem", color: "var(--text-muted)" }}>
+                      {new Date(battle.createdAt).toLocaleString()}
+                    </p>
+                  </div>
+                  <h3 style={{ fontFamily: "Impact, Arial Black, sans-serif", fontSize: "1rem", letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--text-bright)" }}>
+                    {battle.roomTitle}
+                  </h3>
+                  <p style={{ fontFamily: "'Courier New', monospace", fontSize: "0.78rem", color: "var(--text-dim)" }}>
+                    {battle.playerDisplayName} <span style={{ color: "var(--red)" }}>vs</span> {battle.defenderDisplayName}
                   </p>
-                  <h3 className="text-lg font-semibold">{battle.roomTitle}</h3>
-                  <p className="text-sm text-stone-600">
-                    {battle.playerDisplayName} 对阵 {battle.defenderDisplayName}
-                  </p>
-                  <p className="text-sm text-stone-600">
-                    胜者：
-                    {winnerLabel(
-                      battle.winnerId,
-                      battle.playerDisplayName,
-                      battle.defenderDisplayName,
-                    )}
+                  <p style={{ fontFamily: "'Courier New', monospace", fontSize: "0.78rem", color: "var(--gold)" }}>
+                    胜者：{winnerLabel(battle.winnerId, battle.playerDisplayName, battle.defenderDisplayName)}
                   </p>
                   {battle.topicTitle ? (
-                    <p className="text-sm text-stone-600">
-                      辩题：{battle.topicTitle} · {battle.topicSource === "zhihu_dynamic" ? "Zhihu Dynamic" : "Preset"}
+                    <p style={{ fontFamily: "'Courier New', monospace", fontSize: "0.75rem", color: "var(--text-muted)" }}>
+                      辩题：{battle.topicTitle} · {battle.topicSource === "zhihu_dynamic" ? "知乎动态题" : "预设题"}
                     </p>
                   ) : null}
                   {battle.participantProviders?.length ? (
-                    <p className="text-sm text-stone-600">
-                      Provider：{battle.participantProviders.join(" vs ")}
+                    <p style={{ fontFamily: "'Courier New', monospace", fontSize: "0.75rem", color: "var(--text-muted)" }}>
+                      来源：{battle.participantProviders.join(" 对 ")}
                     </p>
                   ) : null}
                   {battle.competition?.player ? (
-                    <p className="text-sm text-stone-600">
+                    <p style={{ fontFamily: "'Courier New', monospace", fontSize: "0.75rem", color: "var(--text-muted)" }}>
                       {battle.competition.stakesLabel} · 挑战者积分{" "}
-                      {battle.competition.player.scoreDelta > 0 ? "+" : ""}
-                      {battle.competition.player.scoreDelta} · 排名{" "}
-                      {battle.competition.player.rankBefore ?? "-"} →{" "}
-                      {battle.competition.player.rankAfter ?? "-"}
+                      <span style={{ color: battle.competition.player.scoreDelta > 0 ? "var(--gold)" : "var(--red)" }}>
+                        {battle.competition.player.scoreDelta > 0 ? "+" : ""}
+                        {battle.competition.player.scoreDelta}
+                      </span>{" "}
+                      · 排名 {battle.competition.player.rankBefore ?? "-"} → {battle.competition.player.rankAfter ?? "-"}
                     </p>
                   ) : null}
                   {battle.originBattleId ? (
-                    <p className="text-sm text-stone-600">
-                      Rematch of {battle.originBattleId}
+                    <p style={{ fontFamily: "'Courier New', monospace", fontSize: "0.75rem", color: "var(--text-muted)" }}>
+                      重开来源：{battle.originBattleId}
                     </p>
                   ) : null}
                 </div>
-                <div className="flex flex-wrap gap-3">
+
+                <div className="flex flex-wrap items-start gap-3">
                   {battle.competition?.player ? (
-                    <span className="accent-chip rounded-full px-3 py-1 text-xs">
-                      {battle.competition.player.result === "win"
-                        ? "胜利"
-                        : "失败"}
+                    <span className={battle.competition.player.result === "win" ? "mk-badge-gold" : "mk-badge"}>
+                      {battle.competition.player.result === "win" ? "胜利" : "失败"}
                     </span>
                   ) : null}
-                  <Link
-                    className="soft-button rounded-full border border-[var(--line)] bg-white/70 px-4 py-2 text-sm"
-                    href={`/arena/${battle.id}`}
-                  >
+                  <Link className="mk-button-ghost px-4 py-2" href={`/arena/${battle.id}`}>
                     打开回放
                   </Link>
                   {battle.setupId ? (
-                    <Link
-                      className="soft-button rounded-full border border-[var(--line)] bg-white/70 px-4 py-2 text-sm"
-                      href={`/arena?setupId=${battle.setupId}`}
-                    >
+                    <Link className="mk-button-ghost px-4 py-2" href={`/arena?setupId=${battle.setupId}`}>
                       继续重开
                     </Link>
                   ) : null}
+                  <CopyLinkButton battleId={battle.id} />
                 </div>
               </div>
             </article>
           ))}
         </div>
       ) : (
-        <div className="mt-6 rounded-[1.35rem] border border-[var(--line)] bg-white/75 p-6 text-sm leading-7 text-stone-600">
-          当前筛选条件下还没有匹配战报。
-        </div>
+        <div className="mk-status">当前筛选条件下还没有匹配战报。</div>
       )}
     </section>
   );

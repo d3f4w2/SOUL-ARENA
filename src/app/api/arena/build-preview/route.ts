@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
   if (disconnected.length > 0) {
     return NextResponse.json(
       {
-        message: "甲方和乙方都必须先完成 provider 连接",
+        message: "甲方和乙方都必须先完成来源连接",
         participants,
       },
       { status: 400 },

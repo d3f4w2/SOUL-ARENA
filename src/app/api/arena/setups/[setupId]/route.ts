@@ -12,7 +12,7 @@ export async function GET(
   if (!payload) {
     return NextResponse.json(
       {
-        message: "未找到 setup",
+        message: "未找到配置模板",
       },
       { status: 404 },
     );

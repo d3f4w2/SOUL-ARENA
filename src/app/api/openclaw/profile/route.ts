@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
   if (slot !== "alpha" && slot !== "beta") {
     return NextResponse.json(
       {
-        message: "slot must be alpha or beta",
+        message: "slot 必须是 alpha 或 beta",
       },
       { status: 400 },
     );

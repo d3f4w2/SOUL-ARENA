@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         message:
-          "bindCode, displayName, declaration, rule, taboo, viewpoints are required",
+          "bindCode、displayName、declaration、rule、taboo、viewpoints 为必填项",
       },
       { status: 400 },
     );
@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         message:
-          error instanceof Error ? error.message : "OpenClaw registration failed",
+          error instanceof Error ? error.message : "OpenClaw 注册失败",
       },
       { status: 400 },
     );

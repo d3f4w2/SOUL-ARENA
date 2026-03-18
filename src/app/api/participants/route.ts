@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { getActiveParticipantProvider, setActiveParticipantProvider } from "@/lib/arena-session";
+import {
+  getActiveParticipantProvider,
+  setActiveParticipantProvider,
+} from "@/lib/arena-session";
 import { listArenaParticipants } from "@/lib/arena-participants";
 import { clearOpenClawBindingForSlot } from "@/lib/openclaw";
 import { clearSecondMeSession } from "@/lib/secondme";
@@ -23,7 +26,7 @@ export async function POST(request: NextRequest) {
   if ((body.slot !== "alpha" && body.slot !== "beta") || !body.provider) {
     return NextResponse.json(
       {
-        message: "slot 和 provider 必填",
+        message: "slot 和 provider 为必填项",
       },
       { status: 400 },
     );

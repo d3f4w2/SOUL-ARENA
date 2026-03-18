@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
   if (!setup) {
     return NextResponse.json(
       {
-        message: "未找到 battle",
+        message: "未找到对战记录",
       },
       { status: 404 },
     );

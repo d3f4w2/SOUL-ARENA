@@ -365,7 +365,7 @@ export function BattleReplay({ battleId }: { battleId: string }) {
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <span className="accent-chip inline-flex rounded-full px-3 py-1 text-xs uppercase tracking-[0.24em]">
-                Replay
+                实时回放
               </span>
               <h1 className="section-title mt-3">{battle.roomTitle}</h1>
               <p className="mt-2 text-sm leading-7 text-stone-600">{battle.topic.prompt}</p>
@@ -403,20 +403,20 @@ export function BattleReplay({ battleId }: { battleId: string }) {
                   <p>{winnerLabel(battle)}</p>
                   <p>胜者积分变化：{formatScoreDelta(winnerCompetition)}</p>
                   <p>败者积分变化：{formatScoreDelta(loserCompetition)}</p>
-                  <p>Setup ID：{battle.setupId ?? battle.sourceMeta.setupId ?? "none"}</p>
-                  <p>Origin Battle：{battle.originBattleId ?? battle.sourceMeta.originBattleId ?? "none"}</p>
+                  <p>配置 ID：{battle.setupId ?? battle.sourceMeta.setupId ?? "无"}</p>
+                  <p>来源对局：{battle.originBattleId ?? battle.sourceMeta.originBattleId ?? "无"}</p>
                 </div>
               </article>
             ) : null}
 
             <article className="entry-fade paper-panel rounded-[1.75rem] p-6">
-              <p className="text-xs uppercase tracking-[0.22em] text-stone-500">Provider Snapshot</p>
+              <p className="text-xs uppercase tracking-[0.22em] text-stone-500">来源快照</p>
               <div className="mt-4 grid gap-3">
                 {(battle.sourceMeta.participantSnapshots ?? []).map((snapshot: ArenaParticipantSnapshot) => (
                   <div key={`${snapshot.slot}:${snapshot.provider}:${snapshot.participantId ?? "live"}`} className="rounded-[1rem] border border-[var(--line)] bg-white/75 px-4 py-3 text-sm">
                     <p className="font-semibold">{snapshot.slot} · {snapshot.displayName}</p>
                     <p className="text-stone-600">
-                      {snapshot.provider} · {snapshot.sourceLabel ?? "default"} · version {snapshot.configVersion ?? "live"}
+                      {snapshot.provider} · {snapshot.sourceLabel ?? "默认来源"} · 版本 {snapshot.configVersion ?? "当前"}
                     </p>
                   </div>
                 ))}

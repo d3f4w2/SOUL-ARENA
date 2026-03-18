@@ -89,7 +89,7 @@ async function readJson<T>(url: string, init?: RequestInit) {
         "message" in payload &&
         typeof payload.message === "string"
         ? payload.message
-        : `Request failed: ${response.status}`,
+        : `请求失败：${response.status}`,
     );
   }
 
@@ -314,7 +314,7 @@ export function ArenaBuilder() {
         });
       } catch (error) {
         if (active) {
-          setStatus(error instanceof Error ? error.message : "Failed to load arena data.");
+          setStatus(error instanceof Error ? error.message : "载入竞技场数据失败。");
         }
       }
     })();
@@ -344,9 +344,9 @@ export function ArenaBuilder() {
         });
         setTopicId(payload.setup.topicId);
         setTopicSnapshot(payload.setup.topicSnapshot ?? null);
-        setStatus("Rematch template loaded.");
+        setStatus("已载入重开模板。");
       } catch (error) {
-        setStatus(error instanceof Error ? error.message : "Failed to load rematch template.");
+        setStatus(error instanceof Error ? error.message : "载入重开模板失败。");
       }
     })();
   }, [setupId]);
@@ -413,11 +413,11 @@ export function ArenaBuilder() {
     }
 
     if (provider === "openclaw") {
-      setStatus(`Switched ${participantTitle(slot)} to OpenClaw. Generate a bind code and finish registration from the user's OpenClaw skill.`);
+      setStatus(`已将${participantTitle(slot)}切换到 OpenClaw，请生成绑定码并在用户自己的 OpenClaw 技能中完成注册。`);
       return;
     }
 
-    setStatus(`${participantTitle(slot)} switched to ${provider}.`);
+    setStatus(`${participantTitle(slot)}已切换到 ${provider}。`);
   };
 
   const disconnectParticipant = async (slot: "alpha" | "beta") => {
@@ -431,7 +431,7 @@ export function ArenaBuilder() {
     }));
     const data = await loadArenaData();
     applyArenaData(data);
-    setStatus(`${participantTitle(slot)} disconnected.`);
+    setStatus(`${participantTitle(slot)}已断开连接。`);
   };
 
   const generateBindCode = async (slot: "alpha" | "beta") => {
@@ -457,7 +457,7 @@ export function ArenaBuilder() {
 
       const data = await loadArenaData();
       applyArenaData(data);
-      setStatus(`${participantTitle(slot)} bind code generated. Let the OpenClaw skill call ${payload.registerUrl}.`);
+      setStatus(`${participantTitle(slot)}绑定码已生成，请让 OpenClaw 技能调用 ${payload.registerUrl} 完成注册。`);
     } finally {
       setPendingSlot(null);
     }
@@ -479,16 +479,16 @@ export function ArenaBuilder() {
         ...current,
         [slot]: null,
       }));
-      setStatus(`${participantTitle(slot)} registration detected from OpenClaw.`);
+      setStatus(`已检测到来自 OpenClaw 的${participantTitle(slot)}注册。`);
       return;
     }
 
-    setStatus(`${participantTitle(slot)} is still waiting for OpenClaw registration.`);
+    setStatus(`${participantTitle(slot)}仍在等待 OpenClaw 注册完成。`);
   };
 
   const previewBuild = async () => {
     if (!readyToBuild || !participantRefs.alpha || !participantRefs.beta || !selectedTopic) {
-      setStatus("Connect both participants and select a topic first.");
+      setStatus("请先连接双方参赛者并选择辩题。");
       return;
     }
 
@@ -513,13 +513,13 @@ export function ArenaBuilder() {
 
     startTransition(() => {
       setPreview(payload);
-      setStatus("Preview updated.");
+      setStatus("预览已更新。");
     });
   };
 
   const startBattle = async () => {
     if (!readyToBuild || !participantRefs.alpha || !participantRefs.beta || !selectedTopic) {
-      setStatus("Connect both participants and select a topic first.");
+      setStatus("请先连接双方参赛者并选择辩题。");
       return;
     }
 
@@ -555,18 +555,18 @@ export function ArenaBuilder() {
 
     return (
       <div className="mt-5 grid gap-3 rounded-[1.25rem] border border-[var(--line)] bg-white/75 p-4">
-        <p className="text-sm font-semibold">OpenClaw Registration</p>
+        <p className="text-sm font-semibold">OpenClaw 注册</p>
         {participant.connected ? (
           <>
             <p className="text-sm text-stone-600">
-              Registered as {participant.displayName ?? "Unnamed"}
+              已注册为 {participant.displayName ?? "未命名角色"}
               {participantDisplayId(participant) ? ` (@${participantDisplayId(participant)})` : ""}.
             </p>
             <p className="text-sm text-stone-600">
-              Version {participant.configVersion ?? "live"} · {participant.sourceLabel ?? "OpenClaw Skill"}
+              版本 {participant.configVersion ?? "当前"} · {participant.sourceLabel ?? "OpenClaw 技能"}
             </p>
             {participantAvatar(participant) ? (
-              <p className="text-sm text-stone-600 break-all">Avatar: {participantAvatar(participant)}</p>
+              <p className="text-sm text-stone-600 break-all">头像：{participantAvatar(participant)}</p>
             ) : null}
             {tagLabels(participant).length ? (
               <div className="flex flex-wrap gap-2">
@@ -588,7 +588,7 @@ export function ArenaBuilder() {
         ) : bindCode ? (
           <>
             <p className="text-sm text-stone-600">
-              Use this bind code inside the user&apos;s OpenClaw skill and call the registration API.
+              请在用户自己的 OpenClaw 技能中使用这个绑定码，并调用注册接口。
             </p>
             <div className="rounded-[1rem] border border-[var(--line)] bg-stone-50 px-4 py-3">
               <p className="font-semibold tracking-[0.12em]">{bindCode.bindCode}</p>
@@ -600,7 +600,7 @@ export function ArenaBuilder() {
           </>
         ) : (
           <p className="text-sm text-stone-600">
-            Generate a bind code, then let the user&apos;s OpenClaw skill register this slot remotely.
+            先生成绑定码，再让用户自己的 OpenClaw 技能远程注册这个槽位。
           </p>
         )}
         <div className="flex flex-wrap gap-2">
@@ -611,17 +611,17 @@ export function ArenaBuilder() {
             type="button"
           >
             {pendingSlot === slot
-              ? "Generating..."
+              ? "生成中..."
               : bindCode
-                ? "Regenerate Bind Code"
-                : "Generate Bind Code"}
+                ? "重新生成绑定码"
+                : "生成绑定码"}
           </button>
           <button
             className="soft-button rounded-full border border-[var(--line)] bg-white/70 px-4 py-2 text-sm"
             onClick={() => void refreshOpenClawSlot(slot)}
             type="button"
           >
-            Refresh Status
+            刷新状态
           </button>
         </div>
       </div>
@@ -630,7 +630,7 @@ export function ArenaBuilder() {
 
   const renderOverridePanel = (slot: "alpha" | "beta") => (
     <div className="mt-5 grid gap-3 rounded-[1.25rem] border border-[var(--line)] bg-white/75 p-4">
-      <p className="text-sm font-semibold">Battle Override</p>
+      <p className="text-sm font-semibold">对战覆盖</p>
       <input
         className="rounded-xl border border-[var(--line)] bg-stone-50 px-3 py-2 text-sm"
         onChange={(event) =>
@@ -639,7 +639,7 @@ export function ArenaBuilder() {
             [slot]: { ...current[slot], displayName: event.target.value },
           }))
         }
-        placeholder="Override display name"
+        placeholder="覆盖显示名"
         value={overrideDrafts[slot].displayName}
       />
       <textarea
@@ -650,7 +650,7 @@ export function ArenaBuilder() {
             [slot]: { ...current[slot], declaration: event.target.value },
           }))
         }
-        placeholder="Override declaration"
+        placeholder="覆盖宣言"
         value={overrideDrafts[slot].declaration}
       />
       <textarea
@@ -661,7 +661,7 @@ export function ArenaBuilder() {
             [slot]: { ...current[slot], rule: event.target.value },
           }))
         }
-        placeholder="Override rule"
+        placeholder="覆盖规则"
         value={overrideDrafts[slot].rule}
       />
       <textarea
@@ -672,7 +672,7 @@ export function ArenaBuilder() {
             [slot]: { ...current[slot], taboo: event.target.value },
           }))
         }
-        placeholder="Override taboo"
+        placeholder="覆盖禁忌"
         value={overrideDrafts[slot].taboo}
       />
       <textarea
@@ -683,7 +683,7 @@ export function ArenaBuilder() {
             [slot]: { ...current[slot], viewpoints: event.target.value },
           }))
         }
-        placeholder="Override viewpoints, one per line"
+        placeholder="覆盖观点，每行一条"
         value={overrideDrafts[slot].viewpoints}
       />
       <input
@@ -694,7 +694,7 @@ export function ArenaBuilder() {
             [slot]: { ...current[slot], soulSeedTags: event.target.value },
           }))
         }
-        placeholder="Override Soul Seed Tags, comma-separated"
+        placeholder="覆盖 Soul Seed 标签，逗号分隔"
         value={overrideDrafts[slot].soulSeedTags}
       />
     </div>
@@ -711,22 +711,22 @@ export function ArenaBuilder() {
           <p className="text-xs uppercase tracking-[0.22em] text-stone-500">{participantTitle(slot)}</p>
           <h2 className="section-title mt-2">{participantSubtitle(participant)}</h2>
           <p className="mt-2 text-sm text-stone-600">
-            Provider: {participant?.provider ?? "none"}
+            来源：{participant?.provider ?? "未设置"}
             {participant?.sourceLabel ? ` · ${participant.sourceLabel}` : ""}
           </p>
           {profile ? (
             <p className="mt-1 text-sm text-stone-600">
-              Rank {profile.rank ?? "-"} · Rating {profile.rating} · Streak {profile.currentStreak}
+              排名 {profile.rank ?? "-"} · 积分 {profile.rating} · 连胜 {profile.currentStreak}
             </p>
           ) : null}
           {participantRoute(participant) ? (
-            <p className="mt-1 text-sm text-stone-600">Route: {participantRoute(participant)}</p>
+            <p className="mt-1 text-sm text-stone-600">路径：{participantRoute(participant)}</p>
           ) : null}
           {participantBio(participant) ? (
             <p className="mt-1 text-sm text-stone-600">{participantBio(participant)}</p>
           ) : null}
           {participantSourceKind(participant) ? (
-            <p className="mt-1 text-sm text-stone-600">Source: {participantSourceKind(participant)}</p>
+            <p className="mt-1 text-sm text-stone-600">来源类型：{participantSourceKind(participant)}</p>
           ) : null}
         </div>
         <div className="flex flex-wrap gap-2">
@@ -735,14 +735,14 @@ export function ArenaBuilder() {
             onClick={() => void switchProvider(slot, "secondme")}
             type="button"
           >
-            SecondMe
+            使用 SecondMe
           </button>
           <button
             className="soft-button rounded-full border border-[var(--line)] bg-white/70 px-4 py-2 text-sm"
             onClick={() => void switchProvider(slot, "openclaw")}
             type="button"
           >
-            OpenClaw
+            使用 OpenClaw
           </button>
           {participant?.connected ? (
             <button
@@ -750,7 +750,7 @@ export function ArenaBuilder() {
               onClick={() => void disconnectParticipant(slot)}
               type="button"
             >
-              Disconnect
+              断开连接
             </button>
           ) : null}
         </div>
@@ -768,29 +768,29 @@ export function ArenaBuilder() {
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <span className="accent-chip inline-flex rounded-full px-3 py-1 text-xs uppercase tracking-[0.28em]">
-                Soul Arena Builder
+                Soul Arena 构筑台
               </span>
-              <h1 className="display-title mt-4">Arena Builder</h1>
+              <h1 className="display-title mt-4">竞技构筑台</h1>
               <p className="mt-4 max-w-3xl text-lg leading-8 text-stone-700">
-                OpenClaw now registers into Soul Arena through a backend API. Generate a bind code here, then let the user&apos;s OpenClaw skill register the agent remotely.
+                OpenClaw 现在通过后端接口注册到 Soul Arena。你可以先在这里生成绑定码，再让用户自己的 OpenClaw 技能远程注册代理。
               </p>
               {loadedSetup ? (
                 <p className="mt-3 text-sm text-stone-600">
-                  Loaded rematch template from battle {loadedSetup.originBattleId ?? "none"}.
+                  当前已载入重开模板，来源对局：{loadedSetup.originBattleId ?? "无"}。
                 </p>
               ) : null}
             </div>
             <div className="grid gap-3 text-sm text-stone-700">
               <span className="accent-chip rounded-full px-3 py-1 text-center">
-                Leader {featured ? `${featured.displayName} · ${featured.rating}` : "waiting"}
+                榜首 {featured ? `${featured.displayName} · ${featured.rating}` : "等待中"}
               </span>
               <Link className="soft-button rounded-full border border-[var(--line)] bg-white/70 px-4 py-2 text-center" href="/arena/leaderboard">
-                Leaderboard
+                查看排行榜
               </Link>
             </div>
           </div>
           <div className="mt-5 rounded-[1.25rem] border border-[var(--line)] bg-white/75 p-4 text-sm leading-7 text-stone-700">
-            {status ?? "Choose a provider, register OpenClaw via bind code or log into SecondMe, then preview and start a battle."}
+            {status ?? "选择来源，完成 OpenClaw 绑定码注册或登录 SecondMe，然后生成预览并开始对战。"}
           </div>
         </section>
 
@@ -801,7 +801,7 @@ export function ArenaBuilder() {
 
         <section className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
           <article className="entry-fade paper-panel rounded-[1.75rem] p-6">
-            <p className="text-xs uppercase tracking-[0.22em] text-stone-500">Topics</p>
+            <p className="text-xs uppercase tracking-[0.22em] text-stone-500">辩题池</p>
             <div className="mt-5 grid gap-3">
               {meta?.topics.map((topic) => (
                 <button
@@ -818,7 +818,7 @@ export function ArenaBuilder() {
                   <div className="flex flex-wrap items-center gap-3">
                     <p className="text-base font-semibold">{topic.title}</p>
                     <span className="accent-chip rounded-full px-3 py-1 text-xs">
-                      {topic.source === "zhihu_dynamic" ? "Zhihu Dynamic" : "Preset"}
+                      {topic.source === "zhihu_dynamic" ? "知乎动态题" : "预设题"}
                     </span>
                   </div>
                   <p className="mt-2 text-sm leading-7 text-stone-600">{topic.prompt}</p>
@@ -828,16 +828,16 @@ export function ArenaBuilder() {
           </article>
 
           <article className="entry-fade paper-panel rounded-[1.75rem] p-6">
-            <p className="text-xs uppercase tracking-[0.22em] text-stone-500">Actions</p>
+            <p className="text-xs uppercase tracking-[0.22em] text-stone-500">操作</p>
             <div className="mt-5 flex flex-wrap gap-3">
               <button className="soft-button rounded-full border border-[var(--line)] bg-white/70 px-4 py-3 text-sm" onClick={() => void previewBuild()} type="button">
-                Generate Preview
+                生成人格预览
               </button>
               <button className="soft-button rounded-full bg-[var(--accent)] px-4 py-3 text-sm text-white" onClick={() => void startBattle()} type="button">
-                Start Battle
+                开始对战
               </button>
               <Link className="soft-button rounded-full border border-[var(--line)] bg-white/70 px-4 py-3 text-sm" href="/arena/history">
-                History
+                历史战报
               </Link>
             </div>
             <div className="mt-5 grid gap-3">
@@ -846,7 +846,7 @@ export function ArenaBuilder() {
                   <p className="font-semibold">
                     #{entry.rank} {entry.displayName}
                   </p>
-                  <p className="text-stone-600">Rating {entry.rating} · Streak {entry.currentStreak}</p>
+                  <p className="text-stone-600">积分 {entry.rating} · 连胜 {entry.currentStreak}</p>
                 </div>
               ))}
             </div>
@@ -855,9 +855,9 @@ export function ArenaBuilder() {
 
         {preview ? (
           <section className="entry-fade paper-panel rounded-[1.75rem] p-6">
-            <p className="text-xs uppercase tracking-[0.22em] text-stone-500">Preview</p>
+            <p className="text-xs uppercase tracking-[0.22em] text-stone-500">预览</p>
             <h2 className="section-title mt-2">
-              {preview.player.displayName} vs {preview.defender.displayName}
+              {preview.player.displayName} 对阵 {preview.defender.displayName}
             </h2>
             <p className="mt-3 text-sm leading-7 text-stone-700">{preview.matchUpCallout}</p>
             <div className="mt-5 grid gap-4 md:grid-cols-2">
@@ -868,7 +868,7 @@ export function ArenaBuilder() {
                   </p>
                   <p className="mt-2 text-sm text-stone-600">{fighter.declaration}</p>
                   <p className="mt-3 text-xs uppercase tracking-[0.18em] text-stone-500">
-                    Provider {fighter.source.provider} · Version {fighter.source.configVersion ?? "live"}
+                    来源 {fighter.source.provider} · 版本 {fighter.source.configVersion ?? "当前"}
                     {fighter.source.displayId ? ` · @${fighter.source.displayId}` : ""}
                   </p>
                   <div className="mt-3 space-y-2 text-sm text-stone-600">
