@@ -120,6 +120,10 @@ function drawStage(
   winnerName: string,
   winnerCrown: HTMLImageElement | null,
   koExplosion: HTMLImageElement | null,
+  hitEffect: HTMLImageElement | null,
+  energyOrb: HTMLImageElement | null,
+  fightText: HTMLImageElement | null,
+  roundBanner: HTMLImageElement | null,
 ) {
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
@@ -565,8 +569,8 @@ function drawStage(
 
     // ── AI SPRITE (full-body image, drawn instead of stick figure) ──
     if (sprite) {
-      const spriteH = 260;
-      const spriteW = 260;
+      const spriteH = 320;
+      const spriteW = 320;
       const spriteX = cx - spriteW / 2;
       const spriteY = groundY - spriteH;
 
@@ -799,14 +803,27 @@ function drawStage(
     const toX = actorIsPlayer ? W - 285 : 285;
     const orbY = floorY - 170;
     const orbX = (fromX + toX) / 2;
-    const orbGlow2 = ctx.createRadialGradient(orbX, orbY, 0, orbX, orbY, 65);
-    orbGlow2.addColorStop(0, "rgba(255,220,0,0.9)");
-    orbGlow2.addColorStop(0.35, "rgba(255,80,0,0.45)");
+    // Orb glow halo (always drawn)
+    const orbGlow2 = ctx.createRadialGradient(orbX, orbY, 0, orbX, orbY, 80);
+    orbGlow2.addColorStop(0, "rgba(255,220,0,0.85)");
+    orbGlow2.addColorStop(0.4, "rgba(255,80,0,0.4)");
     orbGlow2.addColorStop(1, "transparent");
-    ctx.fillStyle = orbGlow2; ctx.fillRect(orbX - 65, orbY - 65, 130, 130);
-    ctx.beginPath(); ctx.arc(orbX, orbY, 20, 0, Math.PI * 2);
-    ctx.fillStyle = "#ffd700"; ctx.shadowColor = "rgba(255,215,0,1)"; ctx.shadowBlur = 30;
-    ctx.fill(); ctx.shadowBlur = 0;
+    ctx.fillStyle = orbGlow2; ctx.fillRect(orbX - 80, orbY - 80, 160, 160);
+    // Use AI orb image if loaded, else canvas arc
+    if (energyOrb) {
+      ctx.save();
+      ctx.globalAlpha = 0.92;
+      ctx.shadowColor = "rgba(255,200,0,1)"; ctx.shadowBlur = 40;
+      // Pulsating rotation animation
+      ctx.translate(orbX, orbY);
+      ctx.rotate((animTime * 0.002) % (Math.PI * 2));
+      ctx.drawImage(energyOrb, -40, -40, 80, 80);
+      ctx.restore();
+    } else {
+      ctx.beginPath(); ctx.arc(orbX, orbY, 20, 0, Math.PI * 2);
+      ctx.fillStyle = "#ffd700"; ctx.shadowColor = "rgba(255,215,0,1)"; ctx.shadowBlur = 30;
+      ctx.fill(); ctx.shadowBlur = 0;
+    }
     // Orb trail
     ctx.save(); ctx.strokeStyle = "rgba(255,160,0,0.45)"; ctx.lineWidth = 10; ctx.lineCap = "round";
     ctx.beginPath(); ctx.moveTo(fromX, orbY + 30); ctx.quadraticCurveTo((fromX + orbX) / 2, orbY - 25, orbX, orbY);
@@ -842,15 +859,27 @@ function drawStage(
     }
 
   } else if (isMeleeHit) {
-    // Melee impact sparks
+    // Melee impact — use AI hit effect image if loaded
     const impX2 = actorIsPlayer ? 480 : W - 480;
     const impY2 = floorY - 180;
-    for (const r of [16, 34, 52]) {
-      ctx.beginPath(); ctx.arc(impX2, impY2, r, 0, Math.PI * 2);
-      ctx.strokeStyle = `rgba(255,70,0,${0.65 - r * 0.009})`; ctx.lineWidth = 3;
-      ctx.shadowColor = "rgba(255,50,0,0.6)"; ctx.shadowBlur = 10; ctx.stroke(); ctx.shadowBlur = 0;
+    if (hitEffect) {
+      ctx.save();
+      const effectAlpha = Math.max(0, 1 - poseAge / 500);
+      ctx.globalAlpha = effectAlpha;
+      ctx.shadowColor = "rgba(255,80,0,1)"; ctx.shadowBlur = 30;
+      // Slight scale pulse
+      const effectScale = 1 + 0.15 * Math.sin(poseAge * 0.015);
+      const effectSize = 180 * effectScale;
+      ctx.drawImage(hitEffect, impX2 - effectSize / 2, impY2 - effectSize / 2, effectSize, effectSize);
+      ctx.restore();
+    } else {
+      for (const r of [16, 34, 52]) {
+        ctx.beginPath(); ctx.arc(impX2, impY2, r, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(255,70,0,${0.65 - r * 0.009})`; ctx.lineWidth = 3;
+        ctx.shadowColor = "rgba(255,50,0,0.6)"; ctx.shadowBlur = 10; ctx.stroke(); ctx.shadowBlur = 0;
+      }
     }
-    // Spark rays
+    // Spark rays (always drawn for kinetic feel)
     const sparkA = [0, 0.45, 1.0, 1.6, 2.2, 2.8, 3.4, 4.0, 4.7, 5.3];
     for (const a of sparkA) {
       const len = 22 + Math.sin(a * 2.7) * 14;
@@ -1027,19 +1056,39 @@ function drawStage(
   if (announcer && announcer.alpha > 0) {
     ctx.save();
     ctx.globalAlpha = announcer.alpha;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    const fontSize = Math.floor(120 * announcer.scale);
-    ctx.font = `bold ${fontSize}px Impact, "Arial Black", sans-serif`;
-    ctx.strokeStyle = "#000";
-    ctx.lineWidth = 10;
-    ctx.strokeText(announcer.text, W / 2, H / 2);
-    ctx.fillStyle = announcer.color;
-    ctx.shadowColor = announcer.color === "#ffd700" ? "rgba(255,200,0,1)" : "rgba(255,30,0,1)";
-    ctx.shadowBlur = 50;
-    ctx.fillText(announcer.text, W / 2, H / 2);
-    ctx.shadowBlur = 0;
-    ctx.textBaseline = "alphabetic";
+
+    // Use AI images for FIGHT! and ROUND announcements, canvas text for others
+    const isFightAnnounce = announcer.text === "FIGHT!" && fightText;
+    const isRoundAnnounce = announcer.text.startsWith("ROUND") && roundBanner;
+    if (isFightAnnounce && fightText) {
+      const imgW = 480 * announcer.scale;
+      const imgH = imgW * (fightText.naturalHeight / Math.max(1, fightText.naturalWidth));
+      ctx.shadowColor = "rgba(255,30,0,1)";
+      ctx.shadowBlur = 60;
+      ctx.drawImage(fightText, W / 2 - imgW / 2, H / 2 - imgH / 2, imgW, imgH);
+      ctx.shadowBlur = 0;
+    } else if (isRoundAnnounce && roundBanner) {
+      const bannerW = 520 * announcer.scale;
+      const bannerH = bannerW * (roundBanner.naturalHeight / Math.max(1, roundBanner.naturalWidth));
+      ctx.shadowColor = "rgba(255,200,0,0.8)";
+      ctx.shadowBlur = 40;
+      ctx.drawImage(roundBanner, W / 2 - bannerW / 2, H / 2 - bannerH / 2, bannerW, bannerH);
+      ctx.shadowBlur = 0;
+    } else {
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      const fontSize = Math.floor(120 * announcer.scale);
+      ctx.font = `bold ${fontSize}px Impact, "Arial Black", sans-serif`;
+      ctx.strokeStyle = "#000";
+      ctx.lineWidth = 10;
+      ctx.strokeText(announcer.text, W / 2, H / 2);
+      ctx.fillStyle = announcer.color;
+      ctx.shadowColor = announcer.color === "#ffd700" ? "rgba(255,200,0,1)" : "rgba(255,30,0,1)";
+      ctx.shadowBlur = 50;
+      ctx.fillText(announcer.text, W / 2, H / 2);
+      ctx.shadowBlur = 0;
+      ctx.textBaseline = "alphabetic";
+    }
     ctx.restore();
   }
 }
@@ -1136,6 +1185,10 @@ export function BattleReplay({ battleId }: { battleId: string }) {
   const arenaFloorRef = useRef<HTMLImageElement | null>(null);
   const winnerCrownRef = useRef<HTMLImageElement | null>(null);
   const koExplosionRef = useRef<HTMLImageElement | null>(null);
+  const hitEffectRef = useRef<HTMLImageElement | null>(null);
+  const energyOrbRef = useRef<HTMLImageElement | null>(null);
+  const fightTextRef = useRef<HTMLImageElement | null>(null);
+  const roundBannerRef = useRef<HTMLImageElement | null>(null);
   const animFrameRef = useRef(0);
   const replayStateRef = useRef<ReplayState | null>(null);
   const poseStartTimeRef = useRef(0);
@@ -1196,18 +1249,33 @@ export function BattleReplay({ battleId }: { battleId: string }) {
   }, [battleId]);
 
   // Load fighter avatars + AI sprites from localStorage (alpha=player, beta=defender)
+  // Falls back to server-side default sprites if localStorage is empty
   useEffect(() => {
-    const loadImg = (key: string, ref: React.MutableRefObject<HTMLImageElement | null>) => {
-      const dataUrl = localStorage.getItem(key);
-      if (!dataUrl) return;
+    const loadImgFromUrl = (url: string, ref: React.MutableRefObject<HTMLImageElement | null>) => {
       const img = new Image();
       img.onload = () => { ref.current = img; };
-      img.src = dataUrl;
+      img.onerror = () => { ref.current = null; };
+      img.src = url;
     };
-    loadImg("soul-arena:avatar:alpha", playerAvatarRef);
-    loadImg("soul-arena:avatar:beta", defenderAvatarRef);
-    loadImg("soul-arena:sprite:alpha", playerSpriteRef);
-    loadImg("soul-arena:sprite:beta", defenderSpriteRef);
+
+    const loadImgWithFallback = (
+      key: string,
+      ref: React.MutableRefObject<HTMLImageElement | null>,
+      fallbackUrl: string,
+    ) => {
+      const dataUrl = localStorage.getItem(key);
+      if (dataUrl) {
+        loadImgFromUrl(dataUrl, ref);
+      } else {
+        // Fall back to server-side generated sprite
+        loadImgFromUrl(fallbackUrl, ref);
+      }
+    };
+
+    loadImgWithFallback("soul-arena:avatar:alpha", playerAvatarRef, "");
+    loadImgWithFallback("soul-arena:avatar:beta", defenderAvatarRef, "");
+    loadImgWithFallback("soul-arena:sprite:alpha", playerSpriteRef, "/sprite-alpha.png");
+    loadImgWithFallback("soul-arena:sprite:beta", defenderSpriteRef, "/sprite-beta.png");
   }, []);
 
   // Preload AI-generated arena background and floor assets
@@ -1222,6 +1290,10 @@ export function BattleReplay({ battleId }: { battleId: string }) {
     loadStaticImg("/arena-floor.png", arenaFloorRef);
     loadStaticImg("/winner-crown.png", winnerCrownRef);
     loadStaticImg("/ko-explosion.png", koExplosionRef);
+    loadStaticImg("/hit-effect.png", hitEffectRef);
+    loadStaticImg("/energy-orb.png", energyOrbRef);
+    loadStaticImg("/fight-text.png", fightTextRef);
+    loadStaticImg("/round-banner.png", roundBannerRef);
   }, []);
 
   const winnerCompetitorId = useMemo(() => {
@@ -1391,6 +1463,10 @@ export function BattleReplay({ battleId }: { battleId: string }) {
           winnerName,
           winnerCrownRef.current,
           koExplosionRef.current,
+          hitEffectRef.current,
+          energyOrbRef.current,
+          fightTextRef.current,
+          roundBannerRef.current,
         );
       }
       animFrameRef.current = requestAnimationFrame(loop);

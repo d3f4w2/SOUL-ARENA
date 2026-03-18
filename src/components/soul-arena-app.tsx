@@ -81,8 +81,29 @@ export function SoulArenaApp() {
       <div className="mx-auto flex max-w-7xl flex-col gap-6">
 
         {/* ── HERO ── */}
-        <section className="entry-fade hero-particles mk-panel px-8 py-10 sm:px-12" style={{ position: 'relative' }}>
-          {/* Arena logo background element */}
+        <section className="entry-fade hero-particles mk-panel px-8 py-10 sm:px-12" style={{ position: 'relative', overflow: 'hidden' }}>
+          {/* Soul Arena title art — wide atmospheric background */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/soul-arena-title.png"
+            alt=""
+            aria-hidden="true"
+            style={{
+              position: 'absolute',
+              right: 0,
+              top: 0,
+              width: '55%',
+              height: '100%',
+              objectFit: 'cover',
+              objectPosition: 'center top',
+              opacity: 0.18,
+              pointerEvents: 'none',
+              maskImage: 'linear-gradient(to left, rgba(0,0,0,0.7) 0%, transparent 100%)',
+              WebkitMaskImage: 'linear-gradient(to left, rgba(0,0,0,0.7) 0%, transparent 100%)',
+              zIndex: 0,
+            }}
+          />
+          {/* Arena logo watermark */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/arena-logo.png"
@@ -94,7 +115,7 @@ export function SoulArenaApp() {
               top: '-20px',
               width: '280px',
               height: '280px',
-              opacity: 0.07,
+              opacity: 0.06,
               pointerEvents: 'none',
               filter: 'saturate(0) brightness(2)',
               zIndex: 0,

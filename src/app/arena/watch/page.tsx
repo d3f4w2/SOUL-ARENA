@@ -137,8 +137,8 @@ export default function WatchPage() {
       style={{
         color: "var(--text)",
         backgroundImage: `
-          url('/arena-bg.png'),
-          radial-gradient(ellipse at 50% 0%, rgba(139,0,0,0.5) 0%, transparent 60%),
+          url('/watch-bg.png'),
+          radial-gradient(ellipse at 50% 0%, rgba(139,0,0,0.4) 0%, transparent 60%),
           linear-gradient(180deg, #060008 0%, #0a0010 60%, #050007 100%)
         `,
         backgroundSize: "cover, auto, auto",
