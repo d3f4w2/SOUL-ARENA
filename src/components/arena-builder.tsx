@@ -410,6 +410,122 @@ function BuildDerivationPanel({
   );
 }
 
+// ── Avatar uploader + AI sprite ──────────────────────────────────
+const avatarStorageKey = (slot: "alpha" | "beta") => `soul-arena:avatar:${slot}`;
+const spriteStorageKey = (slot: "alpha" | "beta") => `soul-arena:sprite:${slot}`;
+
+function AvatarUploader({
+  slot, isAlpha, participantName, participantTags,
+}: {
+  slot: "alpha" | "beta";
+  isAlpha: boolean;
+  participantName: string | null;
+  participantTags: string[];
+}) {
+  const [dataUrl, setDataUrl] = useState<string | null>(() =>
+    typeof window !== "undefined" ? localStorage.getItem(avatarStorageKey(slot)) : null,
+  );
+  const [spriteUrl, setSpriteUrl] = useState<string | null>(() =>
+    typeof window !== "undefined" ? localStorage.getItem(spriteStorageKey(slot)) : null,
+  );
+  const [generating, setGenerating] = useState(false);
+  const accent = isAlpha ? "var(--red)" : "var(--gold)";
+  const accentGlow = isAlpha ? "rgba(200,0,0,0.55)" : "rgba(212,160,0,0.5)";
+
+  const displayed = dataUrl ?? spriteUrl;
+
+  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      localStorage.setItem(avatarStorageKey(slot), result);
+      setDataUrl(result);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleClear = () => {
+    localStorage.removeItem(avatarStorageKey(slot));
+    setDataUrl(null);
+  };
+
+  const handleGenerateSprite = async () => {
+    setGenerating(true);
+    try {
+      const res = await fetch("/api/arena/generate-sprite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: participantName ?? slot, tags: participantTags, slot }),
+      });
+      if (res.ok) {
+        const { dataUrl: generated } = (await res.json()) as { dataUrl?: string };
+        if (generated) {
+          localStorage.setItem(spriteStorageKey(slot), generated);
+          setSpriteUrl(generated);
+        }
+      }
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const handleClearSprite = () => {
+    localStorage.removeItem(spriteStorageKey(slot));
+    setSpriteUrl(null);
+  };
+
+  return (
+    <div className="flex flex-col items-center gap-2">
+      {/* Portrait / sprite preview */}
+      <div style={{
+        width: '88px', height: '88px', borderRadius: '50%',
+        border: `3px solid ${accent}`,
+        boxShadow: `0 0 16px ${accentGlow}, inset 0 0 10px rgba(0,0,0,0.8)`,
+        overflow: 'hidden', background: 'rgba(0,0,0,0.7)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+      }}>
+        {displayed ? (
+          <img alt="fighter" src={displayed} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        ) : generating ? (
+          <span style={{ fontFamily: "'Courier New', monospace", fontSize: '0.55rem', color: accent, textAlign: 'center', padding: '4px' }}>生成中…</span>
+        ) : (
+          <span style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '2.2rem', color: accent, opacity: 0.35 }}>?</span>
+        )}
+      </div>
+
+      {/* Upload avatar */}
+      <div className="flex gap-1 flex-wrap justify-center">
+        <label style={{ fontFamily: "'Courier New', monospace", fontSize: '0.62rem', letterSpacing: '0.08em', color: accent, border: `1px solid ${accentGlow}`, padding: '3px 7px', cursor: 'pointer', background: 'rgba(0,0,0,0.5)' }}>
+          上传头像
+          <input accept="image/*" style={{ display: 'none' }} type="file" onChange={handleFile} />
+        </label>
+        {dataUrl && (
+          <button onClick={handleClear} style={{ fontFamily: "'Courier New', monospace", fontSize: '0.62rem', color: 'var(--text-muted)', border: '1px solid rgba(60,0,0,0.3)', padding: '3px 7px', background: 'rgba(0,0,0,0.4)', cursor: 'pointer' }} type="button">移除</button>
+        )}
+      </div>
+
+      {/* AI Sprite generation */}
+      {participantName && (
+        <div className="flex gap-1 flex-wrap justify-center">
+          <button
+            disabled={generating}
+            onClick={() => void handleGenerateSprite()}
+            style={{ fontFamily: "'Courier New', monospace", fontSize: '0.6rem', letterSpacing: '0.06em', color: generating ? 'var(--text-muted)' : accent, border: `1px solid ${generating ? 'rgba(60,0,0,0.2)' : accentGlow}`, padding: '3px 7px', background: 'rgba(0,0,0,0.5)', cursor: generating ? 'default' : 'pointer' }}
+            type="button"
+          >
+            {generating ? "生成中…" : spriteUrl ? "重新生成" : "AI 生成角色"}
+          </button>
+          {spriteUrl && !dataUrl && (
+            <button onClick={handleClearSprite} style={{ fontFamily: "'Courier New', monospace", fontSize: '0.6rem', color: 'var(--text-muted)', border: '1px solid rgba(60,0,0,0.2)', padding: '3px 7px', background: 'rgba(0,0,0,0.4)', cursor: 'pointer' }} type="button">清除</button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Fighter info card (shared for alpha & beta) ──────────────────
 function FighterCard({
   participant,
@@ -442,13 +558,21 @@ function FighterCard({
     <article className={`${panelClass} p-6 flex flex-col gap-5`}>
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <div className="mk-label mb-2" style={{ color: labelColor }}>
-            {participantTitle(slot)}
+        <div className="flex items-start gap-4">
+          <AvatarUploader
+            isAlpha={isAlpha}
+            participantName={participant?.displayName ?? null}
+            participantTags={topShades(participant)}
+            slot={slot}
+          />
+          <div>
+            <div className="mk-label mb-2" style={{ color: labelColor }}>
+              {participantTitle(slot)}
+            </div>
+            <p style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '1.3rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: accentColor, textShadow: isAlpha ? '0 0 12px rgba(200,0,0,0.4)' : '0 0 12px rgba(255,215,0,0.35)' }}>
+              {participantSubtitle(participant)}
+            </p>
           </div>
-          <p style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '1.3rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: accentColor, textShadow: isAlpha ? '0 0 12px rgba(200,0,0,0.4)' : '0 0 12px rgba(255,215,0,0.35)' }}>
-            {participantSubtitle(participant)}
-          </p>
         </div>
         <div className="flex flex-wrap gap-2">
           {!participant?.connected ? (

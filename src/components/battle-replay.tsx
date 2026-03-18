@@ -86,215 +86,543 @@ function drawStage(
   canvas: HTMLCanvasElement,
   battle: BattlePackage,
   replayState: ReplayState,
+  playerAvatar: HTMLImageElement | null,
+  defenderAvatar: HTMLImageElement | null,
+  playerSprite: HTMLImageElement | null,
+  defenderSprite: HTMLImageElement | null,
 ) {
-  const context = canvas.getContext("2d");
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
 
-  if (!context) {
-    return;
-  }
-
-  const { width, height } = canvas;
+  const W = canvas.width;
+  const H = canvas.height;
   const { currentEvent } = replayState;
+  const evType = currentEvent?.type ?? "";
+  const actorIsPlayer = currentEvent?.actorId === battle.player.id;
+  const targetIsPlayer = currentEvent?.targetId === battle.player.id;
+  const targetIsDefender = currentEvent?.targetId === battle.defender.id;
 
-  // Dark MK background
-  const bgGrad = context.createLinearGradient(0, 0, width, height);
-  bgGrad.addColorStop(0, "#030008");
-  bgGrad.addColorStop(0.4, "#0a0010");
-  bgGrad.addColorStop(0.7, "#100005");
-  bgGrad.addColorStop(1, "#060003");
-  context.fillStyle = bgGrad;
-  context.fillRect(0, 0, width, height);
+  // ── 1. ARENA BACKGROUND ────────────────────────────────────────
+  const bg = ctx.createLinearGradient(0, 0, 0, H);
+  bg.addColorStop(0, "#06000e");
+  bg.addColorStop(0.55, "#10000a");
+  bg.addColorStop(1, "#180004");
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
 
-  // Top red glow
-  const topGlow = context.createRadialGradient(width / 2, 0, 0, width / 2, 0, width * 0.6);
-  topGlow.addColorStop(0, "rgba(139,0,0,0.35)");
-  topGlow.addColorStop(1, "transparent");
-  context.fillStyle = topGlow;
-  context.fillRect(0, 0, width, height / 2);
-
-  // Scanline effect
-  for (let y = 0; y < height; y += 4) {
-    context.fillStyle = "rgba(0,0,0,0.07)";
-    context.fillRect(0, y, width, 2);
+  // Back wall
+  const wallGrad = ctx.createLinearGradient(0, 90, 0, 500);
+  wallGrad.addColorStop(0, "#1c0007");
+  wallGrad.addColorStop(1, "#0a0002");
+  ctx.fillStyle = wallGrad;
+  ctx.fillRect(0, 90, W, 430);
+  // Wall horizontal lines (stone texture)
+  for (let y = 105; y < 500; y += 26) {
+    ctx.fillStyle = "rgba(0,0,0,0.18)";
+    ctx.fillRect(0, y, W, 1);
   }
 
-  // Title bar
-  context.fillStyle = "rgba(0,0,0,0.6)";
-  context.fillRect(0, 0, width, 80);
-  context.fillStyle = "rgba(139,0,0,0.5)";
-  context.fillRect(0, 78, width, 2);
+  // Pillars (4)
+  for (const px of [70, 230, W - 230, W - 70]) {
+    const pg = ctx.createLinearGradient(px - 22, 0, px + 22, 0);
+    pg.addColorStop(0, "#0a0002");
+    pg.addColorStop(0.35, "#280009");
+    pg.addColorStop(0.65, "#1c0006");
+    pg.addColorStop(1, "#060001");
+    ctx.fillStyle = pg;
+    ctx.fillRect(px - 22, 90, 44, 430);
+    // Pillar inner glow line
+    ctx.fillStyle = "rgba(180,0,0,0.12)";
+    ctx.fillRect(px - 2, 90, 4, 430);
+    // Torch at top
+    const tg = ctx.createRadialGradient(px, 115, 2, px, 115, 38);
+    tg.addColorStop(0, "rgba(255,110,0,0.85)");
+    tg.addColorStop(0.45, "rgba(200,20,0,0.3)");
+    tg.addColorStop(1, "transparent");
+    ctx.fillStyle = tg;
+    ctx.fillRect(px - 38, 77, 76, 76);
+    // Flame
+    ctx.beginPath();
+    ctx.moveTo(px - 7, 125);
+    ctx.quadraticCurveTo(px - 12, 102, px, 90);
+    ctx.quadraticCurveTo(px + 12, 102, px + 7, 125);
+    ctx.closePath();
+    ctx.fillStyle = "rgba(255,140,0,0.9)";
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(px - 4, 120);
+    ctx.quadraticCurveTo(px, 104, px + 4, 120);
+    ctx.closePath();
+    ctx.fillStyle = "rgba(255,230,100,0.85)";
+    ctx.fill();
+  }
 
-  // Soul Arena title
-  context.fillStyle = "#ff2200";
-  context.font = "700 48px Impact, Arial Black, sans-serif";
-  context.textAlign = "center";
-  context.shadowColor = "rgba(255,30,0,0.7)";
-  context.shadowBlur = 20;
-  context.fillText("SOUL ARENA", width / 2, 56);
-  context.shadowBlur = 0;
+  // Crowd silhouettes (two rows)
+  ctx.fillStyle = "rgba(0,0,0,0.8)";
+  for (let i = 0; i < 58; i++) {
+    const cx2 = 18 + i * 22 + (i % 3) * 3;
+    const cy2 = 380 + Math.sin(i * 0.7) * 7;
+    const r2 = 8 + Math.sin(i * 1.2) * 2;
+    ctx.beginPath(); ctx.arc(cx2, cy2, r2, 0, Math.PI * 2); ctx.fill();
+    ctx.fillRect(cx2 - 5, cy2 + r2, 10, 15);
+  }
+  for (let i = 0; i < 54; i++) {
+    const cx2 = 28 + i * 23;
+    const cy2 = 403 + Math.sin(i * 0.9) * 5;
+    const r2 = 7 + Math.sin(i * 1.5) * 2;
+    ctx.beginPath(); ctx.arc(cx2, cy2, r2, 0, Math.PI * 2); ctx.fill();
+    ctx.fillRect(cx2 - 4, cy2 + r2, 8, 13);
+  }
 
-  // Topic
-  context.font = "500 18px 'Courier New', monospace";
-  context.fillStyle = "rgba(232,212,184,0.6)";
-  context.fillText(battle.topic.title, width / 2, 100);
+  // Floor
+  const floorY = 555;
+  const floorGrad = ctx.createLinearGradient(0, floorY, 0, H);
+  floorGrad.addColorStop(0, "#180004");
+  floorGrad.addColorStop(0.25, "#0c0002");
+  floorGrad.addColorStop(1, "#050001");
+  ctx.fillStyle = floorGrad;
+  ctx.fillRect(0, floorY, W, H - floorY);
+  // Floor edge glow
+  const floorEdge = ctx.createLinearGradient(0, floorY, 0, floorY + 55);
+  floorEdge.addColorStop(0, "rgba(200,0,0,0.18)");
+  floorEdge.addColorStop(1, "transparent");
+  ctx.fillStyle = floorEdge;
+  ctx.fillRect(0, floorY, W, 55);
+  ctx.fillStyle = "rgba(180,0,0,0.55)";
+  ctx.fillRect(0, floorY, W, 2);
+  // Perspective floor lines
+  ctx.save();
+  ctx.strokeStyle = "rgba(90,0,20,0.18)";
+  ctx.lineWidth = 1;
+  for (let x = 0; x < W; x += 90) {
+    ctx.beginPath(); ctx.moveTo(x, floorY); ctx.lineTo(W / 2, H + 120); ctx.stroke();
+  }
+  ctx.restore();
 
-  // Round indicator
-  context.font = "700 22px Impact, Arial Black, sans-serif";
-  context.fillStyle = "#d4a000";
-  context.shadowColor = "rgba(212,160,0,0.6)";
-  context.shadowBlur = 10;
-  context.fillText(`ROUND ${Math.max(1, replayState.round)}`, width / 2, 138);
-  context.shadowBlur = 0;
-  context.textAlign = "left";
+  // Scanlines
+  for (let y = 0; y < H; y += 4) {
+    ctx.fillStyle = "rgba(0,0,0,0.05)"; ctx.fillRect(0, y, W, 2);
+  }
 
-  // ─── Fighter panel helper ───
-  const drawFighter = (
-    x: number,
-    fighter: BattlePackage["player"],
-    health: number,
-    score: number,
-    align: "left" | "right",
+  // ── 2. HUD BAR ─────────────────────────────────────────────────
+  const hudH = 82;
+  ctx.fillStyle = "rgba(0,0,0,0.88)";
+  ctx.fillRect(0, 0, W, hudH);
+  ctx.fillStyle = "rgba(140,0,0,0.65)";
+  ctx.fillRect(0, hudH - 2, W, 2);
+
+  // Player name
+  ctx.font = "700 19px Impact, Arial Black, sans-serif";
+  ctx.fillStyle = "#ff3300";
+  ctx.textAlign = "left";
+  ctx.shadowColor = "rgba(255,40,0,0.8)";
+  ctx.shadowBlur = 10;
+  ctx.fillText(battle.player.displayName.toUpperCase(), 18, 26);
+  ctx.shadowBlur = 0;
+  // Defender name
+  ctx.font = "700 19px Impact, Arial Black, sans-serif";
+  ctx.fillStyle = "#ffd700";
+  ctx.textAlign = "right";
+  ctx.shadowColor = "rgba(255,215,0,0.8)";
+  ctx.shadowBlur = 10;
+  ctx.fillText(battle.defender.displayName.toUpperCase(), W - 18, 26);
+  ctx.shadowBlur = 0;
+
+  // Center: SOUL ARENA + round
+  ctx.textAlign = "center";
+  ctx.font = "700 15px Impact, Arial Black, sans-serif";
+  ctx.fillStyle = "#ff2200";
+  ctx.shadowColor = "rgba(255,30,0,0.7)";
+  ctx.shadowBlur = 8;
+  ctx.fillText("SOUL ARENA", W / 2, 20);
+  ctx.shadowBlur = 0;
+  ctx.font = "700 12px Impact, Arial Black, sans-serif";
+  ctx.fillStyle = "#d4a000";
+  ctx.fillText(`ROUND ${Math.max(1, replayState.round)}`, W / 2, 36);
+  ctx.font = "500 11px 'Courier New', monospace";
+  ctx.fillStyle = "rgba(232,212,184,0.5)";
+  ctx.fillText(battle.topic.title, W / 2, 52);
+
+  // Health bars
+  const barPad = 18;
+  const barW2 = W / 2 - 110;
+  const barY2 = 56;
+  const barH2 = 18;
+  // Player bar (left→right)
+  ctx.fillStyle = "rgba(0,0,0,0.8)"; ctx.fillRect(barPad, barY2, barW2, barH2);
+  const pFill = (barW2 * replayState.playerHealth) / 100;
+  const pBarGrad = ctx.createLinearGradient(barPad, 0, barPad + barW2, 0);
+  pBarGrad.addColorStop(0, "#8b0000"); pBarGrad.addColorStop(1, "#ff2200");
+  ctx.fillStyle = pBarGrad; ctx.fillRect(barPad, barY2, pFill, barH2);
+  ctx.fillStyle = "rgba(255,255,255,0.14)"; ctx.fillRect(barPad, barY2, pFill, 5);
+  ctx.textAlign = "left"; ctx.font = "500 10px 'Courier New', monospace";
+  ctx.fillStyle = "rgba(232,212,184,0.7)";
+  ctx.fillText(`${replayState.playerHealth}%`, barPad + 4, barY2 + barH2 - 3);
+  // Defender bar (right→left)
+  const defBarX2 = W - barPad - barW2;
+  ctx.fillStyle = "rgba(0,0,0,0.8)"; ctx.fillRect(defBarX2, barY2, barW2, barH2);
+  const dFill = (barW2 * replayState.defenderHealth) / 100;
+  const dBarGrad = ctx.createLinearGradient(W - barPad - dFill, 0, W - barPad, 0);
+  dBarGrad.addColorStop(0, "#7a5500"); dBarGrad.addColorStop(1, "#ffd700");
+  ctx.fillStyle = dBarGrad; ctx.fillRect(W - barPad - dFill, barY2, dFill, barH2);
+  ctx.fillStyle = "rgba(255,255,255,0.14)"; ctx.fillRect(W - barPad - dFill, barY2, dFill, 5);
+  ctx.textAlign = "right"; ctx.font = "500 10px 'Courier New', monospace";
+  ctx.fillStyle = "rgba(232,212,184,0.7)";
+  ctx.fillText(`${replayState.defenderHealth}%`, W - barPad - 4, barY2 + barH2 - 3);
+
+  // ── 3. FIGHTER FIGURES ─────────────────────────────────────────
+  type FightPose = "idle" | "melee_attack" | "ranged_attack" | "hit" | "big_hit" | "defend" | "victory";
+
+  let playerPose: FightPose = "idle";
+  let defenderPose: FightPose = "idle";
+  if (actorIsPlayer) {
+    playerPose = evType === "weakness_hit" ? "ranged_attack" : evType === "defense" ? "defend" : "melee_attack";
+  } else if (currentEvent?.actorId === battle.defender.id) {
+    defenderPose = evType === "weakness_hit" ? "ranged_attack" : evType === "defense" ? "defend" : "melee_attack";
+  }
+  if (targetIsPlayer) {
+    playerPose = playerPose === "idle" ? (evType === "weakness_hit" ? "big_hit" : "hit") : playerPose;
+  }
+  if (targetIsDefender) {
+    defenderPose = defenderPose === "idle" ? (evType === "weakness_hit" ? "big_hit" : "hit") : defenderPose;
+  }
+  const isGameOver = replayState.playerHealth === 0 || replayState.defenderHealth === 0;
+  if (isGameOver) {
+    playerPose = replayState.playerHealth >= replayState.defenderHealth ? "victory" : "big_hit";
+    defenderPose = replayState.defenderHealth >= replayState.playerHealth ? "victory" : "big_hit";
+  }
+
+  const drawFighterFigure = (
+    cx: number, groundY: number,
+    facing: 1 | -1,
+    pose: FightPose,
+    bodyColor: string, glowColor: string,
+    avatar: HTMLImageElement | null,
+    sprite: HTMLImageElement | null,
+    displayName: string, score: number,
   ) => {
-    const pw = 370;
-    const ph = 440;
-    const isRight = align === "right";
-    const accentColor = isRight ? "#d4a000" : "#cc0000";
-    const accentDim = isRight ? "rgba(180,120,0,0.3)" : "rgba(139,0,0,0.3)";
-    const accentGlow = isRight ? "rgba(212,160,0,0.5)" : "rgba(255,30,0,0.5)";
+    const f = facing;
+    const headR = 27;
+    const shoulderW = 66;
+    const waistW = 42;
+    const torsoH = 76;
+    const thighH = 70;
+    const shinH = 64;
+    const armUpperH = 52;
+    const limbW = 20;
 
-    // Panel bg
-    const panelGrad = context.createLinearGradient(x, 160, x, 160 + ph);
-    panelGrad.addColorStop(0, "rgba(18,0,10,0.96)");
-    panelGrad.addColorStop(1, "rgba(6,0,3,0.98)");
-    context.fillStyle = panelGrad;
-    context.fillRect(x, 160, pw, ph);
+    const shoulderY = groundY - thighH - shinH - torsoH;
+    const waistY = shoulderY + torsoH;
+    const kneeY = waistY + thighH;
+    const headY = shoulderY - headR - 5;
 
-    // Top accent border
-    context.fillStyle = accentColor;
-    context.fillRect(x, 160, pw, 3);
+    let leanX = 0, leanY = 0;
+    let frontLegX2 = f * 16, backLegX2 = -f * 16;
+    let frontArmX = f * (shoulderW / 2 - 5), backArmX = -f * (shoulderW / 2 - 5);
+    let frontArmEndX = f * (shoulderW / 2 + armUpperH * 0.8), frontArmEndY = shoulderY + armUpperH;
+    let backArmEndX = -f * (shoulderW / 2) * 0.3, backArmEndY = shoulderY + armUpperH * 0.85;
+    let headOffX = 0;
 
-    // Side border
-    context.fillStyle = accentDim;
-    context.fillRect(x, 160, 1, ph);
-    context.fillRect(x + pw - 1, 160, 1, ph);
-
-    // Name
-    context.fillStyle = "#e8d4b8";
-    context.font = "700 28px Impact, Arial Black, sans-serif";
-    context.shadowColor = accentGlow;
-    context.shadowBlur = 12;
-    context.fillText(fighter.displayName, x + 20, 200);
-    context.shadowBlur = 0;
-
-    context.font = "500 15px 'Courier New', monospace";
-    context.fillStyle = accentColor;
-    context.fillText(fighter.powerLabel, x + 20, 222);
-
-    // Health bar track
-    const barX = x + 20;
-    const barW = pw - 40;
-    context.fillStyle = "rgba(0,0,0,0.8)";
-    context.fillRect(barX, 234, barW, 18);
-
-    // Health fill
-    const healthFill = (barW * health) / 100;
-    const hGrad = context.createLinearGradient(barX, 0, barX + healthFill, 0);
-    if (isRight) {
-      hGrad.addColorStop(0, "#7a5500");
-      hGrad.addColorStop(1, "#ffd700");
-    } else {
-      hGrad.addColorStop(0, "#8b0000");
-      hGrad.addColorStop(1, "#ff2200");
+    switch (pose) {
+      case "melee_attack":
+        leanX = f * 30; frontLegX2 = f * 40; backLegX2 = -f * 10;
+        frontArmEndX = cx + f * (shoulderW / 2 + armUpperH * 1.3) - cx + leanX;
+        frontArmEndY = shoulderY + armUpperH * 0.6;
+        headOffX = f * 8; break;
+      case "ranged_attack":
+        leanX = f * 12; leanY = -8;
+        frontArmEndX = f * (shoulderW / 2 + armUpperH * 1.1);
+        frontArmEndY = shoulderY + armUpperH * 0.5;
+        backArmEndX = f * (shoulderW / 2 + armUpperH * 0.7);
+        backArmEndY = shoulderY + armUpperH * 0.65; break;
+      case "hit":
+        leanX = -f * 22;
+        frontArmEndX = -f * 20; frontArmEndY = shoulderY + 30;
+        backArmEndX = -f * 35; backArmEndY = shoulderY + 50;
+        headOffX = -f * 10; break;
+      case "big_hit":
+        leanX = -f * 45; leanY = 10;
+        frontLegX2 = -f * 15; backLegX2 = f * 10;
+        frontArmEndX = -f * 50; frontArmEndY = shoulderY - 10;
+        backArmEndX = f * 60; backArmEndY = shoulderY + 20;
+        headOffX = -f * 18; break;
+      case "defend":
+        leanY = 12; frontLegX2 = f * 20; backLegX2 = -f * 5;
+        frontArmEndX = f * 28; frontArmEndY = shoulderY + 15;
+        backArmEndX = -f * 10; backArmEndY = shoulderY + 10; break;
+      case "victory":
+        frontArmEndX = f * 10; frontArmEndY = shoulderY - armUpperH;
+        backArmEndX = -f * 20; backArmEndY = shoulderY + 30; break;
+      default:
+        frontLegX2 = f * 10; backLegX2 = -f * 12;
+        frontArmEndX = f * (shoulderW / 2 + 22); frontArmEndY = shoulderY + armUpperH * 1.1;
+        backArmEndX = -f * (shoulderW / 2 - 5); backArmEndY = shoulderY + armUpperH * 0.9;
     }
-    context.fillStyle = hGrad;
-    context.fillRect(barX, 234, healthFill, 18);
 
-    // Health bar shine
-    context.fillStyle = "rgba(255,255,255,0.12)";
-    context.fillRect(barX, 234, healthFill, 5);
+    const bx = cx + leanX;
+    const by = leanY;
 
-    // Labels
-    context.font = "500 14px 'Courier New', monospace";
-    context.fillStyle = "#e8d4b8";
-    context.fillText(`HP ${health}`, barX, 272);
-    context.fillStyle = accentColor;
-    context.fillText(`SCORE ${score}`, barX + 180, 272);
+    // Shadow ellipse
+    ctx.beginPath(); ctx.ellipse(cx, groundY + 6, 48, 11, 0, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(0,0,0,0.6)"; ctx.fill();
 
-    // Stats
-    context.font = "500 13px 'Courier New', monospace";
-    formatSoul(fighter.soul).forEach((stat, index) => {
-      const sy = 300 + index * 42;
-      context.fillStyle = "rgba(232,212,184,0.65)";
-      context.fillText(stat.label, barX, sy);
+    // ── AI SPRITE (full-body image, drawn instead of stick figure) ──
+    if (sprite) {
+      const spriteH = 260;
+      const spriteW = 260;
+      const spriteX = cx - spriteW / 2;
+      const spriteY = groundY - spriteH;
 
-      // Stat track
-      context.fillStyle = "rgba(0,0,0,0.7)";
-      context.fillRect(barX + 90, sy - 14, 200, 10);
+      // Pose-based lean / shake
+      let offsetX = 0, offsetY = 0;
+      if (pose === "big_hit") { offsetX = -facing * 28; offsetY = 8; }
+      else if (pose === "melee_attack") { offsetX = facing * 18; }
+      else if (pose === "hit") { offsetX = -facing * 14; }
+      else if (pose === "ranged_attack") { offsetY = -8; }
 
-      // Stat fill
-      const sfGrad = context.createLinearGradient(barX + 90, 0, barX + 290, 0);
-      if (isRight) {
-        sfGrad.addColorStop(0, "rgba(120,80,0,0.8)");
-        sfGrad.addColorStop(1, "#d4a000");
-      } else {
-        sfGrad.addColorStop(0, "rgba(100,0,0,0.8)");
-        sfGrad.addColorStop(1, "#cc0000");
+      ctx.save();
+      // Flip horizontally for defender (facing left)
+      if (facing === -1) {
+        ctx.translate(cx * 2, 0);
+        ctx.scale(-1, 1);
       }
-      context.fillStyle = sfGrad;
-      context.fillRect(barX + 90, sy - 14, (200 * stat.value) / 100, 10);
+      // Apply pose offset
+      ctx.translate(offsetX * facing, offsetY);
 
-      context.fillStyle = "#e8d4b8";
-      context.fillText(String(stat.value), barX + 300, sy);
-    });
+      // Glow halo behind sprite
+      const halo = ctx.createRadialGradient(cx, groundY - spriteH * 0.5, 30, cx, groundY - spriteH * 0.5, 140);
+      halo.addColorStop(0, `${glowColor.replace("0.8", "0.25").replace("0.85", "0.25")}`);
+      halo.addColorStop(1, "transparent");
+      ctx.fillStyle = halo;
+      ctx.fillRect(spriteX - 60, spriteY - 40, spriteW + 120, spriteH + 60);
+
+      // Draw sprite with multiply-like blend
+      ctx.globalCompositeOperation = "source-over";
+      ctx.drawImage(sprite, spriteX, spriteY, spriteW, spriteH);
+
+      // Colored tint overlay on top for team identification
+      ctx.globalCompositeOperation = "color";
+      ctx.globalAlpha = 0.22;
+      ctx.fillStyle = bodyColor;
+      ctx.fillRect(spriteX, spriteY, spriteW, spriteH);
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = "source-over";
+
+      // Avatar face overlay in head area (top-center of sprite)
+      if (avatar) {
+        const faceR = 26;
+        const faceCX = cx;
+        const faceCY = spriteY + 40;
+        ctx.save();
+        ctx.beginPath(); ctx.arc(faceCX, faceCY, faceR, 0, Math.PI * 2); ctx.clip();
+        ctx.drawImage(avatar, faceCX - faceR, faceCY - faceR, faceR * 2, faceR * 2);
+        ctx.restore();
+        ctx.beginPath(); ctx.arc(faceCX, faceCY, faceR, 0, Math.PI * 2);
+        ctx.strokeStyle = bodyColor; ctx.lineWidth = 2; ctx.shadowColor = glowColor; ctx.shadowBlur = 8;
+        ctx.stroke(); ctx.shadowBlur = 0;
+      }
+
+      ctx.restore();
+
+      // Name tag
+      ctx.textAlign = "center";
+      ctx.font = "700 12px Impact, Arial Black, sans-serif";
+      ctx.fillStyle = "rgba(232,212,184,0.85)";
+      ctx.fillText(`${displayName} · ${score}pts`, cx, groundY + 26);
+      return; // skip stick figure
+    }
+
+    // Back leg
+    ctx.save(); ctx.strokeStyle = "rgba(15,0,5,0.92)"; ctx.lineWidth = limbW - 2; ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(bx + backLegX2, waistY + by);
+    ctx.lineTo(bx + backLegX2 * 0.6, kneeY + by + 4);
+    ctx.lineTo(bx + backLegX2 * 0.8, groundY);
+    ctx.stroke(); ctx.restore();
+
+    // Back arm
+    ctx.save(); ctx.strokeStyle = "rgba(10,0,3,0.88)"; ctx.lineWidth = limbW - 4; ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(bx + backArmX, shoulderY + by);
+    ctx.lineTo(bx + backArmEndX, backArmEndY + by);
+    ctx.stroke(); ctx.restore();
+
+    // Torso
+    ctx.beginPath();
+    ctx.moveTo(bx - shoulderW / 2, shoulderY + by);
+    ctx.lineTo(bx + shoulderW / 2, shoulderY + by);
+    ctx.lineTo(bx + waistW / 2, waistY + by);
+    ctx.lineTo(bx - waistW / 2, waistY + by);
+    ctx.closePath();
+    const tg2 = ctx.createLinearGradient(bx - shoulderW / 2, 0, bx + shoulderW / 2, 0);
+    tg2.addColorStop(0, "rgba(6,0,2,0.96)");
+    tg2.addColorStop(0.5, `${bodyColor}28`);
+    tg2.addColorStop(1, "rgba(4,0,1,0.96)");
+    ctx.fillStyle = tg2; ctx.fill();
+    ctx.strokeStyle = bodyColor; ctx.lineWidth = 2.5;
+    ctx.shadowColor = glowColor; ctx.shadowBlur = 12;
+    ctx.stroke(); ctx.shadowBlur = 0;
+
+    // Chest emblem dot
+    ctx.beginPath(); ctx.arc(bx, shoulderY + torsoH * 0.38 + by, 5, 0, Math.PI * 2);
+    ctx.fillStyle = bodyColor; ctx.shadowColor = glowColor; ctx.shadowBlur = 10;
+    ctx.fill(); ctx.shadowBlur = 0;
+
+    // Front leg
+    ctx.save(); ctx.strokeStyle = "rgba(8,0,2,0.95)"; ctx.lineWidth = limbW; ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(bx + frontLegX2, waistY + by);
+    ctx.lineTo(bx + frontLegX2 * 0.9, kneeY + by);
+    ctx.lineTo(bx + frontLegX2 * 1.1, groundY);
+    ctx.stroke();
+    ctx.strokeStyle = bodyColor; ctx.lineWidth = 2; ctx.shadowColor = glowColor; ctx.shadowBlur = 7;
+    ctx.stroke(); ctx.shadowBlur = 0; ctx.restore();
+
+    // Front arm
+    ctx.save(); ctx.strokeStyle = "rgba(8,0,2,0.95)"; ctx.lineWidth = limbW - 2; ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(bx + frontArmX, shoulderY + by);
+    const elbX = bx + frontArmEndX * 0.55 + frontArmX * 0.45;
+    const elbY = (shoulderY + by + frontArmEndY + by) * 0.5 + 8;
+    ctx.quadraticCurveTo(elbX, elbY, bx + frontArmEndX, frontArmEndY + by);
+    ctx.stroke();
+    ctx.strokeStyle = bodyColor; ctx.lineWidth = 2; ctx.shadowColor = glowColor; ctx.shadowBlur = 8;
+    ctx.stroke(); ctx.shadowBlur = 0;
+    // Fist
+    ctx.beginPath(); ctx.arc(bx + frontArmEndX, frontArmEndY + by, 10, 0, Math.PI * 2);
+    ctx.fillStyle = bodyColor; ctx.shadowColor = glowColor; ctx.shadowBlur = 14;
+    ctx.fill(); ctx.shadowBlur = 0; ctx.restore();
+
+    // Head
+    const hx = bx + headOffX, hy = headY + by;
+    ctx.save(); ctx.beginPath(); ctx.arc(hx, hy, headR, 0, Math.PI * 2);
+    if (avatar) {
+      ctx.clip();
+      ctx.drawImage(avatar, hx - headR, hy - headR, headR * 2, headR * 2);
+    } else {
+      ctx.fillStyle = "rgba(12,2,4,0.95)"; ctx.fill();
+      // Eyes
+      ctx.fillStyle = bodyColor; ctx.shadowColor = glowColor; ctx.shadowBlur = 8;
+      ctx.beginPath(); ctx.arc(hx + f * 7, hy - 5, 4, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(hx - f * 3, hy - 5, 3, 0, Math.PI * 2); ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+    ctx.restore();
+    // Head border
+    ctx.beginPath(); ctx.arc(hx, hy, headR, 0, Math.PI * 2);
+    ctx.strokeStyle = bodyColor; ctx.lineWidth = 2.5; ctx.shadowColor = glowColor; ctx.shadowBlur = 14;
+    ctx.stroke(); ctx.shadowBlur = 0;
+
+    // Name tag
+    ctx.textAlign = "center";
+    ctx.font = "700 12px Impact, Arial Black, sans-serif";
+    ctx.fillStyle = "rgba(232,212,184,0.8)";
+    ctx.fillText(`${displayName} · ${score}pts`, cx, groundY + 26);
   };
 
-  drawFighter(60, battle.player, replayState.playerHealth, replayState.playerScore, "left");
-  drawFighter(width - 430, battle.defender, replayState.defenderHealth, replayState.defenderScore, "right");
+  drawFighterFigure(285, floorY, 1, playerPose, "#cc0000", "rgba(255,30,0,0.85)", playerAvatar, playerSprite, battle.player.displayName, replayState.playerScore);
+  drawFighterFigure(W - 285, floorY, -1, defenderPose, "#c8900a", "rgba(255,200,0,0.8)", defenderAvatar, defenderSprite, battle.defender.displayName, replayState.defenderScore);
 
-  // Center stage area
-  const centerX = width / 2;
-  const centerGlow = context.createRadialGradient(centerX, height - 100, 0, centerX, height - 100, 300);
-  centerGlow.addColorStop(0, "rgba(80,0,0,0.25)");
-  centerGlow.addColorStop(1, "transparent");
-  context.fillStyle = centerGlow;
-  context.fillRect(0, height - 350, width, 350);
+  // ── 4. ATTACK EFFECTS ──────────────────────────────────────────
+  const isWeaknessHit = evType === "weakness_hit";
+  const isMeleeHit = evType === "attack";
 
-  // Event title
-  const isWeaknessHit = currentEvent?.type === "weakness_hit";
-  context.textAlign = "center";
-  context.font = `700 ${isWeaknessHit ? 48 : 40}px Impact, Arial Black, sans-serif`;
-  context.fillStyle = isWeaknessHit ? "#ffd700" : "#e8d4b8";
-  context.shadowColor = isWeaknessHit ? "rgba(255,215,0,0.7)" : "rgba(200,0,0,0.5)";
-  context.shadowBlur = isWeaknessHit ? 25 : 15;
-  context.fillText(currentEvent?.title ?? "STAND BY", centerX, height - 200);
-  context.shadowBlur = 0;
-
-  // Event description
-  context.font = "500 18px 'Courier New', monospace";
-  context.fillStyle = "rgba(232,212,184,0.75)";
-  context.fillText(
-    currentEvent?.description ?? "等待战斗数据载入。",
-    centerX,
-    height - 155,
-    width - 280,
-  );
-
-  // Weakness hit strike effect
   if (isWeaknessHit) {
-    context.strokeStyle = "#ffd700";
-    context.lineWidth = 6;
-    context.shadowColor = "rgba(255,215,0,0.8)";
-    context.shadowBlur = 20;
-    context.beginPath();
-    context.moveTo(centerX - 80, height - 120);
-    context.lineTo(centerX - 20, height - 170);
-    context.lineTo(centerX + 10, height - 140);
-    context.lineTo(centerX + 90, height - 190);
-    context.stroke();
-    context.shadowBlur = 0;
+    // Screen-edge vignette
+    const vig = ctx.createRadialGradient(W / 2, H / 2, H * 0.18, W / 2, H / 2, H * 0.88);
+    vig.addColorStop(0, "transparent");
+    vig.addColorStop(0.6, "rgba(140,0,0,0.08)");
+    vig.addColorStop(1, "rgba(255,0,0,0.45)");
+    ctx.fillStyle = vig; ctx.fillRect(0, 0, W, H);
+
+    // Energy orb / projectile
+    const fromX = actorIsPlayer ? 360 : W - 360;
+    const toX = actorIsPlayer ? W - 285 : 285;
+    const orbY = floorY - 170;
+    const orbX = (fromX + toX) / 2;
+    const orbGlow2 = ctx.createRadialGradient(orbX, orbY, 0, orbX, orbY, 65);
+    orbGlow2.addColorStop(0, "rgba(255,220,0,0.9)");
+    orbGlow2.addColorStop(0.35, "rgba(255,80,0,0.45)");
+    orbGlow2.addColorStop(1, "transparent");
+    ctx.fillStyle = orbGlow2; ctx.fillRect(orbX - 65, orbY - 65, 130, 130);
+    ctx.beginPath(); ctx.arc(orbX, orbY, 20, 0, Math.PI * 2);
+    ctx.fillStyle = "#ffd700"; ctx.shadowColor = "rgba(255,215,0,1)"; ctx.shadowBlur = 30;
+    ctx.fill(); ctx.shadowBlur = 0;
+    // Orb trail
+    ctx.save(); ctx.strokeStyle = "rgba(255,160,0,0.45)"; ctx.lineWidth = 10; ctx.lineCap = "round";
+    ctx.beginPath(); ctx.moveTo(fromX, orbY + 30); ctx.quadraticCurveTo((fromX + orbX) / 2, orbY - 25, orbX, orbY);
+    ctx.stroke(); ctx.restore();
+
+    // Lightning arc
+    const lx1 = actorIsPlayer ? 360 : W - 360;
+    const lx2 = actorIsPlayer ? W - 260 : 260;
+    const ly2 = floorY - 155;
+    const zigPts: [number, number][] = [[lx1, ly2]];
+    for (let i = 1; i < 10; i++) {
+      const t = i / 10;
+      zigPts.push([lx1 + (lx2 - lx1) * t, ly2 + (i % 2 === 0 ? 28 : -28)]);
+    }
+    zigPts.push([lx2, ly2]);
+    ctx.save();
+    ctx.strokeStyle = "#ffd700"; ctx.lineWidth = 4.5; ctx.shadowColor = "rgba(255,215,0,1)"; ctx.shadowBlur = 26;
+    ctx.beginPath(); ctx.moveTo(zigPts[0][0], zigPts[0][1]);
+    zigPts.slice(1).forEach(([x, y]) => ctx.lineTo(x, y));
+    ctx.stroke();
+    ctx.strokeStyle = "rgba(255,255,255,0.88)"; ctx.lineWidth = 1.5; ctx.shadowBlur = 5;
+    ctx.beginPath(); ctx.moveTo(zigPts[0][0], zigPts[0][1]);
+    zigPts.slice(1).forEach(([x, y]) => ctx.lineTo(x, y));
+    ctx.stroke(); ctx.restore();
+
+    // Impact ring
+    const impX = actorIsPlayer ? W - 285 : 285;
+    const impY = floorY - 165;
+    for (const r of [55, 35]) {
+      ctx.beginPath(); ctx.arc(impX, impY, r, 0, Math.PI * 2);
+      ctx.strokeStyle = `rgba(255,215,0,${0.65 - r * 0.007})`; ctx.lineWidth = 3;
+      ctx.shadowColor = "rgba(255,215,0,0.7)"; ctx.shadowBlur = 12; ctx.stroke(); ctx.shadowBlur = 0;
+    }
+
+  } else if (isMeleeHit) {
+    // Melee impact sparks
+    const impX2 = actorIsPlayer ? 480 : W - 480;
+    const impY2 = floorY - 180;
+    for (const r of [16, 34, 52]) {
+      ctx.beginPath(); ctx.arc(impX2, impY2, r, 0, Math.PI * 2);
+      ctx.strokeStyle = `rgba(255,70,0,${0.65 - r * 0.009})`; ctx.lineWidth = 3;
+      ctx.shadowColor = "rgba(255,50,0,0.6)"; ctx.shadowBlur = 10; ctx.stroke(); ctx.shadowBlur = 0;
+    }
+    // Spark rays
+    const sparkA = [0, 0.45, 1.0, 1.6, 2.2, 2.8, 3.4, 4.0, 4.7, 5.3];
+    for (const a of sparkA) {
+      const len = 22 + Math.sin(a * 2.7) * 14;
+      ctx.beginPath();
+      ctx.moveTo(impX2 + Math.cos(a) * 14, impY2 + Math.sin(a) * 14);
+      ctx.lineTo(impX2 + Math.cos(a) * (14 + len), impY2 + Math.sin(a) * (14 + len));
+      ctx.strokeStyle = Math.sin(a) > 0 ? "#ff4400" : "#ffd060";
+      ctx.lineWidth = 2.5; ctx.shadowColor = "rgba(255,100,0,0.8)"; ctx.shadowBlur = 8;
+      ctx.stroke(); ctx.shadowBlur = 0;
+    }
   }
 
-  context.textAlign = "left";
+  // ── 5. EVENT TEXT PANEL ────────────────────────────────────────
+  ctx.fillStyle = "rgba(0,0,0,0.7)"; ctx.fillRect(0, H - 98, W, 98);
+  ctx.fillStyle = "rgba(140,0,0,0.5)"; ctx.fillRect(0, H - 100, W, 2);
+
+  ctx.textAlign = "center";
+  if (isWeaknessHit) {
+    ctx.font = "700 44px Impact, Arial Black, sans-serif";
+    ctx.fillStyle = "#ffd700"; ctx.shadowColor = "rgba(255,100,0,0.95)"; ctx.shadowBlur = 30;
+    ctx.fillText("WEAKNESS HIT", W / 2, H - 56); ctx.shadowBlur = 0;
+  } else {
+    ctx.font = `700 ${evType === "attack" ? 34 : 30}px Impact, Arial Black, sans-serif`;
+    ctx.fillStyle = isMeleeHit ? "#ff4400" : "#e8d4b8";
+    ctx.shadowColor = "rgba(200,0,0,0.65)"; ctx.shadowBlur = 14;
+    ctx.fillText(currentEvent?.title ?? "STAND BY", W / 2, H - 58); ctx.shadowBlur = 0;
+  }
+  ctx.font = "500 14px 'Courier New', monospace";
+  ctx.fillStyle = "rgba(232,212,184,0.72)";
+  ctx.fillText(currentEvent?.description ?? "等待战斗数据载入。", W / 2, H - 30, W - 180);
+  ctx.textAlign = "left";
 }
 
 async function fetchBattlePackage(battleId: string) {
@@ -380,6 +708,10 @@ export function BattleReplay({ battleId }: { battleId: string }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+  const playerAvatarRef = useRef<HTMLImageElement | null>(null);
+  const defenderAvatarRef = useRef<HTMLImageElement | null>(null);
+  const playerSpriteRef = useRef<HTMLImageElement | null>(null);
+  const defenderSpriteRef = useRef<HTMLImageElement | null>(null);
   const [battle, setBattle] = useState<BattlePackage | null>(null);
   const [playhead, setPlayhead] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
@@ -402,6 +734,21 @@ export function BattleReplay({ battleId }: { battleId: string }) {
       }
     })();
   }, [battleId]);
+
+  // Load fighter avatars + AI sprites from localStorage (alpha=player, beta=defender)
+  useEffect(() => {
+    const loadImg = (key: string, ref: React.MutableRefObject<HTMLImageElement | null>) => {
+      const dataUrl = localStorage.getItem(key);
+      if (!dataUrl) return;
+      const img = new Image();
+      img.onload = () => { ref.current = img; };
+      img.src = dataUrl;
+    };
+    loadImg("soul-arena:avatar:alpha", playerAvatarRef);
+    loadImg("soul-arena:avatar:beta", defenderAvatarRef);
+    loadImg("soul-arena:sprite:alpha", playerSpriteRef);
+    loadImg("soul-arena:sprite:beta", defenderSpriteRef);
+  }, []);
 
   const winnerCompetitorId = useMemo(() => {
     if (!battle?.competition) {
@@ -499,7 +846,7 @@ export function BattleReplay({ battleId }: { battleId: string }) {
       return;
     }
 
-    drawStage(canvasRef.current, battle, replayState);
+    drawStage(canvasRef.current, battle, replayState, playerAvatarRef.current, defenderAvatarRef.current, playerSpriteRef.current, defenderSpriteRef.current);
   }, [battle, replayState]);
 
   useEffect(() => {
