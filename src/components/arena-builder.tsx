@@ -11,6 +11,7 @@ import type {
   ArenaParticipantCompetitiveProfile,
   ArenaParticipantSource,
   BattlePackage,
+  ParticipantBuildOverride,
   TopicPreset,
 } from "@/lib/arena-types";
 
@@ -219,17 +220,22 @@ function FighterCard({
   slot,
   opponentProfile,
   duplicateWarning,
+  override,
   onConnect,
   onDisconnect,
+  onOverrideChange,
 }: {
   participant: ArenaParticipantSource | null;
   profile: ArenaCompetitorProfile | null;
   slot: "alpha" | "beta";
   opponentProfile: ArenaCompetitorProfile | null;
   duplicateWarning: string | null;
+  override: ParticipantBuildOverride;
   onConnect: () => void;
   onDisconnect: () => Promise<void>;
+  onOverrideChange: (next: ParticipantBuildOverride) => void;
 }) {
+  const [overrideOpen, setOverrideOpen] = useState(false);
   const isAlpha = slot === "alpha";
   const panelClass = isAlpha ? "mk-fighter-card" : "mk-fighter-card-gold";
   const labelColor = isAlpha ? "var(--red)" : "var(--gold)";
@@ -368,6 +374,87 @@ function FighterCard({
         </div>
       </div>
 
+      {/* Override inputs */}
+      <div className="mk-panel-inset p-4">
+        <button
+          className="flex w-full items-center justify-between"
+          onClick={() => setOverrideOpen((v) => !v)}
+          type="button"
+        >
+          <p style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '0.72rem', letterSpacing: '0.25em', textTransform: 'uppercase', color: labelColor }}>
+            自定义覆盖
+          </p>
+          <span style={{ fontFamily: "'Courier New', monospace", fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+            {overrideOpen ? "▲ 收起" : "▼ 展开"}
+          </span>
+        </button>
+
+        {overrideOpen && (
+          <div className="flex flex-col gap-3 mt-4">
+            <p style={{ fontFamily: "'Courier New', monospace", fontSize: '0.72rem', color: 'var(--text-muted)', lineHeight: '1.6' }}>
+              覆盖会叠加在 SecondMe 自动生成的构筑之上，留空则使用默认值。
+            </p>
+
+            {/* Declaration */}
+            <label className="flex flex-col gap-1">
+              <span style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '0.66rem', letterSpacing: '0.2em', textTransform: 'uppercase', color: labelColor }}>出场宣言</span>
+              <textarea
+                className="mk-input"
+                placeholder="留空则自动生成…"
+                rows={2}
+                style={{ resize: 'vertical' }}
+                value={override.declaration ?? ""}
+                onChange={(e) => onOverrideChange({ ...override, declaration: e.target.value || undefined })}
+              />
+            </label>
+
+            {/* Viewpoints */}
+            {[0, 1, 2].map((i) => (
+              <label key={i} className="flex flex-col gap-1">
+                <span style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '0.66rem', letterSpacing: '0.2em', textTransform: 'uppercase', color: labelColor }}>
+                  观点 {i + 1}
+                </span>
+                <input
+                  className="mk-input"
+                  placeholder="留空则自动生成…"
+                  type="text"
+                  value={(override.viewpoints ?? [])[i] ?? ""}
+                  onChange={(e) => {
+                    const next = [...(override.viewpoints ?? ["", "", ""])];
+                    next[i] = e.target.value;
+                    onOverrideChange({ ...override, viewpoints: next.every((v) => !v) ? undefined : next });
+                  }}
+                />
+              </label>
+            ))}
+
+            {/* Rule */}
+            <label className="flex flex-col gap-1">
+              <span style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '0.66rem', letterSpacing: '0.2em', textTransform: 'uppercase', color: labelColor }}>规则</span>
+              <input
+                className="mk-input"
+                placeholder="留空则自动生成…"
+                type="text"
+                value={override.rule ?? ""}
+                onChange={(e) => onOverrideChange({ ...override, rule: e.target.value || undefined })}
+              />
+            </label>
+
+            {/* Taboo */}
+            <label className="flex flex-col gap-1">
+              <span style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '0.66rem', letterSpacing: '0.2em', textTransform: 'uppercase', color: labelColor }}>禁忌</span>
+              <input
+                className="mk-input"
+                placeholder="留空则自动生成…"
+                type="text"
+                value={override.taboo ?? ""}
+                onChange={(e) => onOverrideChange({ ...override, taboo: e.target.value || undefined })}
+              />
+            </label>
+          </div>
+        )}
+      </div>
+
       {/* Issues */}
       {participant?.issues.length ? (
         <div className="mk-warning">
@@ -396,6 +483,8 @@ export function ArenaBuilder() {
   const [profiles, setProfiles] = useState<ArenaParticipantCompetitiveProfile[]>([]);
   const [leaderboard, setLeaderboard] = useState<ArenaLeaderboardEntry[]>([]);
   const [featured, setFeatured] = useState<ArenaLeaderboardEntry | null>(null);
+  const [alphaOverride, setAlphaOverride] = useState<ParticipantBuildOverride>({});
+  const [betaOverride, setBetaOverride] = useState<ParticipantBuildOverride>({});
 
   const alpha = useMemo(
     () => participants.find((participant) => participant.slot === "alpha") ?? null,
@@ -498,6 +587,15 @@ export function ArenaBuilder() {
     setStatus(`${participantTitle(slot)}已断开。`);
   };
 
+  const buildOverridesPayload = () => {
+    const overrides: Partial<Record<"alpha" | "beta", ParticipantBuildOverride>> = {};
+    const hasAlpha = Object.values(alphaOverride).some(Boolean);
+    const hasBeta = Object.values(betaOverride).some(Boolean);
+    if (hasAlpha) overrides.alpha = alphaOverride;
+    if (hasBeta) overrides.beta = betaOverride;
+    return Object.keys(overrides).length ? overrides : undefined;
+  };
+
   const previewBuild = async () => {
     if (!readyToBuild) {
       setStatus("请先连接甲方和乙方两个 SecondMe 参赛者。");
@@ -509,6 +607,7 @@ export function ArenaBuilder() {
       body: JSON.stringify({
         participants: participantRefs,
         topicId,
+        overrides: buildOverridesPayload(),
       }),
       headers: {
         "Content-Type": "application/json",
@@ -533,6 +632,7 @@ export function ArenaBuilder() {
       body: JSON.stringify({
         participants: participantRefs,
         topicId,
+        overrides: buildOverridesPayload(),
       }),
       headers: {
         "Content-Type": "application/json",
@@ -601,7 +701,9 @@ export function ArenaBuilder() {
               duplicateWarning={duplicateWarning}
               onConnect={() => connectParticipant("alpha")}
               onDisconnect={() => disconnectParticipant("alpha")}
+              onOverrideChange={setAlphaOverride}
               opponentProfile={betaProfile}
+              override={alphaOverride}
               participant={alpha}
               profile={alphaProfile}
               slot="alpha"
@@ -623,7 +725,9 @@ export function ArenaBuilder() {
               duplicateWarning={duplicateWarning}
               onConnect={() => connectParticipant("beta")}
               onDisconnect={() => disconnectParticipant("beta")}
+              onOverrideChange={setBetaOverride}
               opponentProfile={alphaProfile}
+              override={betaOverride}
               participant={beta}
               profile={betaProfile}
               slot="beta"

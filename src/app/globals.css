@@ -293,6 +293,31 @@ textarea {
   transform: none;
 }
 
+/* ── Form inputs ── */
+.mk-input {
+  width: 100%;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(80, 0, 0, 0.5);
+  border-radius: 0;
+  color: var(--text);
+  font-family: "Courier New", monospace;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  padding: 6px 10px;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.mk-input:focus {
+  outline: none;
+  border-color: var(--red);
+  box-shadow: 0 0 8px rgba(200, 0, 0, 0.35);
+}
+
+.mk-input::placeholder {
+  color: var(--text-muted);
+  opacity: 0.7;
+}
+
 /* Legacy soft-button compat */
 .soft-button {
   background: transparent;

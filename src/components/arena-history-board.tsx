@@ -16,6 +16,29 @@ const filters: Array<{ id: BattleFilter; label: string }> = [
   { id: "loss", label: "失败" },
 ];
 
+function CopyLinkButton({ battleId }: { battleId: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    const url = `${window.location.origin}/arena/${battleId}`;
+    void navigator.clipboard.writeText(url).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  return (
+    <button
+      className="mk-button-ghost px-4 py-2"
+      onClick={handleCopy}
+      style={{ fontSize: '0.75rem' }}
+      type="button"
+    >
+      {copied ? "已复制 ✓" : "复制链接"}
+    </button>
+  );
+}
+
 const winnerLabel = (
   winnerId: string,
   playerName: string,
@@ -170,6 +193,7 @@ export function ArenaHistoryBoard({
                   >
                     打开回放
                   </Link>
+                  <CopyLinkButton battleId={battle.id} />
                 </div>
               </div>
             </article>

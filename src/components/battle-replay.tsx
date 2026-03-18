@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { soulLabels } from "@/lib/arena-presets";
@@ -318,6 +319,25 @@ const winnerLabel = (battle: BattlePackage) =>
   battle.winnerId === battle.player.id
     ? `${battle.player.displayName} 获胜`
     : `${battle.defender.displayName} 守擂成功`;
+
+// Share button
+function ShareButton({ battleId }: { battleId: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    const url = `${window.location.origin}/arena/${battleId}`;
+    void navigator.clipboard.writeText(url).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  return (
+    <button className="mk-button-ghost px-4 py-3" onClick={handleCopy} type="button">
+      {copied ? "已复制 ✓" : "复制链接"}
+    </button>
+  );
+}
 
 // Health bar component
 function HealthBar({ value, gold = false }: { value: number; gold?: boolean }) {
@@ -640,6 +660,10 @@ export function BattleReplay({ battleId }: { battleId: string }) {
                   下载录屏
                 </a>
               ) : null}
+              <Link className="mk-button px-4 py-3" href="/arena" style={{ fontSize: '0.88rem', letterSpacing: '0.2em' }}>
+                ⚔ 重赛
+              </Link>
+              <ShareButton battleId={battle.id} />
             </div>
           </div>
         </section>
@@ -732,6 +756,35 @@ export function BattleReplay({ battleId }: { battleId: string }) {
                   ))}
                 </div>
               )}
+
+              {/* Profile anchors for current actor */}
+              {(() => {
+                const event = replayState.currentEvent;
+                if (!event?.actorId) return null;
+                const actor = event.actorId === battle.player.id ? battle.player : event.actorId === battle.defender.id ? battle.defender : null;
+                if (!actor) return null;
+                const anchors = actor.memoryAnchors.slice(0, 2);
+                const summary = actor.identitySummary.slice(0, 2);
+                if (!anchors.length && !summary.length) return null;
+                const isPlayer = actor === battle.player;
+                return (
+                  <div className="mk-panel-inset p-3 mt-4">
+                    <p style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '0.62rem', letterSpacing: '0.22em', textTransform: 'uppercase', color: isPlayer ? 'var(--red)' : 'var(--gold)', marginBottom: '8px' }}>
+                      {actor.displayName} · 构筑依据
+                    </p>
+                    {summary.map((s) => (
+                      <p key={s} style={{ fontFamily: "'Courier New', monospace", fontSize: '0.72rem', color: 'var(--text-dim)', lineHeight: '1.6' }}>
+                        · {s}
+                      </p>
+                    ))}
+                    {anchors.map((a) => (
+                      <p key={a} style={{ fontFamily: "'Courier New', monospace", fontSize: '0.72rem', color: 'var(--text-muted)', lineHeight: '1.6', fontStyle: 'italic' }}>
+                        「{a}」
+                      </p>
+                    ))}
+                  </div>
+                );
+              })()}
             </article>
 
             {/* Event stream */}
