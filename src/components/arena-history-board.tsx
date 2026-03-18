@@ -149,6 +149,16 @@ export function ArenaHistoryBoard({
                       battle.defenderDisplayName,
                     )}
                   </p>
+                  {battle.topicTitle ? (
+                    <p className="text-sm text-stone-600">
+                      辩题：{battle.topicTitle} · {battle.topicSource === "zhihu_dynamic" ? "Zhihu Dynamic" : "Preset"}
+                    </p>
+                  ) : null}
+                  {battle.participantProviders?.length ? (
+                    <p className="text-sm text-stone-600">
+                      Provider：{battle.participantProviders.join(" vs ")}
+                    </p>
+                  ) : null}
                   {battle.competition?.player ? (
                     <p className="text-sm text-stone-600">
                       {battle.competition.stakesLabel} · 挑战者积分{" "}
@@ -156,6 +166,11 @@ export function ArenaHistoryBoard({
                       {battle.competition.player.scoreDelta} · 排名{" "}
                       {battle.competition.player.rankBefore ?? "-"} →{" "}
                       {battle.competition.player.rankAfter ?? "-"}
+                    </p>
+                  ) : null}
+                  {battle.originBattleId ? (
+                    <p className="text-sm text-stone-600">
+                      Rematch of {battle.originBattleId}
                     </p>
                   ) : null}
                 </div>
@@ -173,6 +188,14 @@ export function ArenaHistoryBoard({
                   >
                     打开回放
                   </Link>
+                  {battle.setupId ? (
+                    <Link
+                      className="soft-button rounded-full border border-[var(--line)] bg-white/70 px-4 py-2 text-sm"
+                      href={`/arena?setupId=${battle.setupId}`}
+                    >
+                      继续重开
+                    </Link>
+                  ) : null}
                 </div>
               </div>
             </article>

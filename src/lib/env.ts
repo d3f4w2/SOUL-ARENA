@@ -12,6 +12,14 @@ const parseScopes = (value: string | undefined) =>
     .map((scope) => scope.trim())
     .filter(Boolean);
 
+const optional = (value: string | undefined) =>
+  typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
+
+const optionalNumber = (value: string | undefined, fallback: number) => {
+  const parsed = Number.parseInt(value ?? "", 10);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
+
 export const env = {
   SECONDME_CLIENT_ID: required(
     process.env.SECONDME_CLIENT_ID,
@@ -42,5 +50,12 @@ export const env = {
   ZHIHU_OPENAPI_BASE_URL: required(
     process.env.ZHIHU_OPENAPI_BASE_URL,
     "ZHIHU_OPENAPI_BASE_URL",
+  ),
+  OPENCLAW_WORKSPACE_DIR: optional(process.env.OPENCLAW_WORKSPACE_DIR),
+  OPENCLAW_RUNTIME_BASE_URL: optional(process.env.OPENCLAW_RUNTIME_BASE_URL),
+  OPENCLAW_RUNTIME_TOKEN: optional(process.env.OPENCLAW_RUNTIME_TOKEN),
+  OPENCLAW_RUNTIME_TIMEOUT_MS: optionalNumber(
+    process.env.OPENCLAW_RUNTIME_TIMEOUT_MS,
+    12000,
   ),
 } as const;
