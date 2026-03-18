@@ -606,24 +606,19 @@ function drawStage(
         ctx.translate(-cx, -groundY);
       }
 
-      // Glow halo behind sprite — brighter during attacks
-      const haloAlpha = (pose === "melee_attack" || pose === "ranged_attack") ? 0.38 : 0.22;
-      const halo = ctx.createRadialGradient(cx, groundY - spriteH * 0.5, 30, cx, groundY - spriteH * 0.5, 140);
+      // Glow halo behind sprite — larger and brighter during attacks, team-colored
+      const haloAlpha = (pose === "melee_attack" || pose === "ranged_attack") ? 0.55 : 0.30;
+      const haloRadius = (pose === "melee_attack" || pose === "ranged_attack") ? 180 : 150;
+      const halo = ctx.createRadialGradient(cx, groundY - spriteH * 0.5, 20, cx, groundY - spriteH * 0.5, haloRadius);
       halo.addColorStop(0, glowColor.replace(/[\d.]+\)$/, `${haloAlpha})`));
+      halo.addColorStop(0.5, glowColor.replace(/[\d.]+\)$/, `${haloAlpha * 0.4})`));
       halo.addColorStop(1, "transparent");
       ctx.fillStyle = halo;
-      ctx.fillRect(spriteX - 60, spriteY - 40, spriteW + 120, spriteH + 60);
+      ctx.fillRect(spriteX - 80, spriteY - 60, spriteW + 160, spriteH + 80);
 
-      // Draw sprite
-      ctx.globalCompositeOperation = "source-over";
+      // Draw sprite using screen blend mode to dissolve dark background into arena
+      ctx.globalCompositeOperation = "screen";
       ctx.drawImage(sprite, spriteX, spriteY, spriteW, spriteH);
-
-      // Team color tint
-      ctx.globalCompositeOperation = "color";
-      ctx.globalAlpha = 0.22;
-      ctx.fillStyle = bodyColor;
-      ctx.fillRect(spriteX, spriteY, spriteW, spriteH);
-      ctx.globalAlpha = 1;
       ctx.globalCompositeOperation = "source-over";
 
       // Hit flash: red overlay pulse when taking damage

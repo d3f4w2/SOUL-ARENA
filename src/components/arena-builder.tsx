@@ -1530,10 +1530,33 @@ export function ArenaBuilder() {
 
   return (
     <main className="scanlines relative min-h-screen overflow-hidden px-4 py-6 sm:px-6 lg:px-10" style={{ color: 'var(--text)' }}>
-      <div className="mx-auto flex max-w-7xl flex-col gap-6">
+      {/* Atmospheric arena art in the background */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <div className="relative mx-auto flex max-w-7xl flex-col gap-6">
         {/* ── HERO ── */}
-        <section className="entry-fade mk-panel px-6 py-8 sm:px-10">
-          <div className="grid gap-8 lg:grid-cols-[1.2fr_0.8fr]">
+        <section className="entry-fade mk-panel px-6 py-8 sm:px-10" style={{ overflow: 'hidden' }}>
+          {/* Arena builder art peeking from right side */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/arena-builder-bg.png"
+            alt=""
+            aria-hidden="true"
+            style={{
+              position: 'absolute',
+              right: 0,
+              top: 0,
+              width: '50%',
+              height: '100%',
+              objectFit: 'cover',
+              objectPosition: 'center',
+              opacity: 0.22,
+              pointerEvents: 'none',
+              maskImage: 'linear-gradient(to left, rgba(0,0,0,0.6) 0%, transparent 100%)',
+              WebkitMaskImage: 'linear-gradient(to left, rgba(0,0,0,0.6) 0%, transparent 100%)',
+              zIndex: 0,
+            }}
+          />
+          <div className="grid gap-8 lg:grid-cols-[1.2fr_0.8fr]" style={{ position: 'relative', zIndex: 1 }}>
             <div className="flex flex-col gap-4">
               <div className="mk-badge">真实接入控制台</div>
               <h1 className="mk-title mk-title-anim">SecondMe 竞技台</h1>
