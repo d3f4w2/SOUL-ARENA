@@ -119,6 +119,7 @@ function drawStage(
   phase: "playing" | "complete",
   winnerName: string,
   winnerCrown: HTMLImageElement | null,
+  koExplosion: HTMLImageElement | null,
 ) {
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
@@ -938,6 +939,24 @@ function drawStage(
     edgeGlow.addColorStop(1, `rgba(255,0,0,${flashAlpha * 0.6})`);
     ctx.fillStyle = edgeGlow;
     ctx.fillRect(0, 0, W, H);
+
+    // KO explosion asset — draw on the hit-side with alpha tied to poseEase
+    if (koExplosion) {
+      const poseEase = Math.max(0, 1 - poseAge / 600);
+      const targetIsP = replayState.currentEvent?.targetId === battle.player.id;
+      const explosionX = targetIsP ? W * 0.25 : W * 0.75;
+      const explosionSize = 280 * (0.7 + 0.3 * poseEase);
+      ctx.save();
+      ctx.globalAlpha = poseEase * 0.88;
+      ctx.drawImage(
+        koExplosion,
+        explosionX - explosionSize / 2,
+        H / 2 - explosionSize / 2,
+        explosionSize,
+        explosionSize,
+      );
+      ctx.restore();
+    }
   }
 
   // ── 7. WIN SCREEN OVERLAY (phase === "complete") ──────────────
@@ -1116,6 +1135,7 @@ export function BattleReplay({ battleId }: { battleId: string }) {
   const arenaBgRef = useRef<HTMLImageElement | null>(null);
   const arenaFloorRef = useRef<HTMLImageElement | null>(null);
   const winnerCrownRef = useRef<HTMLImageElement | null>(null);
+  const koExplosionRef = useRef<HTMLImageElement | null>(null);
   const animFrameRef = useRef(0);
   const replayStateRef = useRef<ReplayState | null>(null);
   const poseStartTimeRef = useRef(0);
@@ -1201,6 +1221,7 @@ export function BattleReplay({ battleId }: { battleId: string }) {
     loadStaticImg("/arena-bg.png", arenaBgRef);
     loadStaticImg("/arena-floor.png", arenaFloorRef);
     loadStaticImg("/winner-crown.png", winnerCrownRef);
+    loadStaticImg("/ko-explosion.png", koExplosionRef);
   }, []);
 
   const winnerCompetitorId = useMemo(() => {
@@ -1369,6 +1390,7 @@ export function BattleReplay({ battleId }: { battleId: string }) {
           phase,
           winnerName,
           winnerCrownRef.current,
+          koExplosionRef.current,
         );
       }
       animFrameRef.current = requestAnimationFrame(loop);
@@ -1393,6 +1415,16 @@ export function BattleReplay({ battleId }: { battleId: string }) {
 
     return () => window.clearTimeout(timer);
   }, [battle, playbackActive, playhead]);
+
+  // Fire-and-forget SecondMe training ingestion when battle completes
+  useEffect(() => {
+    if (!battle || !reachedEnd) return;
+    void fetch("/api/arena/train", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ battleId: battle.id }),
+    }).catch(() => null);
+  }, [battle, reachedEnd]);
 
   const startRecording = () => {
     if (!canvasRef.current || !canRecord) {
