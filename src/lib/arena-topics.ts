@@ -55,7 +55,7 @@ export const getDynamicZhihuTopics = async () => {
       },
     });
 
-    return (payload.data?.list ?? [])
+    return (payload?.data?.list ?? [])
       .map((item) => item.title?.trim())
       .filter((item): item is string => Boolean(item))
       .map(deriveDynamicTopic);

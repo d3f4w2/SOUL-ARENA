@@ -22,7 +22,7 @@ export async function GET() {
         top_cnt: 3,
       },
     });
-    signals = (payload.data?.list ?? [])
+    signals = (payload?.data?.list ?? [])
       .map((item) => item.title?.trim())
       .filter((item): item is string => Boolean(item));
   } catch {
