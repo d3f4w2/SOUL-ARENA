@@ -1,138 +1,161 @@
-# 接口契约
+# API Contracts
 
-## 说明
-- 接口路径、字段名、类型名保持英文稳定
-- 本文档用中文解释当前接口用途与状态
-- 状态说明：
-  - `已实现`
-  - `MVP/mock`
-  - `后续扩展`
+## Status legend
+- `implemented`: live in the current repo
+- `legacy/mock`: still used for classic demo data
+- `next`: reserved for the next integration pass
 
-## 已有接入接口
-### 身份与接入
+## Auth and participant APIs
+- `GET /api/auth/login?slot=alpha|beta&returnTo=/arena`
+  - `implemented`
+  - Starts SecondMe OAuth for the requested participant slot.
+
+- `GET /api/auth/callback`
+  - `implemented`
+  - Exchanges code for the slot-specific session and redirects back to `/arena`.
+
+- `POST /api/auth/logout?slot=alpha|beta`
+  - `implemented`
+  - Clears one slot, or all slots when no slot is provided.
+
+- `POST /api/auth/secondme/connect`
+  - `implemented`
+  - Returns `{ authUrl, slot }` for clients that want to trigger OAuth via JSON.
+
+- `GET /api/participants`
+  - `implemented`
+  - Returns `{ participants }`.
+  - Each participant includes:
+    - `slot`
+    - `provider`
+    - `connected`
+    - `displayName`
+    - `secondMeUserId`
+    - `session`
+    - `user`
+    - `shades`
+    - `softMemory`
+    - `issues`
+
+- `DELETE /api/participants?slot=alpha|beta`
+  - `implemented`
+  - Disconnects a single slot.
+
+## SecondMe proxy APIs
 - `GET /api/me`
-  - 状态：已实现
-  - 作用：返回当前 `SecondMe` 登录态与用户基础信息
+  - `implemented`
+  - Compatibility endpoint for the primary slot (`alpha`).
 
-- `POST /api/auth/logout`
-  - 状态：已实现
-  - 作用：清理当前登录 cookie
-
-### SecondMe
 - `POST /api/secondme/chat`
-  - 状态：已实现
-  - 作用：代理聊天流
+  - `implemented`
+  - Proxies the primary slot chat stream.
 
 - `POST /api/secondme/note`
-  - 状态：已实现
-  - 作用：写入笔记
+  - `implemented`
+  - Proxies note creation for the primary slot.
 
 - `GET /api/secondme/shades`
-  - 状态：已实现
-  - 作用：读取标签，用于用户 seed
+  - `implemented`
+  - Proxies shades for the primary slot.
 
 - `GET /api/secondme/softmemory`
-  - 状态：已实现
-  - 作用：读取软记忆
+  - `implemented`
+  - Proxies soft memory for the primary slot.
 
-### Zhihu
-- `GET /api/zhihu/ring`
-  - 状态：已实现
-  - 作用：读取圈子内容
+- `POST /api/secondme/agent-memory`
+  - `implemented`
+  - Request body:
+    - `slot`
+    - `event`
+  - Proxies `agent_memory/ingest` for the requested slot.
 
-- `GET /api/zhihu/billboard`
-  - 状态：已实现
-  - 作用：读取热榜
+## Arena APIs
+- `GET /api/arena/topics`
+  - `implemented`
+  - Returns:
+    - `topics`
+    - `challengers`
+    - `signals`
+  - `challengers` now mainly support the classic home-page demo flow.
 
-- `GET /api/zhihu/search`
-  - 状态：已实现
-  - 作用：读取搜索结果
+- `POST /api/arena/build-preview`
+  - `implemented`
+  - Request body:
+    - `topicId`
+    - `participants`
+      - `{ slot, provider, participantId? }[]`
+    - `overrides?`
+      - keyed by `alpha` / `beta`
+      - partial `FighterBuildInput`
+  - Behavior:
+    - requires both requested participants to be connected
+    - assembles real fighter profiles from `user info + shades + soft memory`
+  - Response includes:
+    - `topic`
+    - `player`
+    - `defender`
+    - `equipmentNotes`
+    - `matchUpCallout`
+    - `predictedEdges`
+    - `participantRefs`
+    - `sourceMeta`
 
-- `POST /api/zhihu/publish`
-- `POST /api/zhihu/reaction`
-- `GET/POST/DELETE /api/zhihu/comment`
-  - 状态：已实现
-  - 作用：保留圈子互动能力
+- `POST /api/arena/battles`
+  - `implemented`
+  - Request body matches `build-preview`.
+  - Behavior:
+    - requires both requested participants to be connected
+    - generates an orchestrated battle package from the two real participant profiles
+    - best-effort writes battle outcome back to SecondMe agent memory for both slots
+  - Response includes:
+    - classic `battle package` fields used by replay
+    - `participantRefs`
+    - `sourceMeta`
 
-## Arena 接口
-### `GET /api/arena/topics`
-- 状态：已实现
-- 返回：
-  - `topics`
-  - `challengers`
-  - `signals`
-- 说明：
-  - `signals` 来自 Zhihu 热榜
-  - 当前作为 topic inspiration 使用
+- `GET /api/arena/history`
+  - `implemented`
+  - Query:
+    - `limit?`
+  - Returns:
+    - `battles`
+      - `id`
+      - `createdAt`
+      - `roomTitle`
+      - `topicId`
+      - `playerDisplayName`
+      - `defenderDisplayName`
+      - `winnerId`
+      - `generationMode`
 
-### `POST /api/arena/build-preview`
-- 状态：已实现
-- 请求：
-  - `topicId`
-  - `challengerId`
-  - `player`
-    - `displayName`
-    - `declaration`
-    - `soulSeedTags`
-    - `viewpoints`
-    - `rule`
-    - `taboo`
-- 返回：
+- `GET /api/arena/battles/:battleId`
+  - `implemented`
+  - Reads one battle package from the local SQLite battle store.
+
+- `GET /api/arena/battles/:battleId/events`
+  - `implemented`
+  - Returns `{ battleId, events }`.
+
+## Battle package notes
+- Replay consumers should continue using:
   - `topic`
-  - `challenger`
   - `player`
   - `defender`
-  - `equipmentNotes`
-  - `matchUpCallout`
-  - `predictedEdges`
+  - `events`
+  - `highlights`
+  - `judges`
+  - `finalScore`
+  - `crowdScore`
+  - `winnerId`
 
-### `POST /api/arena/battles`
-- 状态：已实现
-- 作用：根据 build 输入生成完整 battle package
-- 当前说明：
-  - battle package 为本地生成逻辑
-  - 属于 `MVP/mock` 驱动，不是真实多 Agent 编排
+- New metadata added for real integrations:
+  - `participantRefs`
+  - `sourceMeta`
+    - `generationMode`
+    - `aiAssistEnabled`
+    - `aiAssistUsed`
+    - `issues`
 
-### `GET /api/arena/battles/:battleId`
-- 状态：已实现
-- 作用：读取单场 battle package
-- 当前说明：
-  - 当前依赖轻量 battle store
-  - 不适合长期历史沉淀
-
-### `GET /api/arena/battles/:battleId/events`
-- 状态：已实现
-- 作用：读取 battle event 列表
-
-## Battle Package 关键结构
-battle package 当前至少包含：
-
-- `topic`
-- `player`
-- `defender`
-- `judges`
-- `highlights`
-- `challengerPreview`
-- `crowdScore`
-- `finalScore`
-- `winnerId`
-- `events`
-
-## Battle Event Types
-当前约定的事件类型：
-
-- `intro`
-- `round_start`
-- `build_hint`
-- `attack`
-- `defense`
-- `weakness_hit`
-- `score_update`
-- `spotlight`
-- `match_end`
-- `challenger_preview`
-
-## 当前接口现实
-- 路径已经稳定
-- battle package 结构已经可供前后端并行使用
-- 下一步重点不是改路径，而是把 `MVP/mock` 的 battle 逻辑替换成更真实的 battle orchestration
+## Remaining gaps
+- `openclaw` provider is typed but not implemented.
+- Persistence is local SQLite only; there is no remote/shared store yet.
+- The home page still uses classic demo battles generated from local presets.

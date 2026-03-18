@@ -520,10 +520,12 @@ export function BattleReplay({ battleId }: { battleId: string }) {
 
             <article className="entry-fade paper-panel rounded-[1.75rem] p-6">
               <p className="text-xs uppercase tracking-[0.22em] text-stone-500">
-                挑战者预告
+                {battle.challengerPreview.label ?? "挑战者预告"}
               </p>
               <h2 className="section-title mt-2">
-                下一位挑战者：{battle.challengerPreview.displayName}
+                {battle.challengerPreview.label
+                  ? `${battle.challengerPreview.label}：${battle.challengerPreview.displayName}`
+                  : `下一位挑战者：${battle.challengerPreview.displayName}`}
               </h2>
               <p className="mt-4 text-sm leading-7 text-stone-700">
                 {battle.challengerPreview.declaration}

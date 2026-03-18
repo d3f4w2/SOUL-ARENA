@@ -1,26 +1,55 @@
-# SecondMe 接入
+# SecondMe Real Participant Integration
 
-## 目标
-把 `SecondMe` 作为用户身份和 fighter seed 来源，而不是强依赖入口。
+## Goal
+Use SecondMe as the real profile and memory source for both fighters in `/arena`, instead of only seeding mock battle logic.
 
-## 当前已实现
-- 登录
-- 用户资料读取
-- 标签读取
-- 软记忆读取
-- 聊天与笔记能力
-- `/arena` 中用标签给构筑提供 seed
+## What is implemented now
+- Slot-based SecondMe sessions:
+  - `alpha`
+  - `beta`
+- Real participant aggregation:
+  - user info
+  - shades
+  - soft memory
+- `/api/participants` for inspecting both slots from the Arena UI.
+- Fighter profile assembly from real participant data.
+- Arena preview generation from two real SecondMe participants.
+- Battle generation from two real SecondMe participants.
+- Best-effort battle outcome writeback to `agent_memory/ingest`.
 
-## 当前代码入口
+## Current code entry points
 - `src/lib/secondme.ts`
-- `src/app/api/me/route.ts`
-- `src/app/api/secondme/*`
+  - slot-specific OAuth/session handling
+  - slot-specific fetch helpers
+  - Act stream helper for structured AI overlays
+- `src/lib/arena-participants.ts`
+  - participant aggregation
+  - fighter input assembly
+  - identity summary / memory anchor extraction
+- `src/lib/arena-engine.ts`
+  - real preview generation
+  - orchestrated battle package generation
+- `src/app/api/participants/route.ts`
+- `src/app/api/secondme/agent-memory/route.ts`
+- `src/app/api/arena/build-preview/route.ts`
+- `src/app/api/arena/battles/route.ts`
 - `src/components/arena-builder.tsx`
 
-## 当前缺口
-- 还没有真正把用户的长期 persona 深度映射到 fighter
-- 还没有把聊天/笔记能力接进 battle 编排
+## Behavioral notes
+- `/arena` now expects both `alpha` and `beta` to be connected before starting a real battle.
+- The generated fighter profile is deterministic from the participant data plus optional overrides.
+- Battle orchestration attempts to use SecondMe Act output for round overlays.
+- If the AI overlay fails, battle generation falls back to deterministic exchange logic instead of failing the whole match.
 
-## 验收点
-- 已登录用户进入 `/arena` 时能看到来自 `SecondMe` 的 seed 信息
-- 未登录用户也能继续玩主线
+## Remaining gaps
+- `openclaw` is not connected yet.
+- Battle packages are still stored in the in-memory battle store.
+- The home page classic battle previews still use local preset data.
+- Primary-slot compatibility endpoints (`/api/me`, `/api/secondme/*`) still map to `alpha` only.
+
+## Acceptance points
+- Two different SecondMe accounts can be connected in one browser session.
+- `/arena` shows real participant identity, shades, and soft memory for both slots.
+- Preview and battle APIs reject requests when either participant is not connected.
+- Generated battle packages include `participantRefs` and `sourceMeta`.
+- Battle creation writes outcome events back to SecondMe agent memory on a best-effort basis.

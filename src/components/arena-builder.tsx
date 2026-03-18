@@ -2,140 +2,180 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 import type {
   ArenaBuildPreview,
+  ArenaParticipantSource,
   BattlePackage,
-  ChallengerPreset,
-  FighterBuildInput,
   TopicPreset,
 } from "@/lib/arena-types";
 
 type ArenaMetaResponse = {
-  challengers: ChallengerPreset[];
   signals: string[];
   topics: TopicPreset[];
 };
 
-type SessionResponse = {
-  authenticated: boolean;
-  user?: {
-    name?: string;
-  } | null;
+type ParticipantsResponse = {
+  participants: ArenaParticipantSource[];
 };
 
 const battleStorageKey = (battleId: string) => `soul-arena:battle:${battleId}`;
 
-const defaultInput: FighterBuildInput = {
-  declaration: "我要证明，更锋利的解释型构筑能赢下这个擂台。",
-  displayName: "无名挑战者",
-  rule: "每一个核心主张，都必须落到一个现实层面的结果上。",
-  soulSeedTags: [],
-  taboo: "禁止复读自己的结论，却不给新的攻击面。",
-  viewpoints: [
-    "最强的构筑不是最响亮的构筑，而是能在反击中继续站住的构筑。",
-    "如果一个观点只能单向输出，它就不是一件完整武器。",
-    "决定胜负的不是信息量，而是你能不能把对手推向他自己的漏洞。",
-  ],
-};
+const participantRefs = [
+  { provider: "secondme", slot: "alpha" },
+  { provider: "secondme", slot: "beta" },
+] as const;
 
 async function readJson<T>(url: string, init?: RequestInit) {
   const response = await fetch(url, init);
-  return (await response.json()) as T;
+  const payload = (await response.json()) as T;
+
+  if (!response.ok) {
+    throw new Error(
+      typeof payload === "object" &&
+        payload &&
+        "message" in payload &&
+        typeof payload.message === "string"
+        ? payload.message
+        : `Request failed: ${response.status}`,
+    );
+  }
+
+  return payload;
 }
+
+const participantTitle = (slot: "alpha" | "beta") =>
+  slot === "alpha" ? "Alpha participant" : "Beta participant";
+
+const participantSubtitle = (participant: ArenaParticipantSource | null) => {
+  if (!participant) {
+    return "Not connected";
+  }
+
+  return participant.displayName ?? "Connected without profile name";
+};
+
+const userField = (participant: ArenaParticipantSource | null, field: string) => {
+  const value = participant?.user?.[field];
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
+};
+
+const topShades = (participant: ArenaParticipantSource | null) =>
+  (participant?.shades ?? [])
+    .map((shade) => {
+      const value = shade.label ?? shade.name;
+      return typeof value === "string" ? value.trim() : "";
+    })
+    .filter(Boolean)
+    .slice(0, 4);
+
+const memoryAnchors = (participant: ArenaParticipantSource | null) =>
+  (participant?.softMemory ?? [])
+    .map((memory) => {
+      const value =
+        memory.summary ?? memory.text ?? memory.content ?? memory.title ?? "";
+      return typeof value === "string" ? value.trim() : "";
+    })
+    .filter(Boolean)
+    .slice(0, 3);
 
 export function ArenaBuilder() {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [meta, setMeta] = useState<ArenaMetaResponse | null>(null);
-  const [buildInput, setBuildInput] = useState<FighterBuildInput>(defaultInput);
+  const [participants, setParticipants] = useState<ArenaParticipantSource[]>([]);
   const [topicId, setTopicId] = useState("");
-  const [challengerId, setChallengerId] = useState("");
   const [preview, setPreview] = useState<ArenaBuildPreview | null>(null);
-  const [previewStatus, setPreviewStatus] = useState<string | null>(null);
-  const [createStatus, setCreateStatus] = useState<string | null>(null);
-  const [session, setSession] = useState<SessionResponse | null>(null);
+  const [status, setStatus] = useState<string | null>(null);
 
-  const readyToBuild =
-    buildInput.viewpoints.filter((item) => item.trim()).length >= 3 &&
-    buildInput.rule.trim().length > 0 &&
-    buildInput.taboo.trim().length > 0 &&
-    topicId &&
-    challengerId;
-
+  const alpha = useMemo(
+    () => participants.find((participant) => participant.slot === "alpha") ?? null,
+    [participants],
+  );
+  const beta = useMemo(
+    () => participants.find((participant) => participant.slot === "beta") ?? null,
+    [participants],
+  );
   const selectedTopic = useMemo(
     () => meta?.topics.find((topic) => topic.id === topicId) ?? null,
     [meta?.topics, topicId],
   );
+  const readyToBuild = Boolean(topicId && alpha?.connected && beta?.connected);
 
-  const selectedChallenger = useMemo(
-    () => meta?.challengers.find((challenger) => challenger.id === challengerId) ?? null,
-    [challengerId, meta?.challengers],
-  );
+  const fetchArenaData = async () => {
+    const [nextMeta, nextParticipants] = await Promise.all([
+      readJson<ArenaMetaResponse>("/api/arena/topics"),
+      readJson<ParticipantsResponse>("/api/participants"),
+    ]);
+
+    return {
+      meta: nextMeta,
+      participants: nextParticipants.participants,
+    };
+  };
+
+  const applyArenaData = (nextMeta: ArenaMetaResponse, nextParticipants: ArenaParticipantSource[]) => {
+    setMeta(nextMeta);
+    setParticipants(nextParticipants);
+    setTopicId((current) => current || nextMeta.topics[0]?.id || "");
+  };
 
   useEffect(() => {
+    let active = true;
+
     void (async () => {
-      const [metaPayload, sessionPayload] = await Promise.all([
-        readJson<ArenaMetaResponse>("/api/arena/topics"),
-        readJson<SessionResponse>("/api/me"),
-      ]);
+      try {
+        const data = await fetchArenaData();
 
-      setMeta(metaPayload);
-      setSession(sessionPayload);
-      setTopicId(metaPayload.topics[0]?.id ?? "");
-      setChallengerId(metaPayload.challengers[0]?.id ?? "");
+        if (!active) {
+          return;
+        }
 
-      if (sessionPayload.authenticated && sessionPayload.user?.name) {
-        setBuildInput((current) => ({
-          ...current,
-          displayName: sessionPayload.user?.name ?? current.displayName,
-        }));
-      }
+        startTransition(() => {
+          applyArenaData(data.meta, data.participants);
+        });
+      } catch (error) {
+        if (!active) {
+          return;
+        }
 
-      if (sessionPayload.authenticated) {
-        const shadesPayload = await readJson<{
-          data?: {
-            shades?: Array<{
-              label?: string;
-              name?: string;
-            }>;
-          };
-        }>("/api/secondme/shades");
-        const tags = (shadesPayload.data?.shades ?? [])
-          .map((item) => item.label ?? item.name)
-          .filter((item): item is string => Boolean(item))
-          .slice(0, 4);
-
-        setBuildInput((current) => ({
-          ...current,
-          soulSeedTags: tags,
-        }));
+        setStatus(
+          error instanceof Error ? error.message : "Failed to load arena data.",
+        );
       }
     })();
+
+    return () => {
+      active = false;
+    };
   }, []);
 
-  const updateViewpoint = (index: number, value: string) => {
-    setBuildInput((current) => {
-      const next = [...current.viewpoints];
-      next[index] = value;
-      return {
-        ...current,
-        viewpoints: next,
-      };
+  const connectParticipant = (slot: "alpha" | "beta") => {
+    window.location.assign(`/api/auth/login?slot=${slot}&returnTo=/arena`);
+  };
+
+  const disconnectParticipant = async (slot: "alpha" | "beta") => {
+    setStatus(`Disconnecting ${participantTitle(slot).toLowerCase()}...`);
+    await readJson(`/api/participants?slot=${slot}`, {
+      method: "DELETE",
     });
+    setPreview(null);
+    const data = await fetchArenaData();
+    applyArenaData(data.meta, data.participants);
+    setStatus(`${participantTitle(slot)} disconnected.`);
   };
 
   const previewBuild = async () => {
     if (!readyToBuild) {
-      setPreviewStatus("请先把辩题、守擂者和三条观点补完整。");
+      setStatus("Connect both SecondMe participants before building a real match.");
       return;
     }
 
-    setPreviewStatus("正在分析构筑...");
+    setStatus("Building real persona preview...");
     const payload = await readJson<ArenaBuildPreview>("/api/arena/build-preview", {
       body: JSON.stringify({
-        challengerId,
-        player: buildInput,
+        participants: participantRefs,
         topicId,
       }),
       headers: {
@@ -146,21 +186,20 @@ export function ArenaBuilder() {
 
     startTransition(() => {
       setPreview(payload);
-      setPreviewStatus("构筑预览已更新。");
+      setStatus("Preview updated from real participant data.");
     });
   };
 
   const startBattle = async () => {
     if (!readyToBuild) {
-      setCreateStatus("请先完成构筑，再开始对战。");
+      setStatus("Connect both SecondMe participants before starting the match.");
       return;
     }
 
-    setCreateStatus("正在生成战斗包...");
+    setStatus("Generating orchestrated battle package...");
     const battle = await readJson<BattlePackage>("/api/arena/battles", {
       body: JSON.stringify({
-        challengerId,
-        player: buildInput,
+        participants: participantRefs,
         topicId,
       }),
       headers: {
@@ -170,7 +209,7 @@ export function ArenaBuilder() {
     });
 
     localStorage.setItem(battleStorageKey(battle.id), JSON.stringify(battle));
-    setCreateStatus("战斗包已生成。");
+    setStatus("Battle package generated.");
     router.push(`/arena/${battle.id}`);
   };
 
@@ -181,148 +220,138 @@ export function ArenaBuilder() {
           <div className="grid gap-8 lg:grid-cols-[1.2fr_0.8fr]">
             <div className="space-y-4">
               <span className="accent-chip inline-flex rounded-full px-3 py-1 text-xs uppercase tracking-[0.28em]">
-                擂台工作台
+                Real Integration Console
               </span>
-              <h1 className="display-title">配魂与备战</h1>
+              <h1 className="display-title">SecondMe Arena</h1>
               <p className="max-w-3xl text-lg leading-8 text-stone-700">
-                第一阶段的关键不是写得更多，而是让构筑更清楚、更锋利、更容易命中弱点。
+                This stage now uses two real SecondMe participants. We derive fighter
+                profiles from user info, shades, and soft memory before generating the
+                battle package.
               </p>
             </div>
             <div className="paper-panel-strong rounded-[1.6rem] p-6 text-sm leading-7">
               <p className="text-xs uppercase tracking-[0.22em] text-stone-500">
-                Seed 状态
+                Match Status
               </p>
               <div className="mt-4 space-y-3">
-                <p>身份种子：{session?.user?.name ?? "未连接 SecondMe 也可继续"}</p>
-                <p>SecondMe 标签：{buildInput.soulSeedTags.join(" / ") || "无"}</p>
-                <p>Zhihu 灵感：{meta?.signals?.[0] ?? "载入中"}</p>
+                <p>Alpha: {alpha?.connected ? participantSubtitle(alpha) : "Not connected"}</p>
+                <p>Beta: {beta?.connected ? participantSubtitle(beta) : "Not connected"}</p>
+                <p>Topic: {selectedTopic?.title ?? "Loading..."}</p>
+                <p>
+                  Mode: {preview?.sourceMeta.aiAssistEnabled ? "Orchestrated SecondMe" : "Deterministic fallback"}
+                </p>
               </div>
             </div>
           </div>
         </section>
 
+        <section className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
+          {[alpha, beta].map((participant, index) => {
+            const slot = index === 0 ? "alpha" : "beta";
+            return (
+              <article
+                className="entry-fade paper-panel rounded-[1.75rem] p-6"
+                key={slot}
+              >
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.22em] text-stone-500">
+                      {participantTitle(slot)}
+                    </p>
+                    <h2 className="section-title mt-2">
+                      {participantSubtitle(participant)}
+                    </h2>
+                  </div>
+                  <div className="flex gap-3">
+                    {!participant?.connected ? (
+                      <button
+                        className="soft-button rounded-full bg-[var(--accent)] px-4 py-3 text-sm text-white"
+                        onClick={() => connectParticipant(slot)}
+                        type="button"
+                      >
+                        Connect SecondMe
+                      </button>
+                    ) : (
+                      <button
+                        className="soft-button rounded-full border border-[var(--line)] bg-white/70 px-4 py-3 text-sm"
+                        onClick={() => void disconnectParticipant(slot)}
+                        type="button"
+                      >
+                        Disconnect
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="mt-5 grid gap-3 text-sm leading-7 text-stone-700">
+                  <div className="rounded-[1.2rem] border border-[var(--line)] bg-white/75 p-4">
+                    <p className="font-semibold">Identity</p>
+                    <p className="mt-2">Route: {userField(participant, "route") ?? "None"}</p>
+                    <p className="mt-1">Bio: {userField(participant, "bio") ?? "None"}</p>
+                  </div>
+                  <div className="rounded-[1.2rem] border border-[var(--line)] bg-white/75 p-4">
+                    <p className="font-semibold">Top Shades</p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {topShades(participant).length ? (
+                        topShades(participant).map((shade) => (
+                          <span key={shade} className="accent-chip rounded-full px-3 py-1 text-xs">
+                            {shade}
+                          </span>
+                        ))
+                      ) : (
+                        <p className="text-stone-500">No shades available yet.</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="rounded-[1.2rem] border border-[var(--line)] bg-white/75 p-4">
+                    <p className="font-semibold">Soft Memory</p>
+                    <div className="mt-3 space-y-2">
+                      {memoryAnchors(participant).length ? (
+                        memoryAnchors(participant).map((memory) => (
+                          <p key={memory} className="text-stone-600">
+                            {memory}
+                          </p>
+                        ))
+                      ) : (
+                        <p className="text-stone-500">No soft memory anchors available yet.</p>
+                      )}
+                    </div>
+                  </div>
+                  {participant?.issues.length ? (
+                    <div className="rounded-[1.2rem] border border-amber-300 bg-amber-50 p-4 text-amber-900">
+                      {participant.issues.map((issue) => (
+                        <p key={issue}>{issue}</p>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              </article>
+            );
+          })}
+        </section>
+
         <section className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
           <article className="entry-fade paper-panel rounded-[1.75rem] p-6">
-            <div className="grid gap-5">
-              <div className="grid gap-4 md:grid-cols-2">
-                <div>
-                  <p className="text-sm font-semibold">辩题</p>
-                  <div className="mt-3 grid gap-3">
-                    {meta?.topics.map((topic) => (
-                      <button
-                        key={topic.id}
-                        className={`rounded-[1.3rem] border px-4 py-4 text-left ${
-                          topic.id === topicId
-                            ? "border-[var(--accent)] bg-white"
-                            : "border-[var(--line)] bg-white/75"
-                        }`}
-                        onClick={() => setTopicId(topic.id)}
-                        type="button"
-                      >
-                        <p className="text-base font-semibold">{topic.title}</p>
-                        <p className="mt-2 text-sm leading-7 text-stone-600">{topic.prompt}</p>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <p className="text-sm font-semibold">守擂者</p>
-                  <div className="mt-3 grid gap-3">
-                    {meta?.challengers.map((challenger) => (
-                      <button
-                        key={challenger.id}
-                        className={`rounded-[1.3rem] border px-4 py-4 text-left ${
-                          challenger.id === challengerId
-                            ? "border-[var(--accent)] bg-white"
-                            : "border-[var(--line)] bg-white/75"
-                        }`}
-                        onClick={() => setChallengerId(challenger.id)}
-                        type="button"
-                      >
-                        <p className="text-base font-semibold">
-                          {challenger.displayName} · {challenger.archetype}
-                        </p>
-                        <p className="mt-2 text-sm leading-7 text-stone-600">
-                          {challenger.declaration}
-                        </p>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <div className="rounded-[1.4rem] border border-[var(--line)] bg-white/75 p-5">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <label className="grid gap-2 text-sm">
-                    <span className="font-semibold">挑战者名称</span>
-                    <input
-                      className="rounded-full border border-[var(--line)] bg-white px-4 py-3 outline-none"
-                      onChange={(event) =>
-                        setBuildInput((current) => ({
-                          ...current,
-                          displayName: event.target.value,
-                        }))
-                      }
-                      value={buildInput.displayName}
-                    />
-                  </label>
-                  <label className="grid gap-2 text-sm">
-                    <span className="font-semibold">登场宣言</span>
-                    <input
-                      className="rounded-full border border-[var(--line)] bg-white px-4 py-3 outline-none"
-                      onChange={(event) =>
-                        setBuildInput((current) => ({
-                          ...current,
-                          declaration: event.target.value,
-                        }))
-                      }
-                      value={buildInput.declaration}
-                    />
-                  </label>
-                </div>
-
-                <div className="mt-4 grid gap-4">
-                  {buildInput.viewpoints.map((viewpoint, index) => (
-                    <label className="grid gap-2 text-sm" key={`viewpoint-${index}`}>
-                      <span className="font-semibold">观点 {index + 1}</span>
-                      <textarea
-                        className="min-h-28 rounded-[1.25rem] border border-[var(--line)] bg-white px-4 py-3 outline-none"
-                        onChange={(event) => updateViewpoint(index, event.target.value)}
-                        value={viewpoint}
-                      />
-                    </label>
-                  ))}
-                </div>
-
-                <div className="mt-4 grid gap-4 md:grid-cols-2">
-                  <label className="grid gap-2 text-sm">
-                    <span className="font-semibold">规则</span>
-                    <textarea
-                      className="min-h-28 rounded-[1.25rem] border border-[var(--line)] bg-white px-4 py-3 outline-none"
-                      onChange={(event) =>
-                        setBuildInput((current) => ({
-                          ...current,
-                          rule: event.target.value,
-                        }))
-                      }
-                      value={buildInput.rule}
-                    />
-                  </label>
-                  <label className="grid gap-2 text-sm">
-                    <span className="font-semibold">禁忌</span>
-                    <textarea
-                      className="min-h-28 rounded-[1.25rem] border border-[var(--line)] bg-white px-4 py-3 outline-none"
-                      onChange={(event) =>
-                        setBuildInput((current) => ({
-                          ...current,
-                          taboo: event.target.value,
-                        }))
-                      }
-                      value={buildInput.taboo}
-                    />
-                  </label>
-                </div>
-              </div>
+            <p className="text-xs uppercase tracking-[0.22em] text-stone-500">
+              Debate Topic
+            </p>
+            <h2 className="section-title mt-2">Choose the match topic</h2>
+            <div className="mt-5 grid gap-3">
+              {meta?.topics.map((topic) => (
+                <button
+                  key={topic.id}
+                  className={`rounded-[1.3rem] border px-4 py-4 text-left ${
+                    topic.id === topicId
+                      ? "border-[var(--accent)] bg-white"
+                      : "border-[var(--line)] bg-white/75"
+                  }`}
+                  onClick={() => setTopicId(topic.id)}
+                  type="button"
+                >
+                  <p className="text-base font-semibold">{topic.title}</p>
+                  <p className="mt-2 text-sm leading-7 text-stone-600">{topic.prompt}</p>
+                </button>
+              ))}
             </div>
           </article>
 
@@ -330,9 +359,9 @@ export function ArenaBuilder() {
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-xs uppercase tracking-[0.22em] text-stone-500">
-                  构筑预览
+                  Orchestration
                 </p>
-                <h2 className="section-title mt-2">装备判读与战术建议</h2>
+                <h2 className="section-title mt-2">Build and launch</h2>
               </div>
               <div className="flex gap-3">
                 <button
@@ -340,34 +369,40 @@ export function ArenaBuilder() {
                   onClick={() => void previewBuild()}
                   type="button"
                 >
-                  预览构筑
+                  Preview persona build
                 </button>
+                <Link
+                  className="soft-button rounded-full border border-[var(--line)] bg-white/70 px-4 py-3 text-sm"
+                  href="/arena/history"
+                >
+                  View battle history
+                </Link>
                 <button
                   className="soft-button rounded-full bg-[var(--accent)] px-4 py-3 text-sm text-white"
                   onClick={() => void startBattle()}
                   type="button"
                 >
-                  开始对战
+                  Start real battle
                 </button>
               </div>
             </div>
 
             <div className="mt-4 rounded-[1.35rem] border border-[var(--line)] bg-white/75 p-4 text-sm leading-7 text-stone-600">
-              {previewStatus ?? createStatus ?? "先预览构筑，再生成 battle package。"}
+              {status ?? "Connect both participants, then preview or start the battle."}
             </div>
 
             {preview ? (
               <div className="mt-5 grid gap-4">
                 <div className="rounded-[1.35rem] border border-[var(--line)] bg-white/75 p-4">
                   <p className="text-sm font-semibold">
-                    {selectedTopic?.title} · {selectedChallenger?.displayName}
+                    {preview.player.displayName} vs {preview.defender.displayName}
                   </p>
                   <p className="mt-2 text-sm text-stone-600">
                     {preview.matchUpCallout}
                   </p>
                   <div className="mt-4 grid gap-3 md:grid-cols-2">
                     <div className="rounded-2xl border border-[var(--line)] bg-stone-50 px-4 py-3">
-                      <p className="text-sm font-semibold">你的优势边</p>
+                      <p className="text-sm font-semibold">Predicted edges</p>
                       <div className="mt-2 space-y-2 text-xs text-stone-600">
                         {preview.predictedEdges.map((edge) => (
                           <p key={edge}>{edge}</p>
@@ -375,7 +410,7 @@ export function ArenaBuilder() {
                       </div>
                     </div>
                     <div className="rounded-2xl border border-[var(--line)] bg-stone-50 px-4 py-3">
-                      <p className="text-sm font-semibold">赛前建议</p>
+                      <p className="text-sm font-semibold">Build notes</p>
                       <div className="mt-2 space-y-2 text-xs text-stone-600">
                         {preview.equipmentNotes.map((note) => (
                           <p key={note}>{note}</p>
@@ -385,42 +420,53 @@ export function ArenaBuilder() {
                   </div>
                 </div>
 
-                <div className="grid gap-3">
-                  {preview.player.cards.map((card) => (
-                    <article
-                      key={card.id}
-                      className="rounded-[1.25rem] border border-[var(--line)] bg-white/75 px-4 py-4"
-                    >
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <div>
-                          <p className="text-sm font-semibold">
-                            {card.title} · {card.trait}
-                          </p>
-                          <p className="mt-1 text-sm text-stone-600">{card.hint}</p>
-                        </div>
-                        <div className="flex flex-wrap gap-2 text-xs">
-                          <span className="accent-chip rounded-full px-3 py-1">
-                            攻击 {card.atk}
-                          </span>
-                          <span className="accent-chip rounded-full px-3 py-1">
-                            防御 {card.def}
-                          </span>
-                          <span className="accent-chip rounded-full px-3 py-1">
-                            穿透 {card.pen}
-                          </span>
-                          <span className="accent-chip rounded-full px-3 py-1">
-                            节奏 {card.spd}
-                          </span>
+                {[preview.player, preview.defender].map((fighter) => (
+                  <article
+                    key={fighter.id}
+                    className="rounded-[1.25rem] border border-[var(--line)] bg-white/75 px-4 py-4"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold">
+                          {fighter.displayName} | {fighter.powerLabel}
+                        </p>
+                        <p className="mt-1 text-sm text-stone-600">{fighter.declaration}</p>
+                      </div>
+                      <div className="flex flex-wrap gap-2 text-xs">
+                        <span className="accent-chip rounded-full px-3 py-1">
+                          Source {fighter.source.provider}
+                        </span>
+                        <span className="accent-chip rounded-full px-3 py-1">
+                          Slot {fighter.source.slot}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="mt-4 grid gap-3 md:grid-cols-2">
+                      <div className="rounded-2xl border border-[var(--line)] bg-stone-50 px-4 py-3">
+                        <p className="text-xs uppercase tracking-[0.18em] text-stone-500">
+                          Identity summary
+                        </p>
+                        <div className="mt-2 space-y-2 text-sm text-stone-600">
+                          {fighter.identitySummary.map((item) => (
+                            <p key={item}>{item}</p>
+                          ))}
                         </div>
                       </div>
-                      <div className="mt-3 grid gap-2 text-xs text-stone-600 md:grid-cols-3">
-                        <p>原创性 {card.radar.originality}</p>
-                        <p>可攻击性 {card.radar.attackability}</p>
-                        <p>可防守性 {card.radar.defensibility}</p>
+                      <div className="rounded-2xl border border-[var(--line)] bg-stone-50 px-4 py-3">
+                        <p className="text-xs uppercase tracking-[0.18em] text-stone-500">
+                          Memory anchors
+                        </p>
+                        <div className="mt-2 space-y-2 text-sm text-stone-600">
+                          {fighter.memoryAnchors.length ? (
+                            fighter.memoryAnchors.map((item) => <p key={item}>{item}</p>)
+                          ) : (
+                            <p>No memory anchors</p>
+                          )}
+                        </div>
                       </div>
-                    </article>
-                  ))}
-                </div>
+                    </div>
+                  </article>
+                ))}
               </div>
             ) : null}
           </article>
@@ -428,22 +474,19 @@ export function ArenaBuilder() {
 
         <section className="entry-fade paper-panel rounded-[1.75rem] p-6">
           <p className="text-xs uppercase tracking-[0.22em] text-stone-500">
-            外部信号
+            External Signals
           </p>
-          <h2 className="section-title mt-2">知乎热榜灵感</h2>
+          <h2 className="section-title mt-2">Zhihu inspiration feed</h2>
           <div className="mt-5 flex flex-wrap gap-3">
             {meta?.signals?.length ? (
               meta.signals.map((signal) => (
-                <span
-                  key={signal}
-                  className="accent-chip rounded-full px-3 py-2 text-sm"
-                >
+                <span key={signal} className="accent-chip rounded-full px-3 py-2 text-sm">
                   {signal}
                 </span>
               ))
             ) : (
               <p className="text-sm text-stone-500">
-                当前没有外部灵感信号，内置辩题已足够支撑 MVP 主线。
+                No external signals available right now.
               </p>
             )}
           </div>

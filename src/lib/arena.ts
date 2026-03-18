@@ -2,11 +2,10 @@ import { createHash, randomUUID } from "node:crypto";
 
 import { challengerPresets, soulLabels, topicPresets } from "@/lib/arena-presets";
 import type {
-  ArenaBattleSetup,
-  ArenaBuildPreview,
   BattleEvent,
   BattleHighlight,
   BattlePackage,
+  ChallengerPreset,
   BuildCard,
   BuildCardKind,
   FighterBuildInput,
@@ -14,7 +13,24 @@ import type {
   JudgeVerdict,
   SoulStatKey,
   SoulStats,
+  TopicPreset,
 } from "@/lib/arena-types";
+
+type LegacyArenaBuildPreview = {
+  challenger: ChallengerPreset;
+  defender: FighterProfile;
+  equipmentNotes: string[];
+  matchUpCallout: string;
+  player: FighterProfile;
+  predictedEdges: string[];
+  topic: TopicPreset;
+};
+
+type LegacyArenaBattleSetup = {
+  challengerId: string;
+  player: FighterBuildInput;
+  topicId: string;
+};
 
 const attackKeywords = [
   "必须",
@@ -311,9 +327,16 @@ const toFighterProfile = (
     displayName: input.displayName,
     health: 100,
     id,
+    identitySummary: [],
+    memoryAnchors: [],
     powerLabel: getPowerLabel(soul),
     role,
     soul,
+    source: {
+      connected: false,
+      provider: "secondme",
+      slot: role === "challenger" ? "alpha" : "beta",
+    },
   } satisfies FighterProfile;
 };
 
@@ -343,7 +366,7 @@ const createMatchUpCallout = (player: FighterProfile, defender: FighterProfile) 
   return "这是一场胶着局，先保住节奏，再把规则卡转成解释优势。";
 };
 
-export const buildArenaPreview = (setup: ArenaBattleSetup): ArenaBuildPreview => {
+const buildArenaPreview = (setup: LegacyArenaBattleSetup): LegacyArenaBuildPreview => {
   const topic = getTopicById(setup.topicId);
   const challenger = getChallengerById(setup.challengerId);
   const player = toFighterProfile(
@@ -568,7 +591,7 @@ const createNextChallengerPreview = (currentId: string) => {
   };
 };
 
-export const createBattlePackage = (setup: ArenaBattleSetup): BattlePackage => {
+const createBattlePackage = (setup: LegacyArenaBattleSetup): BattlePackage => {
   const preview = buildArenaPreview(setup);
   const player = preview.player;
   const defender = preview.defender;
@@ -723,11 +746,18 @@ export const createBattlePackage = (setup: ArenaBattleSetup): BattlePackage => {
     highlights: buildHighlights(events),
     id: battleId,
     judges,
+    participantRefs: [],
     player: {
       ...player,
       health: playerHealth,
     },
     roomTitle: `${preview.topic.title} · ${player.displayName} 对阵 ${defender.displayName}`,
+    sourceMeta: {
+      aiAssistEnabled: false,
+      aiAssistUsed: false,
+      generationMode: "mock",
+      issues: [],
+    },
     topic: preview.topic,
     winnerId,
   } satisfies BattlePackage;

@@ -7,6 +7,10 @@ export type SoulStatKey =
 
 export type SoulStats = Record<SoulStatKey, number>;
 
+export type ParticipantProvider = "secondme" | "openclaw";
+export type ArenaParticipantSlot = "alpha" | "beta";
+export type ArenaGenerationMode = "mock" | "orchestrated";
+
 export type TopicPreset = {
   id: string;
   title: string;
@@ -60,6 +64,64 @@ export type FighterBuildInput = {
   viewpoints: string[];
 };
 
+export type ParticipantBuildOverride = Partial<FighterBuildInput>;
+
+export type SecondMeShade = {
+  id?: string | number;
+  label?: string;
+  name?: string;
+  description?: string;
+  [key: string]: unknown;
+};
+
+export type SecondMeSoftMemory = {
+  id?: string | number;
+  title?: string;
+  content?: string;
+  text?: string;
+  summary?: string;
+  [key: string]: unknown;
+};
+
+export type ParticipantSessionSnapshot = {
+  authenticated: boolean;
+  expiresAt: number | null;
+};
+
+export type ArenaParticipantRef = {
+  participantId?: string;
+  provider: ParticipantProvider;
+  slot: ArenaParticipantSlot;
+};
+
+export type ArenaParticipantSource = {
+  slot: ArenaParticipantSlot;
+  provider: ParticipantProvider;
+  connected: boolean;
+  displayName: string | null;
+  secondMeUserId: string | null;
+  session: ParticipantSessionSnapshot;
+  user: Record<string, unknown> | null;
+  shades: SecondMeShade[];
+  softMemory: SecondMeSoftMemory[];
+  issues: string[];
+};
+
+export type FighterSourceMeta = {
+  connected: boolean;
+  participantId?: string;
+  provider: ParticipantProvider;
+  secondMeUserId?: string | null;
+  slot: ArenaParticipantSlot;
+};
+
+export type BattleSourceMeta = {
+  aiAssistEnabled: boolean;
+  aiAssistUsed: boolean;
+  generationMode: ArenaGenerationMode;
+  issues: string[];
+};
+
 export type FighterProfile = {
   id: string;
   archetype: string;
@@ -69,24 +131,28 @@ export type FighterProfile = {
   declaration: string;
   displayName: string;
   health: number;
+  identitySummary: string[];
+  memoryAnchors: string[];
   powerLabel: string;
   role: "challenger" | "defender";
   soul: SoulStats;
+  source: FighterSourceMeta;
 };
 
 export type ArenaBuildPreview = {
   topic: TopicPreset;
-  challenger: ChallengerPreset;
   defender: FighterProfile;
   equipmentNotes: string[];
   matchUpCallout: string;
+  participantRefs: ArenaParticipantRef[];
   player: FighterProfile;
   predictedEdges: string[];
+  sourceMeta: BattleSourceMeta;
 };
 
 export type ArenaBattleSetup = {
-  challengerId: string;
-  player: FighterBuildInput;
+  overrides?: Partial<Record<ArenaParticipantSlot, ParticipantBuildOverride>>;
+  participants: ArenaParticipantRef[];
   topicId: string;
 };
 
@@ -140,7 +206,19 @@ export type BattlePreview = {
   aura: string;
   declaration: string;
   displayName: string;
+  label?: string;
   soul: SoulStats;
+};
+
+export type BattleSummary = {
+  createdAt: string;
+  defenderDisplayName: string;
+  generationMode: ArenaGenerationMode;
+  id: string;
+  playerDisplayName: string;
+  roomTitle: string;
+  topicId: string;
+  winnerId: string;
 };
 
 export type BattlePackage = {
@@ -160,8 +238,10 @@ export type BattlePackage = {
   highlights: BattleHighlight[];
   id: string;
   judges: JudgeVerdict[];
+  participantRefs: ArenaParticipantRef[];
   player: FighterProfile;
   roomTitle: string;
+  sourceMeta: BattleSourceMeta;
   topic: TopicPreset;
   winnerId: string;
 };

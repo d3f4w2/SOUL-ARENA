@@ -1,98 +1,131 @@
 # 架构说明
 
 ## 总体结构
-当前项目分成三层：
+当前项目分成四层：
 
-### 1. 接入层
+### 1. 外部接入层
 - `SecondMe`
-  - 登录
+  - 双槽位 OAuth：`alpha` / `beta`
   - 用户资料
-  - 标签 / 软记忆
-  - 聊天 / 笔记
+  - `shades`
+  - `soft memory`
+  - chat / note / agent memory
 - `Zhihu`
   - 热榜
   - 搜索
   - 圈子相关能力
 
-这一层负责外部平台接入，不直接承担 battle 核心逻辑。
+这一层负责外部平台接入，不直接承担 battle package 的业务编排。
 
-### 2. Arena 域层
-核心在 `src/lib/arena.ts`，负责：
+### 2. 参与者聚合层
+核心在 `src/lib/arena-participants.ts`，负责：
 
-- 辩题预设
-- 守擂者预设
-- build 分析
-- battle package 生成
-- battle events 生成
-- highlights / judge / challenger preview 生成
+- 读取双参与者真实 session
+- 拉取 `SecondMe` 原始资料
+- 组装 `ArenaParticipantSource`
+- 提炼 identity summary
+- 提炼 memory anchors
+- 生成 fighter input
 
-这层是当前产品逻辑的中心。
+这一层把“平台原始数据”转成“可供 battle 消费的领域输入”。
 
-### 3. 展示层
+### 3. Arena 编排层
+当前分成两部分：
+
+- `src/lib/arena-engine.ts`
+  - 真实 preview 生成
+  - 真实 battle package 生成
+  - best-effort `SecondMe Act` overlay
+- `src/lib/arena.ts`
+  - 首页经典 demo battle 数据
+
+也就是说，真实主流程和 legacy demo 流程已经分开了。
+
+### 4. 展示层
 主要页面与组件：
 
 - `src/components/soul-arena-app.tsx`
-  首页与经典战役预告板
+  - 首页与经典战役预告板
 - `src/components/arena-builder.tsx`
-  备战工作台
+  - 双人真实接入控制台
 - `src/components/battle-replay.tsx`
-  回放舞台、事件流、战报、录屏导出
+  - 回放舞台、事件流、战报、录屏导出
 
 ## 关键数据流
+### 流程 A：真实双人 battle
 1. 前端进入 `/arena`
-2. 读取 `/api/arena/topics`
-   - 返回 topics
-   - 返回 challengers
-   - 返回来自 Zhihu 的 signal
-3. 用户填写 build 输入
-4. 前端调用 `/api/arena/build-preview`
-5. 后端返回：
-   - player / defender
-   - build cards
-   - equipment notes
-   - predicted edges
-6. 用户点击开始对战
-7. 前端调用 `/api/arena/battles`
-8. 后端返回完整 battle package
-9. 前端跳转 `/arena/[battleId]`
-10. 回放页消费 battle package，驱动 canvas 舞台与事件流
-11. 用户可录制舞台并导出 `WebM`
+2. 调用 `/api/participants`
+3. 返回 `alpha` / `beta` 两个参与者的真实连接状态与资料
+4. 用户选择辩题
+5. 前端调用 `/api/arena/build-preview`
+6. 后端：
+   - 解析双参与者
+   - 拉取真实 `SecondMe` 数据
+   - 生成 fighter profile
+7. 前端展示 preview
+8. 用户点击开始对战
+9. 前端调用 `/api/arena/battles`
+10. 后端生成 battle package
+11. 后端 best-effort 写回 `SecondMe agent_memory`
+12. 前端跳转 `/arena/[battleId]`
+13. 回放页消费 battle package，驱动 canvas 舞台与事件流
+
+### 流程 B：首页经典 demo
+1. 首页读取本地经典 battle 数据
+2. 只用于展示品牌感和玩法，不依赖真实双参与者接入
 
 ## Battle Package
-battle package 是当前最关键的内部稳定契约。它连接：
+battle package 仍然是当前最关键的内部稳定契约。它连接：
 
 - battle 生成逻辑
 - 前端回放页面
 - 高光展示
-- 挑战者预告
+- 评委点评
+- rematch / replay anchor
 - 后续持久化与分享
 
-当前 package 至少包含：
+当前 battle package 关键字段包括：
 
-- metadata
-- topic
-- player / defender
-- judges
-- highlights
-- challengerPreview
-- finalScore / crowdScore
-- ordered events
+- `topic`
+- `player`
+- `defender`
+- `events`
+- `judges`
+- `highlights`
+- `challengerPreview`
+- `finalScore`
+- `crowdScore`
+- `winnerId`
+- `participantRefs`
+- `sourceMeta`
+
+## 当前 battle 形态
+当前真实 battle 不是纯 mock，也不是完整 autonomous 多 agent 编排，而是：
+
+- 双方真实 `SecondMe` 资料
+- 真实 fighter profile 组装
+- best-effort `SecondMe Act` 结构化 overlay
+- overlay 失败时的确定性 fallback
+
+这保证了主流程能稳定运行，但还没有到最终形态。
 
 ## 当前持久化策略
-当前仍是 MVP 级轻量方案：
+当前采用本地 SQLite 轻量方案：
 
-- battle package 在服务端内存中保存
-- 前端本地也会缓存一份
-- 目标是先保证演示流程能跑通
+- battle package 写入本地 SQLite
+- `/api/arena/history` 提供最小历史列表
+- `/arena/[battleId]` 从持久化 battle snapshot 读取
+- 前端本地仍会保留一份缓存作为兜底
 
 这意味着：
 
-- 刷新与跨设备共享能力有限
-- 还不适合做真正的历史战役库
+- 刷新与进程重启后的回放已可用
+- 仍然没有跨设备共享和远程同步
+- 还没有 battle setup / rematch / share 级别的持久化能力
 
 ## 下一步架构扩展
-后续最优先的扩展方向：
+当前最优先的扩展方向：
 
-1. 把 battle package 持久化到数据库
-2. 把当前生成式 battle 改成真实对战编排
-3. 把历史战报、排行榜、投票建立在同一份 package 契约上
+1. 接入 `openclaw` 作为新的 participant provider
+2. 把当前 hybrid battle 推进到更完整的真实编排
+3. 在 SQLite 之上继续扩展 history / rematch / share 能力
