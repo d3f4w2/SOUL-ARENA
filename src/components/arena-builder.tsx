@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
+import { soulLabels } from "@/lib/arena-presets";
 import type {
   ArenaBuildPreview,
   ArenaCompetitorProfile,
@@ -11,7 +12,11 @@ import type {
   ArenaParticipantCompetitiveProfile,
   ArenaParticipantSource,
   BattlePackage,
+  BuildCard,
+  FighterProfile,
   ParticipantBuildOverride,
+  SoulStatKey,
+  SoulStats,
   TopicPreset,
 } from "@/lib/arena-types";
 
@@ -212,6 +217,198 @@ const buildMatchupSummary = (
           : "常规排位局",
   };
 };
+
+// ── Build stat bar ─────────────────────────────────────────────────
+function StatBar({
+  label,
+  value,
+  max,
+  accent,
+}: {
+  label: string;
+  value: number;
+  max: number;
+  accent: string;
+}) {
+  const pct = Math.round((value / max) * 100);
+  return (
+    <div className="flex items-center gap-2">
+      <span style={{ fontFamily: "'Courier New', monospace", fontSize: '0.65rem', color: 'var(--text-muted)', width: '2.6rem', flexShrink: 0, textAlign: 'right' }}>
+        {label}
+      </span>
+      <div style={{ flex: 1, height: '6px', background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(60,0,0,0.3)', position: 'relative', overflow: 'hidden' }}>
+        <div style={{ position: 'absolute', inset: 0, width: `${pct}%`, background: accent, boxShadow: `0 0 4px ${accent}`, transition: 'width 400ms ease' }} />
+      </div>
+      <span style={{ fontFamily: "'Courier New', monospace", fontSize: '0.65rem', color: 'var(--text-dim)', width: '1.8rem', flexShrink: 0 }}>
+        {value}
+      </span>
+    </div>
+  );
+}
+
+// ── Build card detail ───────────────────────────────────────────────
+function BuildCardDetail({
+  card,
+  isPlayer,
+  sourceText,
+}: {
+  card: BuildCard;
+  isPlayer: boolean;
+  sourceText?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const accent = isPlayer ? 'var(--red)' : 'var(--gold)';
+  const accentDim = isPlayer ? 'rgba(200,0,0,0.5)' : 'rgba(212,160,0,0.5)';
+
+  return (
+    <div style={{ background: 'rgba(0,0,0,0.4)', border: `1px solid rgba(60,0,0,0.25)`, borderLeft: `3px solid ${accent}`, padding: '8px 10px' }}>
+      <button className="flex w-full items-center justify-between gap-2" onClick={() => setOpen((v) => !v)} type="button">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '0.75rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: accent }}>
+            {card.title}
+          </span>
+          <span style={{ fontFamily: "'Courier New', monospace", fontSize: '0.62rem', color: 'var(--text-muted)', background: 'rgba(0,0,0,0.4)', padding: '1px 6px', border: `1px solid ${accentDim}` }}>
+            {card.trait}
+          </span>
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <span style={{ fontFamily: "'Courier New', monospace", fontSize: '0.6rem', color: 'var(--red)' }}>ATK{card.atk}</span>
+          <span style={{ fontFamily: "'Courier New', monospace", fontSize: '0.6rem', color: 'var(--gold-dim)' }}>DEF{card.def}</span>
+          <span style={{ fontFamily: "'Courier New', monospace", fontSize: '0.6rem', color: 'var(--text-muted)' }}>
+            {open ? '▲' : '▼'}
+          </span>
+        </div>
+      </button>
+
+      {open && (
+        <div className="mt-3 flex flex-col gap-2">
+          <p style={{ fontFamily: "'Courier New', monospace", fontSize: '0.72rem', color: 'var(--text-dim)', lineHeight: '1.65', borderLeft: '2px solid rgba(60,0,0,0.3)', paddingLeft: '8px' }}>
+            {card.text}
+          </p>
+          {sourceText && (
+            <p style={{ fontFamily: "'Courier New', monospace", fontSize: '0.65rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+              ↳ 来源：{sourceText}
+            </p>
+          )}
+          <div className="flex flex-col gap-1 mt-1">
+            <StatBar label="ATK" value={card.atk} max={20} accent="var(--red)" />
+            <StatBar label="DEF" value={card.def} max={20} accent="var(--gold-dim)" />
+            <StatBar label="PEN" value={card.pen} max={18} accent="#7a00cc" />
+            <StatBar label="SPD" value={card.spd} max={18} accent="#006fa8" />
+          </div>
+          <p style={{ fontFamily: "'Courier New', monospace", fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+            {card.hint}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Soul stats block ────────────────────────────────────────────────
+function SoulStatsBlock({ soul, isPlayer }: { soul: SoulStats; isPlayer: boolean }) {
+  const accent = isPlayer ? 'var(--red)' : 'var(--gold)';
+  return (
+    <div className="flex flex-col gap-1">
+      {(Object.keys(soulLabels) as SoulStatKey[]).map((key) => (
+        <StatBar key={key} label={soulLabels[key]} value={soul[key]} max={99} accent={accent} />
+      ))}
+    </div>
+  );
+}
+
+// ── Fighter build derivation panel ─────────────────────────────────
+function BuildDerivationPanel({
+  fighter,
+  participant,
+  isPlayer,
+}: {
+  fighter: FighterProfile;
+  participant: ArenaParticipantSource | null;
+  isPlayer: boolean;
+}) {
+  const accent = isPlayer ? 'var(--red)' : 'var(--gold)';
+  const shades = (participant?.shades ?? [])
+    .map((s) => (s.label ?? s.name ?? "").trim())
+    .filter(Boolean)
+    .slice(0, 4);
+  const memories = (participant?.softMemory ?? [])
+    .map((m) => (m.summary ?? m.text ?? m.content ?? m.title ?? "").trim())
+    .filter(Boolean)
+    .slice(0, 3);
+
+  // Map card index to source: viewpoint[0]→memory[0], viewpoint[1]→shades, viewpoint[2]→identitySummary
+  const cardSources = [
+    memories[0] ? `软记忆：${memories[0].slice(0, 60)}…` : undefined,
+    shades.length ? `人格标签：${shades.join('、')}` : undefined,
+    fighter.identitySummary[1] ?? fighter.identitySummary[0] ?? undefined,
+    undefined, // rule card — default rule
+    undefined, // taboo card — default taboo
+  ];
+
+  return (
+    <div className="flex flex-col gap-4">
+      {/* Soul stats */}
+      <div className="mk-panel-inset p-3">
+        <p style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '0.65rem', letterSpacing: '0.22em', textTransform: 'uppercase', color: accent, marginBottom: '10px' }}>
+          魂核属性 · Soul Stats
+        </p>
+        <SoulStatsBlock soul={fighter.soul} isPlayer={isPlayer} />
+        <p style={{ fontFamily: "'Courier New', monospace", fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: '8px', lineHeight: '1.5' }}>
+          由装备卡数值（atk/def/pen/spd）+ 人格标签推导而来。
+        </p>
+      </div>
+
+      {/* Cards */}
+      <div className="flex flex-col gap-2">
+        <p style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '0.65rem', letterSpacing: '0.22em', textTransform: 'uppercase', color: accent }}>
+          装备卡 · Build Cards
+        </p>
+        {fighter.cards.map((card, i) => (
+          <BuildCardDetail
+            key={card.id}
+            card={card}
+            isPlayer={isPlayer}
+            sourceText={cardSources[i]}
+          />
+        ))}
+      </div>
+
+      {/* Source trace */}
+      {(shades.length > 0 || memories.length > 0) && (
+        <div className="mk-panel-inset p-3">
+          <p style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '0.65rem', letterSpacing: '0.22em', textTransform: 'uppercase', color: accent, marginBottom: '8px' }}>
+            构筑溯源
+          </p>
+          {shades.length > 0 && (
+            <div className="mb-2">
+              <p style={{ fontFamily: "'Courier New', monospace", fontSize: '0.62rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                人格标签 → soulSeedTags → Soul 属性加成
+              </p>
+              <div className="flex flex-wrap gap-1">
+                {shades.map((shade) => (
+                  <span key={shade} style={{ fontFamily: "'Courier New', monospace", fontSize: '0.62rem', color: accent, background: 'rgba(0,0,0,0.4)', border: `1px solid rgba(60,0,0,0.3)`, padding: '1px 6px' }}>
+                    {shade}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+          {memories.map((mem, i) => (
+            <div key={i} className="mb-1">
+              <p style={{ fontFamily: "'Courier New', monospace", fontSize: '0.62rem', color: 'var(--text-muted)' }}>
+                <span style={{ color: accent }}>软记忆 {i + 1}</span> → 观点卡 {i + 1} 文本
+              </p>
+              <p style={{ fontFamily: "'Courier New', monospace", fontSize: '0.62rem', color: 'var(--text-dim)', fontStyle: 'italic', lineHeight: '1.5' }}>
+                「{mem.slice(0, 80)}{mem.length > 80 ? '…' : ''}」
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ── Fighter info card (shared for alpha & beta) ──────────────────
 function FighterCard({
@@ -898,53 +1095,37 @@ export function ArenaBuilder() {
                   </div>
                 </div>
 
-                {[preview.player, preview.defender].map((fighter, idx) => (
-                  <article key={fighter.id} className={idx === 0 ? "mk-fighter-card p-4" : "mk-fighter-card-gold p-4"}>
-                    <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-                      <div>
-                        <p style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '1rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: idx === 0 ? 'var(--red-bright)' : 'var(--gold-bright)' }}>
-                          {fighter.displayName}
-                        </p>
-                        <p style={{ fontFamily: "'Courier New', monospace", fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                          {fighter.powerLabel}
-                        </p>
+                {[preview.player, preview.defender].map((fighter, idx) => {
+                  const isPlayer = idx === 0;
+                  const participant = isPlayer ? alpha : beta;
+                  return (
+                    <article key={fighter.id} className={isPlayer ? "mk-fighter-card p-4" : "mk-fighter-card-gold p-4"}>
+                      {/* Header */}
+                      <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+                        <div>
+                          <p style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '1rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: isPlayer ? 'var(--red-bright)' : 'var(--gold-bright)' }}>
+                            {fighter.displayName}
+                          </p>
+                          <p style={{ fontFamily: "'Courier New', monospace", fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                            {fighter.powerLabel}
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <span className={isPlayer ? "mk-badge" : "mk-badge-gold"}>{fighter.source.provider}</span>
+                          <span className={isPlayer ? "mk-badge" : "mk-badge-gold"}>{fighter.source.slot === "alpha" ? "甲方" : "乙方"}</span>
+                        </div>
                       </div>
-                      <div className="flex flex-wrap gap-2">
-                        <span className={idx === 0 ? "mk-badge" : "mk-badge-gold"}>
-                          {fighter.source.provider}
-                        </span>
-                        <span className={idx === 0 ? "mk-badge" : "mk-badge-gold"}>
-                          {fighter.source.slot === "alpha" ? "甲方" : "乙方"}
-                        </span>
-                      </div>
-                    </div>
-                    <p style={{ fontFamily: "'Courier New', monospace", fontSize: '0.78rem', color: 'var(--text-dim)', lineHeight: '1.7', marginBottom: '10px' }}>
-                      {fighter.declaration}
-                    </p>
-                    <div className="grid gap-3 md:grid-cols-2">
-                      <div className="mk-panel-inset p-3">
-                        <p style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '0.62rem', letterSpacing: '0.25em', textTransform: 'uppercase', color: idx === 0 ? 'var(--red)' : 'var(--gold)', marginBottom: '8px' }}>
-                          身份摘要
-                        </p>
-                        {fighter.identitySummary.map((item) => (
-                          <p key={item} style={{ fontFamily: "'Courier New', monospace", fontSize: '0.75rem', color: 'var(--text-dim)', lineHeight: '1.6' }}>{item}</p>
-                        ))}
-                      </div>
-                      <div className="mk-panel-inset p-3">
-                        <p style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '0.62rem', letterSpacing: '0.25em', textTransform: 'uppercase', color: idx === 0 ? 'var(--red)' : 'var(--gold)', marginBottom: '8px' }}>
-                          记忆锚点
-                        </p>
-                        {fighter.memoryAnchors.length ? (
-                          fighter.memoryAnchors.map((item) => (
-                            <p key={item} style={{ fontFamily: "'Courier New', monospace", fontSize: '0.75rem', color: 'var(--text-dim)', lineHeight: '1.6' }}>{item}</p>
-                          ))
-                        ) : (
-                          <p style={{ fontFamily: "'Courier New', monospace", fontSize: '0.75rem', color: 'var(--text-muted)' }}>暂无记忆锚点</p>
-                        )}
-                      </div>
-                    </div>
-                  </article>
-                ))}
+
+                      {/* Declaration */}
+                      <p style={{ fontFamily: "'Courier New', monospace", fontSize: '0.78rem', color: 'var(--text-dim)', lineHeight: '1.7', marginBottom: '12px', borderLeft: `3px solid ${isPlayer ? 'var(--red-dark)' : 'var(--gold-dim)'}`, paddingLeft: '10px' }}>
+                        {fighter.declaration}
+                      </p>
+
+                      {/* Build derivation: cards + soul + trace */}
+                      <BuildDerivationPanel fighter={fighter} participant={participant} isPlayer={isPlayer} />
+                    </article>
+                  );
+                })}
               </div>
             ) : null}
           </article>

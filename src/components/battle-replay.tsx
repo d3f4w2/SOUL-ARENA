@@ -9,6 +9,7 @@ import type {
   ArenaCompetitorProfile,
   BattleEvent,
   BattlePackage,
+  SoulStatKey,
   SoulStats,
 } from "@/lib/arena-types";
 
@@ -319,6 +320,30 @@ const winnerLabel = (battle: BattlePackage) =>
   battle.winnerId === battle.player.id
     ? `${battle.player.displayName} 获胜`
     : `${battle.defender.displayName} 守擂成功`;
+
+// Mini stat bar for replay sidebar
+function MiniStatBar({ label, value, max, accent }: { label: string; value: number; max: number; accent: string }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span style={{ fontFamily: "'Courier New', monospace", fontSize: '0.6rem', color: 'var(--text-muted)', width: '2.2rem', flexShrink: 0, textAlign: 'right' }}>{label}</span>
+      <div style={{ flex: 1, height: '5px', background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(60,0,0,0.25)', overflow: 'hidden' }}>
+        <div style={{ height: '100%', width: `${Math.round((value / max) * 100)}%`, background: accent, transition: 'width 350ms ease' }} />
+      </div>
+      <span style={{ fontFamily: "'Courier New', monospace", fontSize: '0.6rem', color: 'var(--text-dim)', width: '1.5rem' }}>{value}</span>
+    </div>
+  );
+}
+
+// Soul stats mini block for replay
+function SoulMiniBlock({ soul, accent }: { soul: SoulStats; accent: string }) {
+  return (
+    <div className="flex flex-col gap-1">
+      {(Object.keys(soulLabels) as SoulStatKey[]).map((key) => (
+        <MiniStatBar key={key} label={soulLabels[key]} value={soul[key]} max={99} accent={accent} />
+      ))}
+    </div>
+  );
+}
 
 // Share button
 function ShareButton({ battleId }: { battleId: string }) {
@@ -786,6 +811,59 @@ export function BattleReplay({ battleId }: { battleId: string }) {
                 );
               })()}
             </article>
+
+            {/* Active card + soul for current round */}
+            {replayState.round >= 1 && (() => {
+              const round = replayState.round;
+              const playerCard = battle.player.cards[(round - 1) % battle.player.cards.length];
+              const defenderCard = battle.defender.cards[(round + 1) % battle.defender.cards.length];
+              if (!playerCard && !defenderCard) return null;
+              return (
+                <article className="entry-fade mk-panel p-5">
+                  <div className="mk-label-red mb-3">本回合装备卡</div>
+                  <div className="grid gap-3" style={{ gridTemplateColumns: '1fr 1fr' }}>
+                    {[{ card: playerCard, fighter: battle.player, isPlayer: true }, { card: defenderCard, fighter: battle.defender, isPlayer: false }].map(({ card, fighter, isPlayer }) => {
+                      if (!card) return null;
+                      const accent = isPlayer ? 'var(--red)' : 'var(--gold)';
+                      return (
+                        <div key={fighter.id} style={{ background: 'rgba(0,0,0,0.4)', border: `1px solid rgba(60,0,0,0.22)`, borderTop: `2px solid ${accent}`, padding: '8px' }}>
+                          <p style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '0.62rem', letterSpacing: '0.18em', textTransform: 'uppercase', color: accent, marginBottom: '4px' }}>
+                            {fighter.displayName}
+                          </p>
+                          <p style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '0.75rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-bright)', marginBottom: '3px' }}>
+                            {card.title}
+                          </p>
+                          <p style={{ fontFamily: "'Courier New', monospace", fontSize: '0.6rem', color: accent, marginBottom: '6px' }}>
+                            {card.trait}
+                          </p>
+                          <div className="flex flex-col gap-1">
+                            <MiniStatBar label="ATK" value={card.atk} max={20} accent="var(--red)" />
+                            <MiniStatBar label="DEF" value={card.def} max={20} accent="var(--gold-dim)" />
+                            <MiniStatBar label="PEN" value={card.pen} max={18} accent="#7a00cc" />
+                            <MiniStatBar label="SPD" value={card.spd} max={18} accent="#006fa8" />
+                          </div>
+                          <p style={{ fontFamily: "'Courier New', monospace", fontSize: '0.58rem', color: 'var(--text-muted)', marginTop: '5px', lineHeight: '1.5' }}>
+                            {card.hint}
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Soul stats comparison */}
+                  <div className="grid gap-3 mt-3" style={{ gridTemplateColumns: '1fr 1fr' }}>
+                    {[{ fighter: battle.player, isPlayer: true }, { fighter: battle.defender, isPlayer: false }].map(({ fighter, isPlayer }) => (
+                      <div key={fighter.id}>
+                        <p style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '0.6rem', letterSpacing: '0.2em', textTransform: 'uppercase', color: isPlayer ? 'var(--red)' : 'var(--gold)', marginBottom: '5px' }}>
+                          魂核
+                        </p>
+                        <SoulMiniBlock soul={fighter.soul} accent={isPlayer ? 'var(--red)' : 'var(--gold)'} />
+                      </div>
+                    ))}
+                  </div>
+                </article>
+              );
+            })()}
 
             {/* Event stream */}
             <article className="entry-fade mk-panel p-5">
