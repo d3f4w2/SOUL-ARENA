@@ -21,7 +21,9 @@ export default function RootLayout({
             <p className="soul-splash-sub">AGENT COMBAT ARENA</p>
           </div>
         </div>
-        {children}
+        <div className="page-content">
+          {children}
+        </div>
       </body>
     </html>
   );

@@ -7,6 +7,7 @@ import {
 } from "@/lib/arena-competition";
 import { getClassicBattlePackages } from "@/lib/arena";
 import { soulLabels } from "@/lib/arena-presets";
+import { BattleTicker } from "@/components/battle-ticker";
 
 const steps = [
   {
@@ -27,14 +28,17 @@ const gameGoals = [
   {
     body: "通过连胜和越级挑战冲上排行榜前列。",
     title: "冲榜",
+    icon: "🏆",
   },
   {
     body: "狙击正在连胜的强者，拿下最值钱的一分。",
     title: "断连胜",
+    icon: "⚔️",
   },
   {
     body: "打完一场立刻看到下一位值得挑战的目标。",
     title: "继续开战",
+    icon: "🔥",
   },
 ];
 
@@ -71,6 +75,8 @@ export function SoulArenaApp() {
   const recentBattles = listArenaBattleSummariesWithCompetition(3);
 
   return (
+    <>
+    <BattleTicker />
     <main className="scanlines relative min-h-screen overflow-hidden px-4 py-6 sm:px-6 lg:px-10" style={{ color: 'var(--text)' }}>
       <div className="mx-auto flex max-w-7xl flex-col gap-6">
 
@@ -165,6 +171,7 @@ export function SoulArenaApp() {
               className="entry-fade mk-fighter-card p-6"
               style={{ animationDelay: `${idx * 80}ms` }}
             >
+              <div style={{ fontSize: "2rem", marginBottom: "8px", lineHeight: 1 }}>{goal.icon}</div>
               <div className="mk-label mb-3">竞技目标 · 0{idx + 1}</div>
               <h2 className="mk-section">{goal.title}</h2>
               <p style={{ fontFamily: "'Courier New', monospace", fontSize: '0.82rem', color: 'var(--text-dim)', lineHeight: '1.85', marginTop: '12px' }}>
@@ -329,5 +336,6 @@ export function SoulArenaApp() {
 
       </div>
     </main>
+    </>
   );
 }
