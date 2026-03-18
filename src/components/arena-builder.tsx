@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 
 import { soulLabels } from "@/lib/arena-presets";
 import type {
@@ -10,11 +10,14 @@ import type {
   ArenaCompetitorProfile,
   ArenaLeaderboardEntry,
   ArenaParticipantCompetitiveProfile,
+  ArenaParticipantRef,
   ArenaParticipantSource,
   BattlePackage,
+  BattleSetupRecord,
   BuildCard,
   FighterProfile,
   ParticipantBuildOverride,
+  ParticipantProvider,
   SoulStatKey,
   SoulStats,
   TopicPreset,
@@ -38,16 +41,47 @@ type ProfileResponse = {
   profiles: ArenaParticipantCompetitiveProfile[];
 };
 
+type SetupResponse = {
+  participants: ArenaParticipantSource[];
+  setup: BattleSetupRecord;
+};
+
+type OpenClawBindCodeResponse = {
+  bindCode: string;
+  expiresAt: string;
+  registerUrl: string;
+  slot: "alpha" | "beta";
+};
+
+type OpenClawProfileResponse = {
+  participant: ArenaParticipantSource | null;
+};
+
+type SlotOverrideDraft = {
+  declaration: string;
+  displayName: string;
+  rule: string;
+  soulSeedTags: string;
+  taboo: string;
+  viewpoints: string;
+};
+
+type BindCodeState = {
+  bindCode: string;
+  expiresAt: string;
+  registerUrl: string;
+} | null;
+
 const battleStorageKey = (battleId: string) => `soul-arena:battle:${battleId}`;
 
-const participantRefs = [
-  { provider: "secondme", slot: "alpha" },
-  { provider: "secondme", slot: "beta" },
-] as const;
-
-const K_FACTOR = 32;
-const MIN_RATING_DELTA = 8;
-const MAX_RATING_DELTA = 24;
+const emptyOverrideDraft = (): SlotOverrideDraft => ({
+  declaration: "",
+  displayName: "",
+  rule: "",
+  soulSeedTags: "",
+  taboo: "",
+  viewpoints: "",
+});
 
 async function readJson<T>(url: string, init?: RequestInit) {
   const response = await fetch(url, init);
@@ -67,142 +101,84 @@ async function readJson<T>(url: string, init?: RequestInit) {
   return payload;
 }
 
+const K_FACTOR = 32;
+const MIN_RATING_DELTA = 8;
+const MAX_RATING_DELTA = 24;
+
 const clamp = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value));
 
 const calculateWinDelta = (winnerRating: number, loserRating: number) => {
-  const expectedScore =
-    1 / (1 + 10 ** ((loserRating - winnerRating) / 400));
-
-  return clamp(
-    Math.round(K_FACTOR * (1 - expectedScore)),
-    MIN_RATING_DELTA,
-    MAX_RATING_DELTA,
-  );
-};
-
-const participantTitle = (slot: "alpha" | "beta") =>
-  slot === "alpha" ? "甲方参赛者" : "乙方参赛者";
-
-const participantSubtitle = (participant: ArenaParticipantSource | null) => {
-  if (!participant) {
-    return "未连接";
-  }
-
-  return participant.displayName ?? "已连接，但缺少展示名";
+  const expectedScore = 1 / (1 + 10 ** ((loserRating - winnerRating) / 400));
+  return clamp(Math.round(K_FACTOR * (1 - expectedScore)), MIN_RATING_DELTA, MAX_RATING_DELTA);
 };
 
 const formatRank = (profile: ArenaCompetitorProfile | null) =>
   profile?.rank ? `#${profile.rank}` : "未上榜";
 
 const formatLastResult = (profile: ArenaCompetitorProfile | null) => {
-  if (!profile?.lastResult) {
-    return "尚未开赛";
-  }
-
+  if (!profile?.lastResult) return "尚未开赛";
   return profile.lastResult === "win" ? "上一场获胜" : "上一场失利";
 };
 
 const userField = (participant: ArenaParticipantSource | null, field: string) => {
-  const value = participant?.user?.[field];
+  const value = participant?.user?.[field as keyof typeof participant.user];
   return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
 };
 
 const topShades = (participant: ArenaParticipantSource | null) =>
   (participant?.shades ?? [])
     .map((shade) => {
-      const value = shade.label ?? shade.name;
+      const value = (shade as { label?: string; name?: string }).label ?? (shade as { label?: string; name?: string }).name;
       return typeof value === "string" ? value.trim() : "";
     })
     .filter(Boolean)
     .slice(0, 4);
 
-const memoryAnchors = (participant: ArenaParticipantSource | null) =>
-  (participant?.softMemory ?? [])
-    .map((memory) => {
-      const value =
-        memory.summary ?? memory.text ?? memory.content ?? memory.title ?? "";
-      return typeof value === "string" ? value.trim() : "";
-    })
-    .filter(Boolean)
-    .slice(0, 3);
-
 const orchestrationLabel = (preview: ArenaBuildPreview | null) => {
   const mode = preview?.sourceMeta.orchestrationMode;
-
-  if (mode === "hybrid") {
-    return "混合编排";
-  }
-
-  if (mode === "judge_only") {
-    return "仅裁判编排";
-  }
-
-  if (mode === "deterministic") {
-    return "确定性回退";
-  }
-
+  if (mode === "hybrid") return "混合编排";
+  if (mode === "judge_only") return "仅裁判编排";
+  if (mode === "deterministic") return "确定性回退";
   return "待生成";
 };
 
 const duplicateIdentityWarning =
   "当前甲方和乙方授权成了同一个 SecondMe 账号。这通常是因为第二次授权复用了同一浏览器登录态。";
 
-const getDuplicateIdentityWarning = (
-  participants: ArenaParticipantSource[],
-) => {
+const getDuplicateIdentityWarning = (participants: ArenaParticipantSource[]) => {
   const connected = participants.filter(
     (participant) =>
       participant.connected &&
-      typeof participant.secondMeUserId === "string" &&
-      participant.secondMeUserId.trim().length > 0,
+      typeof (participant as { secondMeUserId?: string }).secondMeUserId === "string" &&
+      ((participant as { secondMeUserId?: string }).secondMeUserId ?? "").trim().length > 0,
   );
-
-  if (connected.length < 2) {
-    return null;
-  }
-
+  if (connected.length < 2) return null;
   return connected.every(
-    (participant) => participant.secondMeUserId === connected[0]?.secondMeUserId,
+    (participant) =>
+      (participant as { secondMeUserId?: string }).secondMeUserId ===
+      (connected[0] as { secondMeUserId?: string }).secondMeUserId,
   )
     ? duplicateIdentityWarning
     : null;
 };
 
-const getProfileBySlot = (
-  profiles: ArenaParticipantCompetitiveProfile[],
-  slot: "alpha" | "beta",
-) => profiles.find((entry) => entry.slot === slot)?.profile ?? null;
-
 const buildMatchupSummary = (
   alphaProfile: ArenaCompetitorProfile | null,
   betaProfile: ArenaCompetitorProfile | null,
 ) => {
-  if (!alphaProfile || !betaProfile) {
-    return null;
-  }
-
-  const projectedWinDelta = calculateWinDelta(
-    alphaProfile.rating,
-    betaProfile.rating,
-  );
-  const projectedLossDelta = -calculateWinDelta(
-    betaProfile.rating,
-    alphaProfile.rating,
-  );
+  if (!alphaProfile || !betaProfile) return null;
+  const projectedWinDelta = calculateWinDelta(alphaProfile.rating, betaProfile.rating);
+  const projectedLossDelta = -calculateWinDelta(betaProfile.rating, alphaProfile.rating);
   const currentTargetIsSuggestion =
     alphaProfile.suggestion?.competitorId === betaProfile.competitorId;
-  const reason =
-    currentTargetIsSuggestion
-      ? "当前对手就是系统给出的建议挑战对象。"
-      : betaProfile.currentStreak >= 2
-        ? `若击败对手，可直接终结其 ${betaProfile.currentStreak} 连胜。`
-        : alphaProfile.rank &&
-            betaProfile.rank &&
-            betaProfile.rank < alphaProfile.rank
-          ? "这是一场越级挑战，赢下会更有冲榜价值。"
-          : "这是一场标准排位战，适合继续积累积分和手感。";
-
+  const reason = currentTargetIsSuggestion
+    ? "当前对手就是系统给出的建议挑战对象。"
+    : betaProfile.currentStreak >= 2
+      ? `若击败对手，可直接终结其 ${betaProfile.currentStreak} 连胜。`
+      : alphaProfile.rank && betaProfile.rank && betaProfile.rank < alphaProfile.rank
+        ? "这是一场越级挑战，赢下会更有冲榜价值。"
+        : "这是一场标准排位战，适合继续积累积分和手感。";
   return {
     projectedLossDelta,
     projectedWinDelta,
@@ -210,12 +186,112 @@ const buildMatchupSummary = (
     stakesLabel:
       betaProfile.currentStreak >= 2
         ? "终结连胜局"
-        : alphaProfile.rank &&
-            betaProfile.rank &&
-            betaProfile.rank < alphaProfile.rank
+        : alphaProfile.rank && betaProfile.rank && betaProfile.rank < alphaProfile.rank
           ? "冲榜局"
           : "常规排位局",
   };
+};
+
+const splitLines = (value: string) =>
+  value
+    .split(/\r?\n/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+const splitComma = (value: string) =>
+  value
+    .split(/[，,]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+const participantTitle = (slot: "alpha" | "beta") =>
+  slot === "alpha" ? "甲方参赛者" : "乙方参赛者";
+
+const participantSubtitle = (participant: ArenaParticipantSource | null) =>
+  participant?.displayName ?? "未连接";
+
+const participantRoute = (participant: ArenaParticipantSource | null) =>
+  typeof participant?.user?.route === "string" ? participant.user.route : null;
+
+const participantBio = (participant: ArenaParticipantSource | null) =>
+  typeof participant?.user?.bio === "string" ? participant.user.bio : null;
+
+const participantDisplayId = (participant: ArenaParticipantSource | null) =>
+  participant?.displayId ??
+  (typeof participant?.user?.displayId === "string" ? participant.user.displayId : null);
+
+const participantSourceKind = (participant: ArenaParticipantSource | null) =>
+  typeof participant?.sourceMeta?.sourceKind === "string"
+    ? participant.sourceMeta.sourceKind
+    : null;
+
+const participantAvatar = (participant: ArenaParticipantSource | null) =>
+  participant?.avatarUrl ??
+  (typeof participant?.user?.avatarUrl === "string" ? participant.user.avatarUrl : null);
+
+const tagLabels = (participant: ArenaParticipantSource | null) =>
+  (participant?.shades ?? [])
+    .map((shade) =>
+      typeof shade.label === "string"
+        ? shade.label
+        : typeof shade.name === "string"
+          ? shade.name
+          : "",
+    )
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+const memoryAnchors = (participant: ArenaParticipantSource | null) =>
+  (participant?.softMemory ?? [])
+    .map((memory) =>
+      typeof memory.summary === "string"
+        ? memory.summary
+        : typeof memory.text === "string"
+          ? memory.text
+          : typeof memory.content === "string"
+            ? memory.content
+            : typeof memory.title === "string"
+              ? memory.title
+              : "",
+    )
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+const toRef = (participant: ArenaParticipantSource): ArenaParticipantRef => ({
+  participantId: participant.participantId,
+  provider: participant.provider,
+  slot: participant.slot,
+});
+
+const getProfileBySlot = (
+  profiles: ArenaParticipantCompetitiveProfile[],
+  slot: "alpha" | "beta",
+) => profiles.find((entry) => entry.slot === slot)?.profile ?? null;
+
+const draftFromOverride = (override?: ParticipantBuildOverride): SlotOverrideDraft => ({
+  declaration: override?.declaration ?? "",
+  displayName: override?.displayName ?? "",
+  rule: override?.rule ?? "",
+  soulSeedTags: (override?.soulSeedTags ?? []).join(", "),
+  taboo: override?.taboo ?? "",
+  viewpoints: (override?.viewpoints ?? []).join("\n"),
+});
+
+const overrideFromDraft = (draft: SlotOverrideDraft): ParticipantBuildOverride => {
+  const payload: ParticipantBuildOverride = {};
+
+  if (draft.displayName.trim()) payload.displayName = draft.displayName.trim();
+  if (draft.declaration.trim()) payload.declaration = draft.declaration.trim();
+  if (draft.rule.trim()) payload.rule = draft.rule.trim();
+  if (draft.taboo.trim()) payload.taboo = draft.taboo.trim();
+
+  const viewpoints = splitLines(draft.viewpoints);
+  if (viewpoints.length) payload.viewpoints = viewpoints;
+
+  const soulSeedTags = splitComma(draft.soulSeedTags);
+  if (soulSeedTags.length) payload.soulSeedTags = soulSeedTags;
+
+  return payload;
 };
 
 // ── Build stat bar ─────────────────────────────────────────────────
@@ -795,17 +871,34 @@ function FighterCard({
 
 export function ArenaBuilder() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
   const [meta, setMeta] = useState<ArenaMetaResponse | null>(null);
   const [participants, setParticipants] = useState<ArenaParticipantSource[]>([]);
-  const [topicId, setTopicId] = useState("");
-  const [preview, setPreview] = useState<ArenaBuildPreview | null>(null);
-  const [status, setStatus] = useState<string | null>(null);
   const [profiles, setProfiles] = useState<ArenaParticipantCompetitiveProfile[]>([]);
   const [leaderboard, setLeaderboard] = useState<ArenaLeaderboardEntry[]>([]);
   const [featured, setFeatured] = useState<ArenaLeaderboardEntry | null>(null);
   const [alphaOverride, setAlphaOverride] = useState<ParticipantBuildOverride>({});
   const [betaOverride, setBetaOverride] = useState<ParticipantBuildOverride>({});
+  const [topicId, setTopicId] = useState("");
+  const [topicSnapshot, setTopicSnapshot] = useState<TopicPreset | null>(null);
+  const [participantRefs, setParticipantRefs] = useState<Record<"alpha" | "beta", ArenaParticipantRef | null>>({
+    alpha: null,
+    beta: null,
+  });
+  const [overrideDrafts, setOverrideDrafts] = useState<Record<"alpha" | "beta", SlotOverrideDraft>>({
+    alpha: emptyOverrideDraft(),
+    beta: emptyOverrideDraft(),
+  });
+  const [preview, setPreview] = useState<ArenaBuildPreview | null>(null);
+  const [status, setStatus] = useState<string | null>(null);
+  const [loadedSetup, setLoadedSetup] = useState<BattleSetupRecord | null>(null);
+  const [bindCodes, setBindCodes] = useState<Record<"alpha" | "beta", BindCodeState>>({
+    alpha: null,
+    beta: null,
+  });
+  const [pendingSlot, setPendingSlot] = useState<"alpha" | "beta" | null>(null);
+  const setupId = searchParams.get("setupId");
 
   const alpha = useMemo(
     () => participants.find((participant) => participant.slot === "alpha") ?? null,
@@ -818,10 +911,16 @@ export function ArenaBuilder() {
   const alphaProfile = useMemo(() => getProfileBySlot(profiles, "alpha"), [profiles]);
   const betaProfile = useMemo(() => getProfileBySlot(profiles, "beta"), [profiles]);
   const selectedTopic = useMemo(
-    () => meta?.topics.find((topic) => topic.id === topicId) ?? null,
-    [meta?.topics, topicId],
+    () => meta?.topics.find((topic) => topic.id === topicId) ?? topicSnapshot,
+    [meta?.topics, topicId, topicSnapshot],
   );
-  const readyToBuild = Boolean(topicId && alpha?.connected && beta?.connected);
+  const readyToBuild = Boolean(
+    topicId &&
+      participantRefs.alpha &&
+      participantRefs.beta &&
+      alpha?.connected &&
+      beta?.connected,
+  );
   const duplicateWarning = useMemo(
     () => getDuplicateIdentityWarning(participants),
     [participants],
@@ -857,31 +956,39 @@ export function ArenaBuilder() {
     }
   }, [alpha?.connected, beta?.connected, alpha?.displayName, beta?.displayName]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const fetchArenaData = async () => {
-    const [nextMeta, nextParticipants, nextProfiles, nextLeaderboard] =
-      await Promise.all([
-        readJson<ArenaMetaResponse>("/api/arena/topics"),
-        readJson<ParticipantsResponse>("/api/participants"),
-        readJson<ProfileResponse>("/api/arena/profile?slot=alpha&slot=beta"),
-        readJson<LeaderboardResponse>("/api/arena/leaderboard?limit=5"),
-      ]);
+  const loadArenaData = async () => {
+    const [nextMeta, nextParticipants, nextProfiles, nextLeaderboard] = await Promise.all([
+      readJson<ArenaMetaResponse>("/api/arena/topics"),
+      readJson<ParticipantsResponse>("/api/participants"),
+      readJson<ProfileResponse>("/api/arena/profile?slot=alpha&slot=beta"),
+      readJson<LeaderboardResponse>("/api/arena/leaderboard?limit=5"),
+    ]);
 
     return {
+      featured: nextLeaderboard.featured,
       leaderboard: nextLeaderboard.leaderboard,
       meta: nextMeta,
       participants: nextParticipants.participants,
       profiles: nextProfiles.profiles,
-      featured: nextLeaderboard.featured,
     };
   };
 
-  const applyArenaData = (data: Awaited<ReturnType<typeof fetchArenaData>>) => {
+  const applyArenaData = (data: Awaited<ReturnType<typeof loadArenaData>>) => {
     setMeta(data.meta);
     setParticipants(data.participants);
     setProfiles(data.profiles);
     setLeaderboard(data.leaderboard);
     setFeatured(data.featured);
     setTopicId((current) => current || data.meta.topics[0]?.id || "");
+    setParticipantRefs((current) => {
+      const nextAlpha = data.participants.find((item) => item.slot === "alpha") ?? null;
+      const nextBeta = data.participants.find((item) => item.slot === "beta") ?? null;
+
+      return {
+        alpha: current.alpha ?? (nextAlpha ? toRef(nextAlpha) : null),
+        beta: current.beta ?? (nextBeta ? toRef(nextBeta) : null),
+      };
+    });
   };
 
   useEffect(() => {
@@ -889,7 +996,7 @@ export function ArenaBuilder() {
 
     void (async () => {
       try {
-        const data = await fetchArenaData();
+        const data = await loadArenaData();
 
         if (!active) {
           return;
@@ -902,15 +1009,20 @@ export function ArenaBuilder() {
           setLeaderboard(data.leaderboard);
           setFeatured(data.featured);
           setTopicId((current) => current || data.meta.topics[0]?.id || "");
+          setParticipantRefs((current) => {
+            const nextAlpha = data.participants.find((item) => item.slot === "alpha") ?? null;
+            const nextBeta = data.participants.find((item) => item.slot === "beta") ?? null;
+
+            return {
+              alpha: current.alpha ?? (nextAlpha ? toRef(nextAlpha) : null),
+              beta: current.beta ?? (nextBeta ? toRef(nextBeta) : null),
+            };
+          });
         });
       } catch (error) {
-        if (!active) {
-          return;
+        if (active) {
+          setStatus(error instanceof Error ? error.message : "载入竞技场数据失败。");
         }
-
-        setStatus(
-          error instanceof Error ? error.message : "载入竞技场数据失败。",
-        );
       }
     })();
 
@@ -919,19 +1031,118 @@ export function ArenaBuilder() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!setupId) {
+      return;
+    }
+
+    void (async () => {
+      try {
+        const payload = await readJson<SetupResponse>(`/api/arena/setups/${setupId}`);
+        setLoadedSetup(payload.setup);
+        setParticipants(payload.participants);
+        setParticipantRefs({
+          alpha: payload.setup.participants.find((item) => item.slot === "alpha") ?? null,
+          beta: payload.setup.participants.find((item) => item.slot === "beta") ?? null,
+        });
+        setOverrideDrafts({
+          alpha: draftFromOverride(payload.setup.overrides?.alpha),
+          beta: draftFromOverride(payload.setup.overrides?.beta),
+        });
+        setTopicId(payload.setup.topicId);
+        setTopicSnapshot(payload.setup.topicSnapshot ?? null);
+        setStatus("已载入重开模板。");
+      } catch (error) {
+        setStatus(error instanceof Error ? error.message : "载入重开模板失败。");
+      }
+    })();
+  }, [setupId]);
+
+  useEffect(() => {
+    const slotsToPoll = (["alpha", "beta"] as const).filter((slot) => {
+      const participant = slot === "alpha" ? alpha : beta;
+      return Boolean(bindCodes[slot] && participant?.provider === "openclaw" && !participant.connected);
+    });
+
+    if (!slotsToPoll.length) {
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      void (async () => {
+        const data = await loadArenaData().catch(() => null);
+
+        if (!data) {
+          return;
+        }
+
+        setMeta(data.meta);
+        setParticipants(data.participants);
+        setProfiles(data.profiles);
+        setLeaderboard(data.leaderboard);
+        setFeatured(data.featured);
+        setTopicId((current) => current || data.meta.topics[0]?.id || "");
+        setParticipantRefs((current) => {
+          const nextAlpha = data.participants.find((item) => item.slot === "alpha") ?? null;
+          const nextBeta = data.participants.find((item) => item.slot === "beta") ?? null;
+
+          return {
+            alpha: current.alpha ?? (nextAlpha ? toRef(nextAlpha) : null),
+            beta: current.beta ?? (nextBeta ? toRef(nextBeta) : null),
+          };
+        });
+        setBindCodes((current) => ({
+          alpha: data.participants.find((item) => item.slot === "alpha" && item.connected) ? null : current.alpha,
+          beta: data.participants.find((item) => item.slot === "beta" && item.connected) ? null : current.beta,
+        }));
+      })();
+    }, 3000);
+
+    return () => window.clearInterval(timer);
+  }, [alpha, beta, bindCodes]);
+
+  const switchProvider = async (slot: "alpha" | "beta", provider: ParticipantProvider) => {
+    await readJson("/api/participants", {
+      body: JSON.stringify({ provider, slot }),
+      headers: {
+        "Content-Type": "application/json",
+      },
+      method: "POST",
+    });
+
+    const data = await loadArenaData();
+    applyArenaData(data);
+    const participant = data.participants.find((item) => item.slot === slot) ?? null;
+
+    if (provider === "secondme" && !participant?.connected) {
+      window.location.assign(`/api/auth/login?slot=${slot}&returnTo=/arena`);
+      return;
+    }
+
+    if (provider === "openclaw") {
+      setStatus(`已将${participantTitle(slot)}切换到 OpenClaw，请生成绑定码并在用户自己的 OpenClaw 技能中完成注册。`);
+      return;
+    }
+
+    setStatus(`${participantTitle(slot)}已切换到 ${provider}。`);
+  };
+
   const connectParticipant = (slot: "alpha" | "beta") => {
     window.location.assign(`/api/auth/login?slot=${slot}&returnTo=/arena`);
   };
 
   const disconnectParticipant = async (slot: "alpha" | "beta") => {
-    setStatus(`正在断开${participantTitle(slot)}...`);
     await readJson(`/api/participants?slot=${slot}`, {
       method: "DELETE",
     });
     setPreview(null);
-    const data = await fetchArenaData();
+    setBindCodes((current) => ({
+      ...current,
+      [slot]: null,
+    }));
+    const data = await loadArenaData();
     applyArenaData(data);
-    setStatus(`${participantTitle(slot)}已断开。`);
+    setStatus(`${participantTitle(slot)}已断开连接。`);
   };
 
   const buildOverridesPayload = () => {
@@ -943,18 +1154,76 @@ export function ArenaBuilder() {
     return Object.keys(overrides).length ? overrides : undefined;
   };
 
-  const previewBuild = async () => {
-    if (!readyToBuild) {
-      setStatus("请先连接甲方和乙方两个 SecondMe 参赛者。");
+  const generateBindCode = async (slot: "alpha" | "beta") => {
+    setPendingSlot(slot);
+
+    try {
+      const payload = await readJson<OpenClawBindCodeResponse>("/api/openclaw/bind-code", {
+        body: JSON.stringify({ slot }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+      });
+
+      setBindCodes((current) => ({
+        ...current,
+        [slot]: {
+          bindCode: payload.bindCode,
+          expiresAt: payload.expiresAt,
+          registerUrl: payload.registerUrl,
+        },
+      }));
+
+      const data = await loadArenaData();
+      applyArenaData(data);
+      setStatus(`${participantTitle(slot)}绑定码已生成，请让 OpenClaw 技能调用 ${payload.registerUrl} 完成注册。`);
+    } finally {
+      setPendingSlot(null);
+    }
+  };
+
+  const refreshOpenClawSlot = async (slot: "alpha" | "beta") => {
+    const payload = await readJson<OpenClawProfileResponse>(`/api/openclaw/profile?slot=${slot}`);
+
+    if (payload.participant?.connected) {
+      setParticipants((current) => [
+        ...current.filter((item) => item.slot !== slot),
+        payload.participant as ArenaParticipantSource,
+      ]);
+      setParticipantRefs((current) => ({
+        ...current,
+        [slot]: toRef(payload.participant as ArenaParticipantSource),
+      }));
+      setBindCodes((current) => ({
+        ...current,
+        [slot]: null,
+      }));
+      setStatus(`已检测到来自 OpenClaw 的${participantTitle(slot)}注册。`);
       return;
     }
 
-    setStatus("正在生成人格构筑预览...");
+    setStatus(`${participantTitle(slot)}仍在等待 OpenClaw 注册完成。`);
+  };
+
+  const previewBuild = async () => {
+    if (!readyToBuild || !participantRefs.alpha || !participantRefs.beta || !selectedTopic) {
+      setStatus("请先连接双方参赛者并选择辩题。");
+      return;
+    }
+
+    const overrides = {
+      alpha: overrideFromDraft(overrideDrafts.alpha),
+      beta: overrideFromDraft(overrideDrafts.beta),
+    };
+
     const payload = await readJson<ArenaBuildPreview>("/api/arena/build-preview", {
       body: JSON.stringify({
-        participants: participantRefs,
+        originBattleId: loadedSetup?.originBattleId ?? null,
+        overrides,
+        participants: [participantRefs.alpha, participantRefs.beta],
         topicId,
-        overrides: buildOverridesPayload(),
+        topicSnapshot: selectedTopic,
       }),
       headers: {
         "Content-Type": "application/json",
@@ -964,22 +1233,28 @@ export function ArenaBuilder() {
 
     startTransition(() => {
       setPreview(payload);
-      setStatus("预览已更新，当前使用真实参赛者资料。");
+      setStatus("预览已更新。");
     });
   };
 
   const startBattle = async () => {
-    if (!readyToBuild) {
-      setStatus("请先连接甲方和乙方两个 SecondMe 参赛者。");
+    if (!readyToBuild || !participantRefs.alpha || !participantRefs.beta || !selectedTopic) {
+      setStatus("请先连接双方参赛者并选择辩题。");
       return;
     }
 
-    setStatus("正在生成排位 battle package...");
+    const overrides = {
+      alpha: overrideFromDraft(overrideDrafts.alpha),
+      beta: overrideFromDraft(overrideDrafts.beta),
+    };
+
     const battle = await readJson<BattlePackage>("/api/arena/battles", {
       body: JSON.stringify({
-        participants: participantRefs,
+        originBattleId: loadedSetup?.originBattleId ?? null,
+        overrides,
+        participants: [participantRefs.alpha, participantRefs.beta],
         topicId,
-        overrides: buildOverridesPayload(),
+        topicSnapshot: selectedTopic,
       }),
       headers: {
         "Content-Type": "application/json",
@@ -988,14 +1263,227 @@ export function ArenaBuilder() {
     });
 
     localStorage.setItem(battleStorageKey(battle.id), JSON.stringify(battle));
-    setStatus("排位对决已生成，准备进入回放。");
     router.push(`/arena/${battle.id}`);
   };
+
+  const renderOpenClawPanel = (slot: "alpha" | "beta", participant: ArenaParticipantSource | null) => {
+    if (participant?.provider !== "openclaw") {
+      return null;
+    }
+
+    const bindCode = bindCodes[slot];
+
+    return (
+      <div className="mt-5 grid gap-3 rounded-[1.25rem] border border-[var(--line)] bg-white/75 p-4">
+        <p className="text-sm font-semibold">OpenClaw 注册</p>
+        {participant.connected ? (
+          <>
+            <p className="text-sm text-stone-600">
+              已注册为 {participant.displayName ?? "未命名角色"}
+              {participantDisplayId(participant) ? ` (@${participantDisplayId(participant)})` : ""}.
+            </p>
+            <p className="text-sm text-stone-600">
+              版本 {participant.configVersion ?? "当前"} · {participant.sourceLabel ?? "OpenClaw 技能"}
+            </p>
+            {participantAvatar(participant) ? (
+              <p className="text-sm text-stone-600 break-all">头像：{participantAvatar(participant)}</p>
+            ) : null}
+            {tagLabels(participant).length ? (
+              <div className="flex flex-wrap gap-2">
+                {tagLabels(participant).slice(0, 6).map((tag) => (
+                  <span key={tag} className="accent-chip rounded-full px-3 py-1 text-xs">
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            ) : null}
+            {memoryAnchors(participant).length ? (
+              <div className="space-y-2 text-sm text-stone-600">
+                {memoryAnchors(participant).slice(0, 3).map((item) => (
+                  <p key={item}>{item}</p>
+                ))}
+              </div>
+            ) : null}
+          </>
+        ) : bindCode ? (
+          <>
+            <p className="text-sm text-stone-600">
+              请在用户自己的 OpenClaw 技能中使用这个绑定码，并调用注册接口。
+            </p>
+            <div className="rounded-[1rem] border border-[var(--line)] bg-stone-50 px-4 py-3">
+              <p className="font-semibold tracking-[0.12em]">{bindCode.bindCode}</p>
+              <p className="mt-1 text-sm text-stone-600">
+                Expires: {new Date(bindCode.expiresAt).toLocaleString()}
+              </p>
+              <p className="mt-1 text-xs break-all text-stone-500">{bindCode.registerUrl}</p>
+            </div>
+          </>
+        ) : (
+          <p className="text-sm text-stone-600">
+            先生成绑定码，再让用户自己的 OpenClaw 技能远程注册这个槽位。
+          </p>
+        )}
+        <div className="flex flex-wrap gap-2">
+          <button
+            className="soft-button rounded-full bg-[var(--accent)] px-4 py-2 text-sm text-white"
+            disabled={pendingSlot === slot}
+            onClick={() => void generateBindCode(slot)}
+            type="button"
+          >
+            {pendingSlot === slot
+              ? "生成中..."
+              : bindCode
+                ? "重新生成绑定码"
+                : "生成绑定码"}
+          </button>
+          <button
+            className="soft-button rounded-full border border-[var(--line)] bg-white/70 px-4 py-2 text-sm"
+            onClick={() => void refreshOpenClawSlot(slot)}
+            type="button"
+          >
+            刷新状态
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  const renderOverridePanel = (slot: "alpha" | "beta") => (
+    <div className="mt-5 grid gap-3 rounded-[1.25rem] border border-[var(--line)] bg-white/75 p-4">
+      <p className="text-sm font-semibold">对战覆盖</p>
+      <input
+        className="rounded-xl border border-[var(--line)] bg-stone-50 px-3 py-2 text-sm"
+        onChange={(event) =>
+          setOverrideDrafts((current) => ({
+            ...current,
+            [slot]: { ...current[slot], displayName: event.target.value },
+          }))
+        }
+        placeholder="覆盖显示名"
+        value={overrideDrafts[slot].displayName}
+      />
+      <textarea
+        className="min-h-20 rounded-xl border border-[var(--line)] bg-stone-50 px-3 py-2 text-sm"
+        onChange={(event) =>
+          setOverrideDrafts((current) => ({
+            ...current,
+            [slot]: { ...current[slot], declaration: event.target.value },
+          }))
+        }
+        placeholder="覆盖宣言"
+        value={overrideDrafts[slot].declaration}
+      />
+      <textarea
+        className="min-h-16 rounded-xl border border-[var(--line)] bg-stone-50 px-3 py-2 text-sm"
+        onChange={(event) =>
+          setOverrideDrafts((current) => ({
+            ...current,
+            [slot]: { ...current[slot], rule: event.target.value },
+          }))
+        }
+        placeholder="覆盖规则"
+        value={overrideDrafts[slot].rule}
+      />
+      <textarea
+        className="min-h-16 rounded-xl border border-[var(--line)] bg-stone-50 px-3 py-2 text-sm"
+        onChange={(event) =>
+          setOverrideDrafts((current) => ({
+            ...current,
+            [slot]: { ...current[slot], taboo: event.target.value },
+          }))
+        }
+        placeholder="覆盖禁忌"
+        value={overrideDrafts[slot].taboo}
+      />
+      <textarea
+        className="min-h-24 rounded-xl border border-[var(--line)] bg-stone-50 px-3 py-2 text-sm"
+        onChange={(event) =>
+          setOverrideDrafts((current) => ({
+            ...current,
+            [slot]: { ...current[slot], viewpoints: event.target.value },
+          }))
+        }
+        placeholder="覆盖观点，每行一条"
+        value={overrideDrafts[slot].viewpoints}
+      />
+      <input
+        className="rounded-xl border border-[var(--line)] bg-stone-50 px-3 py-2 text-sm"
+        onChange={(event) =>
+          setOverrideDrafts((current) => ({
+            ...current,
+            [slot]: { ...current[slot], soulSeedTags: event.target.value },
+          }))
+        }
+        placeholder="覆盖 Soul Seed 标签，逗号分隔"
+        value={overrideDrafts[slot].soulSeedTags}
+      />
+    </div>
+  );
+
+  const renderParticipantCard = (
+    slot: "alpha" | "beta",
+    participant: ArenaParticipantSource | null,
+    profile: ArenaCompetitorProfile | null,
+  ) => (
+    <article className="entry-fade paper-panel rounded-[1.75rem] p-6" key={slot}>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-xs uppercase tracking-[0.22em] text-stone-500">{participantTitle(slot)}</p>
+          <h2 className="section-title mt-2">{participantSubtitle(participant)}</h2>
+          <p className="mt-2 text-sm text-stone-600">
+            来源：{participant?.provider ?? "未设置"}
+            {participant?.sourceLabel ? ` · ${participant.sourceLabel}` : ""}
+          </p>
+          {profile ? (
+            <p className="mt-1 text-sm text-stone-600">
+              排名 {profile.rank ?? "-"} · 积分 {profile.rating} · 连胜 {profile.currentStreak}
+            </p>
+          ) : null}
+          {participantRoute(participant) ? (
+            <p className="mt-1 text-sm text-stone-600">路径：{participantRoute(participant)}</p>
+          ) : null}
+          {participantBio(participant) ? (
+            <p className="mt-1 text-sm text-stone-600">{participantBio(participant)}</p>
+          ) : null}
+          {participantSourceKind(participant) ? (
+            <p className="mt-1 text-sm text-stone-600">来源类型：{participantSourceKind(participant)}</p>
+          ) : null}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button
+            className="soft-button rounded-full border border-[var(--line)] bg-white/70 px-4 py-2 text-sm"
+            onClick={() => void switchProvider(slot, "secondme")}
+            type="button"
+          >
+            使用 SecondMe
+          </button>
+          <button
+            className="soft-button rounded-full border border-[var(--line)] bg-white/70 px-4 py-2 text-sm"
+            onClick={() => void switchProvider(slot, "openclaw")}
+            type="button"
+          >
+            使用 OpenClaw
+          </button>
+          {participant?.connected ? (
+            <button
+              className="soft-button rounded-full bg-[var(--accent)] px-4 py-2 text-sm text-white"
+              onClick={() => void disconnectParticipant(slot)}
+              type="button"
+            >
+              断开连接
+            </button>
+          ) : null}
+        </div>
+      </div>
+
+      {renderOpenClawPanel(slot, participant)}
+      {renderOverridePanel(slot)}
+    </article>
+  );
 
   return (
     <main className="scanlines relative min-h-screen overflow-hidden px-4 py-6 sm:px-6 lg:px-10" style={{ color: 'var(--text)' }}>
       <div className="mx-auto flex max-w-7xl flex-col gap-6">
-
         {/* ── HERO ── */}
         <section className="entry-fade mk-panel px-6 py-8 sm:px-10">
           <div className="grid gap-8 lg:grid-cols-[1.2fr_0.8fr]">
@@ -1005,6 +1493,11 @@ export function ArenaBuilder() {
               <p style={{ fontFamily: "'Courier New', monospace", fontSize: '0.88rem', color: 'var(--text-dim)', lineHeight: '1.85', maxWidth: '56ch' }}>
                 连接两位真实 SecondMe 参赛者，用他们的资料、标签和软记忆生成构筑，再把结果直接送进真实排位战。
               </p>
+              {loadedSetup ? (
+                <p style={{ fontFamily: "'Courier New', monospace", fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                  当前已载入重开模板，来源对局：{loadedSetup.originBattleId ?? "无"}。
+                </p>
+              ) : null}
             </div>
 
             <div className="mk-panel-gold p-5">
@@ -1037,6 +1530,9 @@ export function ArenaBuilder() {
                 </div>
               ) : null}
             </div>
+          </div>
+          <div className="mk-status mt-5">
+            {status ?? "连接双方参赛者后，即可生成预览或开始排位对决。"}
           </div>
         </section>
 
@@ -1084,7 +1580,6 @@ export function ArenaBuilder() {
 
         {/* ── TOPIC + BATTLE CONTROL ── */}
         <section className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-
           {/* Topic Selection */}
           <article className="entry-fade mk-panel p-6">
             <div className="mk-label-red mb-2">辩题选择</div>
@@ -1094,12 +1589,20 @@ export function ArenaBuilder() {
                 <button
                   key={topic.id}
                   className={topic.id === topicId ? "mk-topic mk-topic-active" : "mk-topic"}
-                  onClick={() => setTopicId(topic.id)}
+                  onClick={() => {
+                    setTopicId(topic.id);
+                    setTopicSnapshot(topic);
+                  }}
                   type="button"
                 >
-                  <p style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '0.95rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: topic.id === topicId ? 'var(--red-bright)' : 'var(--text-bright)', marginBottom: '5px' }}>
-                    {topic.title}
-                  </p>
+                  <div className="flex flex-wrap items-center gap-3 mb-2">
+                    <p style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '0.95rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: topic.id === topicId ? 'var(--red-bright)' : 'var(--text-bright)' }}>
+                      {topic.title}
+                    </p>
+                    <span className="mk-badge" style={{ fontSize: '0.55rem' }}>
+                      {topic.source === "zhihu_dynamic" ? "知乎动态题" : "预设题"}
+                    </span>
+                  </div>
                   <p style={{ fontFamily: "'Courier New', monospace", fontSize: '0.78rem', color: 'var(--text-dim)', lineHeight: '1.7' }}>
                     {topic.prompt}
                   </p>
@@ -1127,6 +1630,9 @@ export function ArenaBuilder() {
               <Link className="mk-button-ghost px-4 py-3" href="/arena/leaderboard">
                 查看榜单
               </Link>
+              <Link className="mk-button-ghost px-4 py-3" href="/arena/history">
+                历史战报
+              </Link>
             </div>
 
             {/* Big FIGHT button */}
@@ -1138,11 +1644,6 @@ export function ArenaBuilder() {
             >
               ⚔ 开始排位对决
             </button>
-
-            {/* Status */}
-            <div className="mk-status">
-              {status ?? "连接双方参赛者后，即可生成预览或开始排位对决。"}
-            </div>
 
             {matchupSummary ? (
               <div className="mk-panel-inset p-4">
@@ -1299,9 +1800,7 @@ export function ArenaBuilder() {
             )}
           </div>
         </section>
-
       </div>
-      {isPending ? null : null}
     </main>
   );
 }

@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 
-import { getArenaChallengers, getArenaTopics } from "@/lib/arena";
+import { getArenaChallengers } from "@/lib/arena";
+import { getArenaTopics } from "@/lib/arena-topics";
 import { zhihuFetchJson } from "@/lib/zhihu";
 
 export async function GET() {
   let signals: string[] = [];
+  const topics = await getArenaTopics();
 
   try {
     const payload = await zhihuFetchJson<{
@@ -30,6 +32,6 @@ export async function GET() {
   return NextResponse.json({
     challengers: getArenaChallengers(),
     signals,
-    topics: getArenaTopics(),
+    topics,
   });
 }

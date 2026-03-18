@@ -2,11 +2,13 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import { soulLabels } from "@/lib/arena-presets";
 import type {
   ArenaBattleCompetitionSide,
   ArenaCompetitorProfile,
+  ArenaParticipantSnapshot,
   BattleEvent,
   BattlePackage,
   SoulStatKey,
@@ -31,6 +33,12 @@ type ProfileResponse = {
   }>;
 };
 
+type RematchResponse = {
+  setup: {
+    id: string;
+  };
+};
+
 const formatSoul = (soul: SoulStats) =>
   (Object.keys(soulLabels) as Array<keyof SoulStats>).map((key) => ({
     key,
@@ -38,10 +46,7 @@ const formatSoul = (soul: SoulStats) =>
     value: soul[key],
   }));
 
-const deriveReplayState = (
-  battle: BattlePackage,
-  playhead: number,
-): ReplayState => {
+const deriveReplayState = (battle: BattlePackage, playhead: number): ReplayState => {
   let playerHealth = 100;
   let defenderHealth = 100;
   let playerScore = 0;
@@ -55,7 +60,6 @@ const deriveReplayState = (
       if (event.actorId === battle.player.id) {
         playerScore += event.effect.scoreDelta;
       }
-
       if (event.actorId === battle.defender.id) {
         defenderScore += event.effect.scoreDelta;
       }
@@ -65,7 +69,6 @@ const deriveReplayState = (
       if (event.targetId === battle.player.id) {
         playerHealth = Math.max(0, playerHealth + event.effect.healthDelta);
       }
-
       if (event.targetId === battle.defender.id) {
         defenderHealth = Math.max(0, defenderHealth + event.effect.healthDelta);
       }
@@ -756,6 +759,7 @@ function HealthBar({ value, gold = false }: { value: number; gold?: boolean }) {
 }
 
 export function BattleReplay({ battleId }: { battleId: string }) {
+  const router = useRouter();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -773,10 +777,8 @@ export function BattleReplay({ battleId }: { battleId: string }) {
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const [recording, setRecording] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [winnerProfileState, setWinnerProfileState] = useState<{
-    competitorId: string;
-    profile: ArenaCompetitorProfile | null;
-  } | null>(null);
+  const [winnerProfile, setWinnerProfile] = useState<ArenaCompetitorProfile | null>(null);
+  const [rematchPending, setRematchPending] = useState(false);
 
   useEffect(() => {
     void (async () => {
@@ -815,62 +817,36 @@ export function BattleReplay({ battleId }: { battleId: string }) {
       : battle.competition.defender?.competitorId ?? null;
   }, [battle]);
 
+
   useEffect(() => {
-    if (!winnerCompetitorId) {
+    if (!battle?.competition) {
+      setWinnerProfile(null);
       return;
     }
 
-    let active = true;
+    const competitorId =
+      battle.winnerId === battle.player.id
+        ? battle.competition.player?.competitorId
+        : battle.competition.defender?.competitorId;
+
+    if (!competitorId) {
+      return;
+    }
 
     void (async () => {
-      try {
-        const payload = await fetch(
-          `/api/arena/profile?competitorId=${encodeURIComponent(winnerCompetitorId)}`,
-          { cache: "no-store" },
-        );
-
-        if (!payload.ok || !active) {
-          return;
-        }
-
-        const data = (await payload.json()) as ProfileResponse;
-
-        if (!active) {
-          return;
-        }
-
-        setWinnerProfileState({
-          competitorId: winnerCompetitorId,
-          profile: data.profiles[0]?.profile ?? null,
-        });
-      } catch {
-        if (active) {
-          setWinnerProfileState({
-            competitorId: winnerCompetitorId,
-            profile: null,
-          });
-        }
+      const response = await fetch(`/api/arena/profile?competitorId=${encodeURIComponent(competitorId)}`, { cache: "no-store" }).catch(() => null);
+      if (!response?.ok) {
+        return;
       }
+      const data = (await response.json()) as ProfileResponse;
+      setWinnerProfile(data.profiles[0]?.profile ?? null);
     })();
-
-    return () => {
-      active = false;
-    };
-  }, [winnerCompetitorId]);
-
-  const winnerProfile = useMemo(
-    () =>
-      winnerProfileState?.competitorId === winnerCompetitorId
-        ? winnerProfileState.profile
-        : null,
-    [winnerCompetitorId, winnerProfileState],
-  );
+  }, [battle]);
 
   const replayState = useMemo(
     () => (battle ? deriveReplayState(battle, playhead) : null),
     [battle, playhead],
   );
-
   const canRecord =
     typeof window !== "undefined" &&
     "MediaRecorder" in window &&
@@ -878,22 +854,12 @@ export function BattleReplay({ battleId }: { battleId: string }) {
   const reachedEnd = Boolean(battle && playhead >= battle.events.length - 1);
   const playbackActive = isPlaying && !reachedEnd;
   const winnerCompetition = useMemo(() => {
-    if (!battle?.competition) {
-      return null;
-    }
-
-    return battle.winnerId === battle.player.id
-      ? battle.competition.player
-      : battle.competition.defender;
+    if (!battle?.competition) return null;
+    return battle.winnerId === battle.player.id ? battle.competition.player : battle.competition.defender;
   }, [battle]);
   const loserCompetition = useMemo(() => {
-    if (!battle?.competition) {
-      return null;
-    }
-
-    return battle.winnerId === battle.player.id
-      ? battle.competition.defender
-      : battle.competition.player;
+    if (!battle?.competition) return null;
+    return battle.winnerId === battle.player.id ? battle.competition.defender : battle.competition.player;
   }, [battle]);
 
   // Keep latest replayState accessible inside RAF without closure capture
@@ -943,38 +909,14 @@ export function BattleReplay({ battleId }: { battleId: string }) {
     return () => window.clearTimeout(timer);
   }, [battle, playbackActive, playhead]);
 
-  useEffect(() => {
-    if (!reachedEnd || !recording) {
-      return;
-    }
-
-    recorderRef.current?.stop();
-  }, [reachedEnd, recording]);
-
-  useEffect(() => {
-    return () => {
-      if (downloadUrl) {
-        URL.revokeObjectURL(downloadUrl);
-      }
-    };
-  }, [downloadUrl]);
-
   const startRecording = () => {
     if (!canvasRef.current || !canRecord) {
       return;
     }
 
-    const canvas = canvasRef.current;
-    const stream = canvas.captureStream(30);
-    const mimeTypes = [
-      "video/webm;codecs=vp9",
-      "video/webm;codecs=vp8",
-      "video/webm",
-    ];
-    const mimeType = mimeTypes.find((item) => MediaRecorder.isTypeSupported(item));
-    const recorder = mimeType
-      ? new MediaRecorder(stream, { mimeType })
-      : new MediaRecorder(stream);
+    const stream = canvasRef.current.captureStream(30);
+    const mimeType = ["video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm"].find((item) => MediaRecorder.isTypeSupported(item));
+    const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
 
     chunksRef.current = [];
     recorder.ondataavailable = (event) => {
@@ -1004,6 +946,32 @@ export function BattleReplay({ battleId }: { battleId: string }) {
   const stopRecording = () => {
     recorderRef.current?.stop();
     setRecording(false);
+  };
+
+  const handleRematch = async () => {
+    if (!battle) {
+      return;
+    }
+
+    setRematchPending(true);
+    try {
+      const payload = await fetch("/api/arena/rematch", {
+        body: JSON.stringify({ battleId: battle.id }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+      });
+
+      if (!payload.ok) {
+        throw new Error("创建 rematch 失败");
+      }
+
+      const data = (await payload.json()) as RematchResponse;
+      router.push(`/arena?setupId=${data.setup.id}`);
+    } finally {
+      setRematchPending(false);
+    }
   };
 
   if (error) {
@@ -1083,6 +1051,9 @@ export function BattleReplay({ battleId }: { battleId: string }) {
                 type="button"
               >
                 {playbackActive ? "暂停回放" : "继续回放"}
+              </button>
+              <button className="soft-button rounded-full border border-[var(--line)] bg-white/70 px-4 py-3 text-sm" disabled={rematchPending} onClick={() => void handleRematch()} type="button">
+                {rematchPending ? "创建中..." : "以此为模板重开"}
               </button>
               {!recording ? (
                 <button
@@ -1186,6 +1157,12 @@ export function BattleReplay({ battleId }: { battleId: string }) {
                   ) : null}
                   {battle.competition.isUpsetWin ? (
                     <p style={{ color: 'var(--gold-bright)', marginTop: '4px' }}>⚡ 下克上胜利</p>
+                  ) : null}
+                  {(battle.setupId ?? battle.sourceMeta?.setupId) ? (
+                    <p style={{ marginTop: '4px' }}>配置 ID：{battle.setupId ?? battle.sourceMeta?.setupId}</p>
+                  ) : null}
+                  {(battle.originBattleId ?? battle.sourceMeta?.originBattleId) ? (
+                    <p>来源对局：{battle.originBattleId ?? battle.sourceMeta?.originBattleId}</p>
                   ) : null}
                 </div>
               </article>
