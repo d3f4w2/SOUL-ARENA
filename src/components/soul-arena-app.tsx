@@ -75,17 +75,42 @@ export function SoulArenaApp() {
       <div className="mx-auto flex max-w-7xl flex-col gap-6">
 
         {/* ── HERO ── */}
-        <section className="entry-fade mk-panel px-8 py-10 sm:px-12">
-          <div className="grid gap-10 lg:grid-cols-[1.3fr_0.85fr]">
+        <section className="entry-fade hero-particles mk-panel px-8 py-10 sm:px-12" style={{ position: 'relative' }}>
+          {/* Arena logo background element */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/arena-logo.png"
+            alt=""
+            aria-hidden="true"
+            style={{
+              position: 'absolute',
+              right: '-20px',
+              top: '-20px',
+              width: '280px',
+              height: '280px',
+              opacity: 0.07,
+              pointerEvents: 'none',
+              filter: 'saturate(0) brightness(2)',
+              zIndex: 0,
+            }}
+          />
+          <div className="grid gap-10 lg:grid-cols-[1.3fr_0.85fr]" style={{ position: 'relative', zIndex: 1 }}>
             <div className="flex flex-col gap-5">
               <div className="mk-badge">Agent 构筑竞技场</div>
-              <h1 className="mk-title mk-title-anim">Soul Arena</h1>
+              <h1
+                className="mk-title mk-title-anim"
+                style={{
+                  textShadow: '6px 6px 0 #4a0000, 0 0 40px rgba(255,30,0,0.7), 0 0 90px rgba(200,0,0,0.45), 0 0 140px rgba(139,0,0,0.2)',
+                }}
+              >
+                Soul Arena
+              </h1>
               <p style={{ fontFamily: "'Courier New', monospace", color: 'var(--text-dim)', lineHeight: '1.85', fontSize: '0.9rem', maxWidth: '56ch' }}>
                 这里不只是看 AI 输出，而是把人格、观点、规则、禁忌与记忆全部转成可对战的构筑，
                 再用一场可回放、可录屏、可冲榜的 battle 来验证谁的构筑更强。
               </p>
               <div className="flex flex-wrap gap-3 pt-1">
-                <Link className="mk-button px-6 py-3" href="/arena">进入竞技场</Link>
+                <Link className="mk-button press-start px-6 py-3" href="/arena">进入竞技场</Link>
                 <Link className="mk-button-ghost px-5 py-3" href="/arena/leaderboard">查看排行榜</Link>
                 <Link className="mk-button-ghost px-5 py-3" href="/arena/history">查看战绩中心</Link>
                 <Link className="mk-button-ghost px-5 py-3" href="/arena/watch">观战入场</Link>

@@ -416,42 +416,8 @@ textarea {
 }
 
 /* ===================================
-   HEALTH BARS
+   HEALTH BARS — see enhanced definitions near bottom of file
 =================================== */
-
-.mk-health-track {
-  background: rgba(0, 0, 0, 0.8);
-  border: 1px solid rgba(80, 0, 0, 0.5);
-  height: 18px;
-  position: relative;
-  overflow: hidden;
-}
-
-.mk-health-fill {
-  height: 100%;
-  background: linear-gradient(90deg, var(--red-dark) 0%, var(--red) 60%, #ff4400 100%);
-  box-shadow: 0 0 12px rgba(255, 30, 0, 0.6);
-  transition: width 350ms ease;
-  position: relative;
-}
-
-.mk-health-fill::after {
-  content: "";
-  position: absolute;
-  top: 2px;
-  left: 4px;
-  right: 4px;
-  height: 4px;
-  background: rgba(255, 160, 160, 0.3);
-}
-
-.mk-health-fill-gold {
-  height: 100%;
-  background: linear-gradient(90deg, #7a5000 0%, var(--gold) 60%, var(--gold-bright) 100%);
-  box-shadow: 0 0 12px rgba(255, 215, 0, 0.5);
-  transition: width 350ms ease;
-  position: relative;
-}
 
 .mk-stat-track {
   background: rgba(0, 0, 0, 0.7);
@@ -790,4 +756,176 @@ textarea {
 
 .border-flash {
   animation: border-flash 3s ease infinite;
+}
+
+/* ===================================
+   PRESS START ANIMATION (CTA pulse)
+=================================== */
+
+@keyframes press-start-pulse {
+  0%, 100% {
+    box-shadow:
+      0 0 10px rgba(255, 30, 0, 0.4),
+      0 0 25px rgba(200, 0, 0, 0.2);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow:
+      0 0 24px rgba(255, 30, 0, 0.8),
+      0 0 50px rgba(200, 0, 0, 0.5),
+      0 0 80px rgba(139, 0, 0, 0.3);
+    transform: scale(1.04);
+  }
+}
+
+.press-start {
+  animation: press-start-pulse 1.8s ease-in-out infinite;
+}
+
+/* ===================================
+   PARTICLE EFFECTS (CSS only)
+=================================== */
+
+.hero-particles {
+  position: relative;
+  overflow: hidden;
+}
+
+.hero-particles::before,
+.hero-particles::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.hero-particles::before {
+  background-image:
+    radial-gradient(circle 1.5px at 15% 20%, rgba(255, 30, 0, 0.7) 0%, transparent 70%),
+    radial-gradient(circle 1px at 75% 35%, rgba(255, 215, 0, 0.6) 0%, transparent 70%),
+    radial-gradient(circle 2px at 40% 70%, rgba(255, 60, 0, 0.5) 0%, transparent 70%),
+    radial-gradient(circle 1.5px at 85% 15%, rgba(255, 215, 0, 0.5) 0%, transparent 70%),
+    radial-gradient(circle 1px at 60% 85%, rgba(255, 30, 0, 0.4) 0%, transparent 70%),
+    radial-gradient(circle 2px at 25% 55%, rgba(255, 100, 0, 0.45) 0%, transparent 70%),
+    radial-gradient(circle 1px at 92% 65%, rgba(255, 215, 0, 0.35) 0%, transparent 70%),
+    radial-gradient(circle 1.5px at 8% 80%, rgba(200, 0, 0, 0.5) 0%, transparent 70%);
+  animation: particle-drift 8s ease-in-out infinite alternate;
+}
+
+.hero-particles::after {
+  background-image:
+    radial-gradient(circle 1px at 50% 10%, rgba(255, 215, 0, 0.55) 0%, transparent 70%),
+    radial-gradient(circle 1.5px at 30% 40%, rgba(255, 0, 0, 0.4) 0%, transparent 70%),
+    radial-gradient(circle 1px at 70% 60%, rgba(255, 130, 0, 0.5) 0%, transparent 70%),
+    radial-gradient(circle 2px at 10% 30%, rgba(255, 215, 0, 0.35) 0%, transparent 70%),
+    radial-gradient(circle 1px at 88% 45%, rgba(255, 40, 0, 0.45) 0%, transparent 70%);
+  animation: particle-drift 11s ease-in-out infinite alternate-reverse;
+}
+
+@keyframes particle-drift {
+  0% { transform: translate(0, 0) scale(1); opacity: 0.7; }
+  33% { transform: translate(8px, -12px) scale(1.05); opacity: 1; }
+  66% { transform: translate(-5px, 8px) scale(0.98); opacity: 0.8; }
+  100% { transform: translate(12px, -6px) scale(1.02); opacity: 0.9; }
+}
+
+/* ===================================
+   ENHANCED BUTTON HOVER — dramatic red flash
+=================================== */
+
+@keyframes button-flash {
+  0% { box-shadow: 0 0 0px rgba(255, 30, 0, 0); }
+  30% { box-shadow: 0 0 35px rgba(255, 30, 0, 0.9), 0 0 70px rgba(200, 0, 0, 0.5); }
+  100% { box-shadow: 0 0 18px rgba(255, 30, 0, 0.4), 0 0 35px rgba(200, 0, 0, 0.2); }
+}
+
+.mk-button:active {
+  animation: button-flash 0.35s ease forwards;
+  transform: translateY(0px) scale(0.97);
+}
+
+.mk-button-gold:active {
+  box-shadow: 0 0 30px rgba(255, 215, 0, 0.8), 0 0 60px rgba(212, 160, 0, 0.5);
+  transform: translateY(0px) scale(0.97);
+}
+
+/* ===================================
+   LOADING SCREEN
+=================================== */
+
+@keyframes mk-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes loading-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+
+.mk-loading-spinner {
+  width: 48px;
+  height: 48px;
+  border: 3px solid rgba(139, 0, 0, 0.3);
+  border-top-color: var(--red-bright);
+  border-radius: 50%;
+  animation: mk-spin 0.9s linear infinite;
+  box-shadow: 0 0 18px rgba(255, 30, 0, 0.5);
+}
+
+.mk-loading-text {
+  font-family: Impact, "Arial Black", sans-serif;
+  font-size: 0.75rem;
+  letter-spacing: 0.4em;
+  text-transform: uppercase;
+  color: var(--red);
+  animation: loading-pulse 1.4s ease-in-out infinite;
+}
+
+/* ===================================
+   ENHANCED HEALTH BARS (HTML version)
+=================================== */
+
+.mk-health-track {
+  background: rgba(0, 0, 0, 0.85);
+  border: 1px solid rgba(120, 0, 0, 0.6);
+  border-top: 1px solid rgba(200, 0, 0, 0.4);
+  height: 22px;
+  position: relative;
+  overflow: hidden;
+  box-shadow:
+    inset 0 2px 6px rgba(0, 0, 0, 0.8),
+    0 0 8px rgba(200, 0, 0, 0.2);
+}
+
+.mk-health-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--red-dark) 0%, var(--red) 55%, #ff5500 100%);
+  box-shadow:
+    0 0 16px rgba(255, 30, 0, 0.7),
+    inset 0 1px 0 rgba(255, 160, 100, 0.35);
+  transition: width 350ms ease;
+  position: relative;
+}
+
+.mk-health-fill::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 4px;
+  right: 4px;
+  height: 5px;
+  background: rgba(255, 180, 150, 0.28);
+  border-radius: 1px;
+}
+
+.mk-health-fill-gold {
+  height: 100%;
+  background: linear-gradient(90deg, #6a4500 0%, var(--gold) 55%, var(--gold-bright) 100%);
+  box-shadow:
+    0 0 16px rgba(255, 215, 0, 0.6),
+    inset 0 1px 0 rgba(255, 255, 180, 0.3);
+  transition: width 350ms ease;
+  position: relative;
 }
