@@ -5,9 +5,11 @@ import { DatabaseSync, type StatementSync } from "node:sqlite";
 
 import type {
   ArenaParticipantSlot,
+  AudienceMember,
   BattlePackage,
   BattleSetupRecord,
   BattleSummary,
+  LiveSession,
   OpenClawBindCodeRecord,
   OpenClawBindingInput,
   OpenClawBindingRecord,
@@ -29,6 +31,23 @@ type GlobalArenaStore = typeof globalThis & {
 
 type BattlePackageRow = {
   battle_package_json: string;
+};
+
+type AudienceMemberRow = {
+  id: string;
+  session_id: string;
+  display_name: string;
+  display_id: string | null;
+  avatar_data_url: string | null;
+  created_at: string;
+};
+
+type LiveSessionRow = {
+  session_id: string;
+  battle_id: string | null;
+  start_at: string | null;
+  created_at: string;
+  updated_at: string;
 };
 
 type SetupRow = {
@@ -124,6 +143,26 @@ const initDatabase = () => {
 
     CREATE INDEX IF NOT EXISTS idx_openclaw_bind_codes_session_slot
       ON openclaw_bind_codes(session_id, slot, created_at DESC);
+
+    CREATE TABLE IF NOT EXISTS audience_members (
+      id TEXT PRIMARY KEY,
+      session_id TEXT NOT NULL,
+      display_name TEXT NOT NULL,
+      display_id TEXT,
+      avatar_data_url TEXT,
+      created_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_audience_session
+      ON audience_members(session_id, created_at DESC);
+
+    CREATE TABLE IF NOT EXISTS live_sessions (
+      session_id TEXT PRIMARY KEY,
+      battle_id TEXT,
+      start_at TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
   `);
 
   return db;
@@ -549,4 +588,87 @@ export const clearOpenClawBindCodesForSlot = ({
     "DELETE FROM openclaw_bind_codes WHERE session_id = ? AND slot = ? AND used_at IS NULL",
   );
   statement.run(sessionId, slot);
+};
+
+// ── Audience Members ────────────────────────────────────────────────────────
+
+const toAudienceMember = (row: AudienceMemberRow): AudienceMember => ({
+  id: row.id,
+  sessionId: row.session_id,
+  displayName: row.display_name,
+  displayId: row.display_id ?? null,
+  avatarDataUrl: row.avatar_data_url ?? null,
+  createdAt: row.created_at,
+});
+
+export const saveAudienceMember = ({
+  sessionId,
+  displayName,
+  displayId,
+  avatarDataUrl,
+}: {
+  sessionId: string;
+  displayName: string;
+  displayId?: string;
+  avatarDataUrl?: string;
+}): AudienceMember => {
+  const now = new Date().toISOString();
+  const id = randomUUID();
+  const statement = db.prepare(`
+    INSERT INTO audience_members (id, session_id, display_name, display_id, avatar_data_url, created_at)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `);
+  statement.run(id, sessionId, displayName, displayId ?? null, avatarDataUrl ?? null, now);
+  return { id, sessionId, displayName, displayId: displayId ?? null, avatarDataUrl: avatarDataUrl ?? null, createdAt: now };
+};
+
+export const listAudienceMembers = (sessionId: string): AudienceMember[] => {
+  const statement = db.prepare<AudienceMemberRow>(
+    "SELECT id, session_id, display_name, display_id, avatar_data_url, created_at FROM audience_members WHERE session_id = ? ORDER BY created_at DESC",
+  );
+  return statement.all(sessionId).map(toAudienceMember);
+};
+
+export const clearAudienceMembers = (sessionId: string) => {
+  const statement = db.prepare("DELETE FROM audience_members WHERE session_id = ?");
+  statement.run(sessionId);
+};
+
+// ── Live Sessions ───────────────────────────────────────────────────────────
+
+const toLiveSession = (row: LiveSessionRow): LiveSession => ({
+  sessionId: row.session_id,
+  battleId: row.battle_id ?? null,
+  startAt: row.start_at ?? null,
+  createdAt: row.created_at,
+  updatedAt: row.updated_at,
+});
+
+export const setLiveSession = ({
+  sessionId,
+  battleId,
+  startAt,
+}: {
+  sessionId: string;
+  battleId?: string;
+  startAt?: string;
+}) => {
+  const now = new Date().toISOString();
+  const statement = db.prepare(`
+    INSERT INTO live_sessions (session_id, battle_id, start_at, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?)
+    ON CONFLICT(session_id) DO UPDATE SET
+      battle_id = excluded.battle_id,
+      start_at = excluded.start_at,
+      updated_at = excluded.updated_at
+  `);
+  statement.run(sessionId, battleId ?? null, startAt ?? null, now, now);
+};
+
+export const getLiveSession = (sessionId: string): LiveSession | null => {
+  const statement = db.prepare<LiveSessionRow>(
+    "SELECT session_id, battle_id, start_at, created_at, updated_at FROM live_sessions WHERE session_id = ?",
+  );
+  const row = statement.get(sessionId);
+  return row ? toLiveSession(row) : null;
 };

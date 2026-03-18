@@ -85,6 +85,15 @@ const deriveReplayState = (battle: BattlePackage, playhead: number): ReplayState
   };
 };
 
+type AudienceMemberCanvas = {
+  id: string;
+  displayName: string;
+  avatarDataUrl: string | null;
+  seatX: number;
+  seatRow: number;
+  bobPhase: number;
+};
+
 function drawStage(
   canvas: HTMLCanvasElement,
   battle: BattlePackage,
@@ -95,6 +104,8 @@ function drawStage(
   defenderSprite: HTMLImageElement | null,
   animTime: number,
   poseAge: number,
+  audienceMembers: AudienceMemberCanvas[],
+  avatarImageCache: Map<string, HTMLImageElement>,
 ) {
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
@@ -203,6 +214,54 @@ function drawStage(
     ctx.beginPath(); ctx.moveTo(x, floorY); ctx.lineTo(W / 2, H + 120); ctx.stroke();
   }
   ctx.restore();
+
+  // ── AUDIENCE SECTION ────────────────────────────────────────────
+  // Subtle audience glow gradient at the bottom
+  const audienceGlow = ctx.createLinearGradient(0, floorY + 8, 0, H);
+  audienceGlow.addColorStop(0, "rgba(80,0,0,0.22)");
+  audienceGlow.addColorStop(1, "transparent");
+  ctx.fillStyle = audienceGlow;
+  ctx.fillRect(0, floorY + 8, W, H - floorY - 8);
+
+  // Row configs: front row is most visible
+  const rowConfigs = [
+    { yOffset: 18, opacity: 1.0 },
+    { yOffset: 38, opacity: 0.85 },
+    { yOffset: 56, opacity: 0.7 },
+  ];
+
+  for (const member of audienceMembers) {
+    const row = rowConfigs[member.seatRow];
+    if (!row) continue;
+    const bobY = Math.sin(animTime * 0.002 + member.bobPhase) * 2;
+    const mx = member.seatX;
+    const my = floorY + row.yOffset + bobY;
+    const r = 11;
+
+    ctx.save();
+    ctx.globalAlpha = row.opacity;
+    const cachedImg = avatarImageCache.get(member.id);
+    if (cachedImg) {
+      ctx.beginPath();
+      ctx.arc(mx, my, r, 0, Math.PI * 2);
+      ctx.clip();
+      ctx.drawImage(cachedImg, mx - r, my - r, r * 2, r * 2);
+    } else {
+      // Colored circle with initial letter
+      const hue = (member.displayName.charCodeAt(0) * 37) % 360;
+      ctx.beginPath();
+      ctx.arc(mx, my, r, 0, Math.PI * 2);
+      ctx.fillStyle = `hsl(${hue},60%,28%)`;
+      ctx.fill();
+      ctx.font = `700 ${r}px Impact, Arial Black, sans-serif`;
+      ctx.fillStyle = `hsl(${hue},80%,75%)`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(member.displayName.charAt(0).toUpperCase(), mx, my);
+      ctx.textBaseline = "alphabetic";
+    }
+    ctx.restore();
+  }
 
   // Scanlines
   for (let y = 0; y < H; y += 4) {
@@ -771,6 +830,7 @@ export function BattleReplay({ battleId }: { battleId: string }) {
   const replayStateRef = useRef<ReplayState | null>(null);
   const poseStartTimeRef = useRef(0);
   const lastPlayheadRef = useRef(-1);
+  const avatarImageCacheRef = useRef<Map<string, HTMLImageElement>>(new Map());
   const [battle, setBattle] = useState<BattlePackage | null>(null);
   const [playhead, setPlayhead] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
@@ -779,6 +839,9 @@ export function BattleReplay({ battleId }: { battleId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [winnerProfile, setWinnerProfile] = useState<ArenaCompetitorProfile | null>(null);
   const [rematchPending, setRematchPending] = useState(false);
+  const [audienceMembers, setAudienceMembers] = useState<AudienceMemberCanvas[]>([]);
+  const [liveStartAt, setLiveStartAt] = useState<string | null>(null);
+  const [goLivePending, setGoLivePending] = useState(false);
 
   useEffect(() => {
     void (async () => {
@@ -862,6 +925,63 @@ export function BattleReplay({ battleId }: { battleId: string }) {
     return battle.winnerId === battle.player.id ? battle.competition.defender : battle.competition.player;
   }, [battle]);
 
+  // Fetch audience members every 10 seconds
+  useEffect(() => {
+    const fetchAudience = () => {
+      void fetch("/api/arena/audience", { cache: "no-store" })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data: { members: Array<{ id: string; displayName: string; avatarDataUrl: string | null }> } | null) => {
+          if (!data?.members) return;
+          setAudienceMembers((prev) => {
+            const existingMap = new Map(prev.map((m) => [m.id, m]));
+            return data.members.map((m) => {
+              const existing = existingMap.get(m.id);
+              if (existing) return existing;
+              // Decode avatar if available
+              if (m.avatarDataUrl && !avatarImageCacheRef.current.has(m.id)) {
+                const img = new Image();
+                img.onload = () => { avatarImageCacheRef.current.set(m.id, img); };
+                img.src = m.avatarDataUrl;
+              }
+              return {
+                id: m.id,
+                displayName: m.displayName,
+                avatarDataUrl: m.avatarDataUrl,
+                seatX: 20 + Math.random() * (1280 - 40),
+                seatRow: Math.floor(Math.random() * 3),
+                bobPhase: Math.random() * Math.PI * 2,
+              };
+            });
+          });
+        })
+        .catch(() => null);
+    };
+    fetchAudience();
+    const interval = setInterval(fetchAudience, 10_000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Poll live session for auto-start
+  useEffect(() => {
+    const poll = () => {
+      void fetch("/api/arena/live", { cache: "no-store" })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data: { battleId: string | null; startAt: string | null; secondsUntilStart: number | null } | null) => {
+          if (!data?.startAt) return;
+          setLiveStartAt(data.startAt);
+          // If the startAt has arrived and we have a matching battle, auto-start playback
+          if (data.secondsUntilStart !== null && data.secondsUntilStart <= 0) {
+            setIsPlaying(true);
+            setPlayhead(0);
+          }
+        })
+        .catch(() => null);
+    };
+    poll();
+    const interval = setInterval(poll, 3_000);
+    return () => clearInterval(interval);
+  }, []);
+
   // Keep latest replayState accessible inside RAF without closure capture
   useEffect(() => { replayStateRef.current = replayState; }, [replayState]);
 
@@ -884,13 +1004,15 @@ export function BattleReplay({ battleId }: { battleId: string }) {
           playerAvatarRef.current, defenderAvatarRef.current,
           playerSpriteRef.current, defenderSpriteRef.current,
           time, poseAge,
+          audienceMembers,
+          avatarImageCacheRef.current,
         );
       }
       animFrameRef.current = requestAnimationFrame(loop);
     };
     animFrameRef.current = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(animFrameRef.current);
-  }, [battle]);
+  }, [battle, audienceMembers]);
 
   useEffect(() => startLoop(), [startLoop]);
 
@@ -1051,6 +1173,28 @@ export function BattleReplay({ battleId }: { battleId: string }) {
                 type="button"
               >
                 {playbackActive ? "暂停回放" : "继续回放"}
+              </button>
+              <button
+                className="mk-button px-4 py-3"
+                disabled={goLivePending}
+                onClick={() => {
+                  setGoLivePending(true);
+                  void fetch("/api/arena/live", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ battleId: battle.id, delaySeconds: 5 }),
+                  })
+                    .then((res) => res.ok ? res.json() : null)
+                    .then((data: { startAt: string } | null) => {
+                      if (data?.startAt) setLiveStartAt(data.startAt);
+                    })
+                    .catch(() => null)
+                    .finally(() => setGoLivePending(false));
+                }}
+                type="button"
+                style={{ background: liveStartAt ? 'var(--gold-dim)' : undefined }}
+              >
+                {goLivePending ? "设置中..." : liveStartAt ? "已开播 ✓" : "Go Live"}
               </button>
               <button className="soft-button rounded-full border border-[var(--line)] bg-white/70 px-4 py-3 text-sm" disabled={rematchPending} onClick={() => void handleRematch()} type="button">
                 {rematchPending ? "创建中..." : "以此为模板重开"}

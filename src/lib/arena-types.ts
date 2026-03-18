@@ -390,6 +390,23 @@ export type BattleSummary = {
   winnerId: string;
 };
 
+export type AudienceMember = {
+  id: string;
+  sessionId: string;
+  displayName: string;
+  displayId: string | null;
+  avatarDataUrl: string | null;
+  createdAt: string;
+};
+
+export type LiveSession = {
+  sessionId: string;
+  battleId: string | null;
+  startAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type BattlePackage = {
   challengerPreview: BattlePreview;
   classicLabel: string;
