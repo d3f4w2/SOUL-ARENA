@@ -44,11 +44,14 @@ type TokenPayload = {
 export type SecondMeUserInfo = {
   secondMeId?: string;
   id?: string;
+  userId?: string;
   name?: string;
   avatarUrl?: string;
+  avatar?: string;
   email?: string;
   route?: string;
   bio?: string;
+  selfIntroduction?: string;
   [key: string]: unknown;
 };
 

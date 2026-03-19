@@ -22,7 +22,14 @@ const unique = (items: Array<string | null | undefined>) =>
   [...new Set(items.map((item) => item?.trim()).filter(Boolean) as string[])];
 
 const softMemoryText = (memory: SecondMeSoftMemory) =>
-  [memory.summary, memory.text, memory.content, memory.title].find(
+  [
+    memory.summary,
+    memory.text,
+    memory.content,
+    memory.title,
+    memory.factContent,
+    memory.factObject,
+  ].find(
     (item) => typeof item === "string" && item.trim().length > 0,
   )?.trim() ?? "";
 
@@ -43,6 +50,56 @@ const readStringArray = (value: unknown) =>
         .map((item) => (typeof item === "string" ? item.trim() : ""))
         .filter(Boolean)
     : [];
+
+const normalizeSecondMeUser = (
+  user: SecondMeUserInfo | null,
+): SecondMeUserInfo | null => {
+  if (!user) {
+    return null;
+  }
+
+  const normalizedId =
+    readString(user.secondMeId) ??
+    readString(user.id) ??
+    readString(user.userId);
+  const normalizedAvatarUrl =
+    readString(user.avatarUrl) ?? readString(user.avatar);
+  const normalizedBio =
+    readString(user.bio) ?? readString(user.selfIntroduction);
+
+  return {
+    ...user,
+    ...(normalizedId ? { id: normalizedId, secondMeId: normalizedId, userId: normalizedId } : {}),
+    ...(normalizedAvatarUrl ? { avatarUrl: normalizedAvatarUrl } : {}),
+    ...(normalizedBio ? { bio: normalizedBio } : {}),
+  };
+};
+
+const normalizeSecondMeSoftMemory = (
+  memory: SecondMeSoftMemory,
+): SecondMeSoftMemory => {
+  const normalizedTitle =
+    readString(memory.title) ?? readString(memory.factObject) ?? undefined;
+  const normalizedText =
+    readString(memory.summary) ??
+    readString(memory.text) ??
+    readString(memory.content) ??
+    readString(memory.factContent) ??
+    readString(memory.factObject) ??
+    undefined;
+
+  return {
+    ...memory,
+    ...(normalizedTitle ? { title: normalizedTitle } : {}),
+    ...(normalizedText
+      ? {
+          content: readString(memory.content) ?? normalizedText,
+          summary: readString(memory.summary) ?? normalizedText,
+          text: readString(memory.text) ?? normalizedText,
+        }
+      : {}),
+  };
+};
 
 const duplicateIdentityIssue =
   "当前甲方和乙方是同一个 SecondMe 账号，这通常是因为第二次授权复用了同一浏览器登录态。";
@@ -88,7 +145,9 @@ const getSecondMeParticipantSource = async (
 
   const issues: string[] = [];
   const user =
-    userResult.status === "fulfilled" ? (userResult.value.data ?? null) : null;
+    userResult.status === "fulfilled"
+      ? normalizeSecondMeUser(userResult.value.data ?? null)
+      : null;
 
   if (userResult.status === "rejected") {
     issues.push(
@@ -115,9 +174,14 @@ const getSecondMeParticipantSource = async (
   }
 
   const secondMeUserId =
-    readString(user?.secondMeId) ?? readString(user?.id) ?? null;
+    readString(user?.secondMeId) ??
+    readString(user?.id) ??
+    readString(user?.userId) ??
+    null;
 
   return {
+    avatarUrl:
+      readString(user?.avatarUrl) ?? readString(user?.avatar) ?? null,
     connected: Boolean(user),
     displayName:
       readString(user?.name) ?? readString(user?.route) ?? null,
@@ -134,7 +198,7 @@ const getSecondMeParticipantSource = async (
     slot,
     softMemory:
       memoryResult.status === "fulfilled"
-        ? (memoryResult.value.data?.list ?? [])
+        ? (memoryResult.value.data?.list ?? []).map(normalizeSecondMeSoftMemory)
         : [],
     sourceLabel: "SecondMe OAuth Session",
     sourceMeta: {

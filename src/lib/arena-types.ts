@@ -91,6 +91,8 @@ export type SecondMeSoftMemory = {
   content?: string;
   text?: string;
   summary?: string;
+  factContent?: string;
+  factObject?: string;
   [key: string]: unknown;
 };
 
