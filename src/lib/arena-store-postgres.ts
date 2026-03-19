@@ -4,16 +4,21 @@ import { Pool, type QueryResultRow } from "pg";
 
 import { env } from "@/lib/env";
 import type {
+  AudienceMember,
   BattlePackage,
   BattleSetupRecord,
   OpenClawBindCodeRecord,
   OpenClawBindingRecord,
+  Vote,
 } from "@/lib/arena-types";
 import {
   type ArenaStore,
+  type SaveAudienceMemberInput,
   type SaveBattleSetupInput,
+  type SaveLiveSessionInput,
   type SaveOpenClawBindCodeInput,
   type SaveOpenClawBindingInput,
+  type SaveVoteInput,
   toBattleSummary,
 } from "@/lib/arena-store-shared";
 
@@ -23,6 +28,7 @@ type GlobalPostgresStore = typeof globalThis & {
 };
 
 const globalPostgresStore = globalThis as GlobalPostgresStore;
+const GLOBAL_LIVE_SESSION_ID = "global";
 
 const getPool = () => {
   if (!env.POSTGRES_URL) {
@@ -105,6 +111,37 @@ const ensureSchema = async () => {
 
     CREATE INDEX IF NOT EXISTS idx_openclaw_bind_codes_session_slot
       ON openclaw_bind_codes(session_id, slot, created_at DESC);
+
+    CREATE TABLE IF NOT EXISTS audience_members (
+      id text PRIMARY KEY,
+      session_id text NOT NULL,
+      display_name text NOT NULL,
+      display_id text,
+      avatar_data_url text,
+      created_at timestamptz NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_audience_members_created_at
+      ON audience_members(created_at DESC);
+
+    CREATE TABLE IF NOT EXISTS live_sessions (
+      session_id text PRIMARY KEY,
+      battle_id text,
+      start_at timestamptz,
+      created_at timestamptz NOT NULL,
+      updated_at timestamptz NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS votes (
+      id text PRIMARY KEY,
+      session_id text NOT NULL,
+      battle_id text NOT NULL,
+      side text NOT NULL,
+      created_at timestamptz NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_votes_battle_id
+      ON votes(battle_id, created_at DESC);
   `);
 };
 
@@ -417,5 +454,185 @@ export const createPostgresArenaStore = (): ArenaStore => ({
       `,
       [sessionId, slot],
     );
+  },
+  saveAudienceMember: async ({
+    avatarDataUrl,
+    displayId,
+    displayName,
+    sessionId,
+  }: SaveAudienceMemberInput) => {
+    const record: AudienceMember = {
+      avatarDataUrl: avatarDataUrl ?? null,
+      createdAt: new Date().toISOString(),
+      displayId: displayId ?? null,
+      displayName,
+      id: randomUUID(),
+      sessionId,
+    };
+
+    await poolQuery(
+      `
+        INSERT INTO audience_members (
+          id,
+          session_id,
+          display_name,
+          display_id,
+          avatar_data_url,
+          created_at
+        )
+        VALUES ($1,$2,$3,$4,$5,$6)
+      `,
+      [
+        record.id,
+        record.sessionId,
+        record.displayName,
+        record.displayId,
+        record.avatarDataUrl,
+        record.createdAt,
+      ],
+    );
+
+    return record;
+  },
+  listAudienceMembers: async (limit = 200) => {
+    const result = await poolQuery<{
+      id: string;
+      session_id: string;
+      display_name: string;
+      display_id: string | null;
+      avatar_data_url: string | null;
+      created_at: string;
+    }>(
+      `
+        SELECT id, session_id, display_name, display_id, avatar_data_url, created_at
+        FROM audience_members
+        ORDER BY created_at DESC
+        LIMIT $1
+      `,
+      [Math.max(1, Math.min(limit, 500))],
+    );
+
+    return result.rows.map((row) => ({
+      avatarDataUrl: row.avatar_data_url,
+      createdAt: row.created_at,
+      displayId: row.display_id,
+      displayName: row.display_name,
+      id: row.id,
+      sessionId: row.session_id,
+    }));
+  },
+  setLiveSession: async ({ battleId, startAt }: SaveLiveSessionInput) => {
+    const existing = await createPostgresArenaStore().getLiveSession();
+    const now = new Date().toISOString();
+
+    await poolQuery(
+      `
+        INSERT INTO live_sessions (
+          session_id,
+          battle_id,
+          start_at,
+          created_at,
+          updated_at
+        )
+        VALUES ($1,$2,$3,$4,$5)
+        ON CONFLICT (session_id) DO UPDATE SET
+          battle_id = excluded.battle_id,
+          start_at = excluded.start_at,
+          updated_at = excluded.updated_at
+      `,
+      [GLOBAL_LIVE_SESSION_ID, battleId ?? null, startAt ?? null, now, now],
+    );
+
+    return {
+      battleId: battleId ?? null,
+      createdAt: existing?.createdAt ?? now,
+      sessionId: GLOBAL_LIVE_SESSION_ID,
+      startAt: startAt ?? null,
+      updatedAt: now,
+    };
+  },
+  getLiveSession: async () => {
+    const result = await poolQuery<{
+      session_id: string;
+      battle_id: string | null;
+      start_at: string | null;
+      created_at: string;
+      updated_at: string;
+    }>(
+      `
+        SELECT session_id, battle_id, start_at, created_at, updated_at
+        FROM live_sessions
+        WHERE session_id = $1
+        LIMIT 1
+      `,
+      [GLOBAL_LIVE_SESSION_ID],
+    );
+
+    const row = result.rows[0];
+
+    return row
+      ? {
+          battleId: row.battle_id,
+          createdAt: row.created_at,
+          sessionId: row.session_id,
+          startAt: row.start_at,
+          updatedAt: row.updated_at,
+        }
+      : null;
+  },
+  saveVote: async ({ battleId, sessionId, side }: SaveVoteInput) => {
+    const record: Vote = {
+      battleId,
+      createdAt: new Date().toISOString(),
+      id: randomUUID(),
+      sessionId,
+      side,
+    };
+
+    await poolQuery(
+      `
+        INSERT INTO votes (
+          id,
+          session_id,
+          battle_id,
+          side,
+          created_at
+        )
+        VALUES ($1,$2,$3,$4,$5)
+      `,
+      [
+        record.id,
+        record.sessionId,
+        record.battleId,
+        record.side,
+        record.createdAt,
+      ],
+    );
+
+    return record;
+  },
+  countVotes: async ({ battleId }) => {
+    const result = await poolQuery<{
+      side: string;
+      count: string;
+    }>(
+      `
+        SELECT side, COUNT(*)::text AS count
+        FROM votes
+        WHERE battle_id = $1
+        GROUP BY side
+      `,
+      [battleId],
+    );
+
+    const player =
+      result.rows.find((row) => row.side === "player")?.count ?? "0";
+    const defender =
+      result.rows.find((row) => row.side === "defender")?.count ?? "0";
+
+    return {
+      defender: Number(defender),
+      player: Number(player),
+    };
   },
 });

@@ -1,19 +1,25 @@
 import type {
   ArenaParticipantSlot,
+  AudienceMember,
   BattlePackage,
   BattleSetupRecord,
   BattleSummary,
+  LiveSession,
   OpenClawBindCodeRecord,
   OpenClawBindingRecord,
+  Vote,
 } from "@/lib/arena-types";
 import { env } from "@/lib/env";
 import { createMemoryArenaStore } from "@/lib/arena-store-memory";
 import type {
   ArenaStore,
   ListBattlePackagesOptions,
+  SaveAudienceMemberInput,
   SaveBattleSetupInput,
+  SaveLiveSessionInput,
   SaveOpenClawBindCodeInput,
   SaveOpenClawBindingInput,
+  SaveVoteInput,
 } from "@/lib/arena-store-shared";
 
 type GlobalArenaStore = typeof globalThis & {
@@ -123,3 +129,24 @@ export const clearOpenClawBindCodesForSlot = async (input: {
   sessionId: string;
   slot: ArenaParticipantSlot;
 }) => (await getArenaStore()).clearOpenClawBindCodesForSlot(input);
+
+export const saveAudienceMember = async (
+  input: SaveAudienceMemberInput,
+): Promise<AudienceMember> => (await getArenaStore()).saveAudienceMember(input);
+
+export const listAudienceMembers = async (limit?: number) =>
+  (await getArenaStore()).listAudienceMembers(limit);
+
+export const setLiveSession = async (
+  input: SaveLiveSessionInput,
+): Promise<LiveSession> => (await getArenaStore()).setLiveSession(input);
+
+export const getLiveSession = async () => (await getArenaStore()).getLiveSession();
+
+export const saveVote = async (input: SaveVoteInput): Promise<Vote> =>
+  (await getArenaStore()).saveVote(input);
+
+export const countVotes = async (input: {
+  battleId: string;
+}): Promise<{ player: number; defender: number }> =>
+  (await getArenaStore()).countVotes(input);

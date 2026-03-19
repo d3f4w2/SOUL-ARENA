@@ -1,24 +1,33 @@
 import { randomUUID } from "node:crypto";
 
 import type {
+  AudienceMember,
   BattlePackage,
   BattleSetupRecord,
+  LiveSession,
   OpenClawBindCodeRecord,
   OpenClawBindingRecord,
+  Vote,
 } from "@/lib/arena-types";
 import {
   type ArenaStore,
+  type SaveAudienceMemberInput,
   type SaveBattleSetupInput,
+  type SaveLiveSessionInput,
   type SaveOpenClawBindCodeInput,
   type SaveOpenClawBindingInput,
+  type SaveVoteInput,
   toBattleSummary,
 } from "@/lib/arena-store-shared";
 
 type MemoryState = {
+  audienceMembers: Map<string, AudienceMember>;
   battles: Map<string, BattlePackage>;
   bindCodes: Map<string, OpenClawBindCodeRecord>;
   bindings: Map<string, OpenClawBindingRecord>;
+  liveSession: LiveSession | null;
   setups: Map<string, BattleSetupRecord>;
+  votes: Map<string, Vote>;
 };
 
 type GlobalMemoryStore = typeof globalThis & {
@@ -30,10 +39,13 @@ const globalMemoryStore = globalThis as GlobalMemoryStore;
 const state =
   globalMemoryStore.__soulArenaMemoryStore ??
   {
+    audienceMembers: new Map<string, AudienceMember>(),
     battles: new Map<string, BattlePackage>(),
     bindCodes: new Map<string, OpenClawBindCodeRecord>(),
     bindings: new Map<string, OpenClawBindingRecord>(),
+    liveSession: null,
     setups: new Map<string, BattleSetupRecord>(),
+    votes: new Map<string, Vote>(),
   };
 
 if (!globalMemoryStore.__soulArenaMemoryStore) {
@@ -105,6 +117,78 @@ const saveOpenClawBindCode = async ({
   return record;
 };
 
+const saveAudienceMember = async ({
+  avatarDataUrl,
+  displayId,
+  displayName,
+  sessionId,
+}: SaveAudienceMemberInput) => {
+  const record: AudienceMember = {
+    avatarDataUrl: avatarDataUrl ?? null,
+    createdAt: new Date().toISOString(),
+    displayId: displayId ?? null,
+    displayName,
+    id: randomUUID(),
+    sessionId,
+  };
+  state.audienceMembers.set(record.id, record);
+  return record;
+};
+
+const listAudienceMembers = async (limit = 200) =>
+  [...state.audienceMembers.values()]
+    .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+    .slice(0, Math.max(1, Math.min(limit, 500)));
+
+const setLiveSession = async ({ battleId, startAt }: SaveLiveSessionInput) => {
+  const now = new Date().toISOString();
+  const next: LiveSession = {
+    battleId: battleId ?? null,
+    createdAt: state.liveSession?.createdAt ?? now,
+    sessionId: "global",
+    startAt: startAt ?? null,
+    updatedAt: now,
+  };
+  state.liveSession = next;
+  return next;
+};
+
+const getLiveSession = async () => state.liveSession;
+
+const saveVote = async ({ battleId, sessionId, side }: SaveVoteInput) => {
+  const record: Vote = {
+    battleId,
+    createdAt: new Date().toISOString(),
+    id: randomUUID(),
+    sessionId,
+    side,
+  };
+  state.votes.set(record.id, record);
+  return record;
+};
+
+const countVotes = async ({ battleId }: { battleId: string }) => {
+  let player = 0;
+  let defender = 0;
+
+  for (const vote of state.votes.values()) {
+    if (vote.battleId !== battleId) {
+      continue;
+    }
+
+    if (vote.side === "player") {
+      player += 1;
+    } else if (vote.side === "defender") {
+      defender += 1;
+    }
+  }
+
+  return {
+    defender,
+    player,
+  };
+};
+
 export const createMemoryArenaStore = (): ArenaStore => ({
   saveBattlePackage: async (battle) => {
     state.battles.set(battle.id, battle);
@@ -166,4 +250,10 @@ export const createMemoryArenaStore = (): ArenaStore => ({
       }
     }
   },
+  saveAudienceMember,
+  listAudienceMembers,
+  setLiveSession,
+  getLiveSession,
+  saveVote,
+  countVotes,
 });

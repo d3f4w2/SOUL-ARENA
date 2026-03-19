@@ -4,17 +4,23 @@ import { join } from "node:path";
 import { DatabaseSync, type StatementSync } from "node:sqlite";
 
 import type {
+  AudienceMember,
   BattlePackage,
   BattleSetupRecord,
+  LiveSession,
   OpenClawBindCodeRecord,
   OpenClawBindingRecord,
+  Vote,
 } from "@/lib/arena-types";
 import {
   type ArenaStore,
   parseJson,
+  type SaveAudienceMemberInput,
   type SaveBattleSetupInput,
+  type SaveLiveSessionInput,
   type SaveOpenClawBindCodeInput,
   type SaveOpenClawBindingInput,
+  type SaveVoteInput,
   toBattleSummary,
 } from "@/lib/arena-store-shared";
 
@@ -48,7 +54,30 @@ type OpenClawBindCodeRow = {
   bind_code_json: string;
 };
 
+type AudienceMemberRow = {
+  id: string;
+  session_id: string;
+  display_name: string;
+  display_id: string | null;
+  avatar_data_url: string | null;
+  created_at: string;
+};
+
+type LiveSessionRow = {
+  session_id: string;
+  battle_id: string | null;
+  start_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type VoteCountRow = {
+  side: string;
+  count: number;
+};
+
 const globalSQLiteStore = globalThis as GlobalSQLiteStore;
+const GLOBAL_LIVE_SESSION_ID = "global";
 
 const ensureColumn = (
   db: SQLiteDatabase,
@@ -127,6 +156,37 @@ const initDatabase = () => {
 
     CREATE INDEX IF NOT EXISTS idx_openclaw_bind_codes_session_slot
       ON openclaw_bind_codes(session_id, slot, created_at DESC);
+
+    CREATE TABLE IF NOT EXISTS audience_members (
+      id TEXT PRIMARY KEY,
+      session_id TEXT NOT NULL,
+      display_name TEXT NOT NULL,
+      display_id TEXT,
+      avatar_data_url TEXT,
+      created_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_audience_members_created_at
+      ON audience_members(created_at DESC);
+
+    CREATE TABLE IF NOT EXISTS live_sessions (
+      session_id TEXT PRIMARY KEY,
+      battle_id TEXT,
+      start_at TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS votes (
+      id TEXT PRIMARY KEY,
+      session_id TEXT NOT NULL,
+      battle_id TEXT NOT NULL,
+      side TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_votes_battle_id
+      ON votes(battle_id, created_at DESC);
   `);
 
   return db;
@@ -137,6 +197,23 @@ const db = globalSQLiteStore.__soulArenaSqliteDb ?? initDatabase();
 if (!globalSQLiteStore.__soulArenaSqliteDb) {
   globalSQLiteStore.__soulArenaSqliteDb = db;
 }
+
+const toAudienceMember = (row: AudienceMemberRow): AudienceMember => ({
+  avatarDataUrl: row.avatar_data_url,
+  createdAt: row.created_at,
+  displayId: row.display_id,
+  displayName: row.display_name,
+  id: row.id,
+  sessionId: row.session_id,
+});
+
+const toLiveSession = (row: LiveSessionRow): LiveSession => ({
+  battleId: row.battle_id,
+  createdAt: row.created_at,
+  sessionId: row.session_id,
+  startAt: row.start_at,
+  updatedAt: row.updated_at,
+});
 
 export const createSqliteArenaStore = (): ArenaStore => ({
   saveBattlePackage: async (battle) => {
@@ -430,5 +507,132 @@ export const createSqliteArenaStore = (): ArenaStore => ({
       "DELETE FROM openclaw_bind_codes WHERE session_id = ? AND slot = ? AND used_at IS NULL",
     );
     statement.run(sessionId, slot);
+  },
+  saveAudienceMember: async ({
+    avatarDataUrl,
+    displayId,
+    displayName,
+    sessionId,
+  }: SaveAudienceMemberInput) => {
+    const record: AudienceMember = {
+      avatarDataUrl: avatarDataUrl ?? null,
+      createdAt: new Date().toISOString(),
+      displayId: displayId ?? null,
+      displayName,
+      id: randomUUID(),
+      sessionId,
+    };
+    const statement = db.prepare(`
+      INSERT INTO audience_members (
+        id,
+        session_id,
+        display_name,
+        display_id,
+        avatar_data_url,
+        created_at
+      )
+      VALUES (?, ?, ?, ?, ?, ?)
+    `);
+    statement.run(
+      record.id,
+      record.sessionId,
+      record.displayName,
+      record.displayId,
+      record.avatarDataUrl,
+      record.createdAt,
+    );
+    return record;
+  },
+  listAudienceMembers: async (limit = 200) => {
+    const safeLimit = Math.max(1, Math.min(limit, 500));
+    const statement = db.prepare<AudienceMemberRow>(`
+      SELECT id, session_id, display_name, display_id, avatar_data_url, created_at
+      FROM audience_members
+      ORDER BY created_at DESC
+      LIMIT ?
+    `);
+    return statement.all(safeLimit).map(toAudienceMember);
+  },
+  setLiveSession: async ({ battleId, startAt }: SaveLiveSessionInput) => {
+    const now = new Date().toISOString();
+    const statement = db.prepare(`
+      INSERT INTO live_sessions (
+        session_id,
+        battle_id,
+        start_at,
+        created_at,
+        updated_at
+      )
+      VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(session_id) DO UPDATE SET
+        battle_id = excluded.battle_id,
+        start_at = excluded.start_at,
+        updated_at = excluded.updated_at
+    `);
+    statement.run(GLOBAL_LIVE_SESSION_ID, battleId ?? null, startAt ?? null, now, now);
+
+    return {
+      battleId: battleId ?? null,
+      createdAt:
+        (await createSqliteArenaStore().getLiveSession())?.createdAt ?? now,
+      sessionId: GLOBAL_LIVE_SESSION_ID,
+      startAt: startAt ?? null,
+      updatedAt: now,
+    };
+  },
+  getLiveSession: async () => {
+    const statement = db.prepare<LiveSessionRow>(`
+      SELECT session_id, battle_id, start_at, created_at, updated_at
+      FROM live_sessions
+      WHERE session_id = ?
+      LIMIT 1
+    `);
+    const row = statement.get(GLOBAL_LIVE_SESSION_ID);
+    return row ? toLiveSession(row) : null;
+  },
+  saveVote: async ({ battleId, sessionId, side }: SaveVoteInput) => {
+    const record: Vote = {
+      battleId,
+      createdAt: new Date().toISOString(),
+      id: randomUUID(),
+      sessionId,
+      side,
+    };
+    const statement = db.prepare(`
+      INSERT INTO votes (
+        id,
+        session_id,
+        battle_id,
+        side,
+        created_at
+      )
+      VALUES (?, ?, ?, ?, ?)
+    `);
+    statement.run(
+      record.id,
+      record.sessionId,
+      record.battleId,
+      record.side,
+      record.createdAt,
+    );
+    return record;
+  },
+  countVotes: async ({ battleId }) => {
+    const statement = db.prepare<VoteCountRow>(`
+      SELECT side, COUNT(*) AS count
+      FROM votes
+      WHERE battle_id = ?
+      GROUP BY side
+    `);
+    const rows = statement.all(battleId);
+    const player =
+      rows.find((row) => row.side === "player")?.count ?? 0;
+    const defender =
+      rows.find((row) => row.side === "defender")?.count ?? 0;
+
+    return {
+      defender: Number(defender),
+      player: Number(player),
+    };
   },
 });

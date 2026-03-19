@@ -53,6 +53,26 @@ type SecondMeActRequest = {
   systemPrompt?: string;
 };
 
+const getSecondMeConfig = () => {
+  if (
+    !env.SECONDME_CLIENT_ID ||
+    !env.SECONDME_CLIENT_SECRET ||
+    !env.SECONDME_REDIRECT_URI ||
+    !env.SECONDME_API_BASE_URL ||
+    !env.SECONDME_OAUTH_URL
+  ) {
+    throw new Error("SecondMe is not configured");
+  }
+
+  return {
+    apiBaseUrl: env.SECONDME_API_BASE_URL,
+    clientId: env.SECONDME_CLIENT_ID,
+    clientSecret: env.SECONDME_CLIENT_SECRET,
+    oauthUrl: env.SECONDME_OAUTH_URL,
+    redirectUri: env.SECONDME_REDIRECT_URI,
+  };
+};
+
 const joinUrl = (base: string, path: string) =>
   `${base.replace(/\/$/, "")}${path.startsWith("/") ? path : `/${path}`}`;
 
@@ -182,6 +202,7 @@ export const createSecondMeAuthUrl = async (
   slot: SecondMeAuthSlot = "alpha",
   returnTo?: string,
 ) => {
+  const config = getSecondMeConfig();
   const authSlot = toSlot(slot);
   const state = `${authSlot}:${randomUUID()}`;
   const cookieStore = await cookies();
@@ -194,14 +215,14 @@ export const createSecondMeAuthUrl = async (
   );
 
   const params = new URLSearchParams({
-    client_id: env.SECONDME_CLIENT_ID,
-    redirect_uri: env.SECONDME_REDIRECT_URI,
+    client_id: config.clientId,
+    redirect_uri: config.redirectUri,
     response_type: "code",
     scope: env.SECONDME_SCOPES.join(" "),
     state,
   });
 
-  return `${env.SECONDME_OAUTH_URL}?${params.toString()}`;
+  return `${config.oauthUrl}?${params.toString()}`;
 };
 
 export const resolveSecondMeAuthSlotFromState = (
@@ -212,15 +233,16 @@ export const exchangeCodeForSession = async (
   code: string,
   slot: SecondMeAuthSlot = "alpha",
 ) => {
+  const config = getSecondMeConfig();
   const authSlot = toSlot(slot);
   const payload = await exchangeForm(
-    joinUrl(env.SECONDME_API_BASE_URL, "/api/oauth/token/code"),
+    joinUrl(config.apiBaseUrl, "/api/oauth/token/code"),
     {
       grant_type: "authorization_code",
       code,
-      redirect_uri: env.SECONDME_REDIRECT_URI,
-      client_id: env.SECONDME_CLIENT_ID,
-      client_secret: env.SECONDME_CLIENT_SECRET,
+      redirect_uri: config.redirectUri,
+      client_id: config.clientId,
+      client_secret: config.clientSecret,
     },
   );
 
@@ -232,6 +254,7 @@ export const exchangeCodeForSession = async (
 export const refreshSecondMeSession = async (
   slot: SecondMeAuthSlot = "alpha",
 ) => {
+  const config = getSecondMeConfig();
   const authSlot = toSlot(slot);
   const cookieStore = await cookies();
   const refreshToken = cookieStore.get(refreshTokenCookie(authSlot))?.value;
@@ -241,12 +264,12 @@ export const refreshSecondMeSession = async (
   }
 
   const payload = await exchangeForm(
-    joinUrl(env.SECONDME_API_BASE_URL, "/api/oauth/token/refresh"),
+    joinUrl(config.apiBaseUrl, "/api/oauth/token/refresh"),
     {
       grant_type: "refresh_token",
       refresh_token: refreshToken,
-      client_id: env.SECONDME_CLIENT_ID,
-      client_secret: env.SECONDME_CLIENT_SECRET,
+      client_id: config.clientId,
+      client_secret: config.clientSecret,
     },
   );
 
@@ -329,13 +352,14 @@ export const fetchSecondMeJsonForSlot = async <T>(
   path: string,
   init?: RequestInit,
 ): Promise<SecondMeEnvelope<T>> => {
+  const config = getSecondMeConfig();
   const accessToken = await getValidSecondMeAccessToken(slot);
 
   if (!accessToken) {
     throw new Error("UNAUTHORIZED");
   }
 
-  const response = await fetch(joinUrl(env.SECONDME_API_BASE_URL, path), {
+  const response = await fetch(joinUrl(config.apiBaseUrl, path), {
     ...init,
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -351,7 +375,7 @@ export const fetchSecondMeJsonForSlot = async <T>(
       throw new Error("UNAUTHORIZED");
     }
 
-    const retry = await fetch(joinUrl(env.SECONDME_API_BASE_URL, path), {
+    const retry = await fetch(joinUrl(config.apiBaseUrl, path), {
       ...init,
       headers: {
         Authorization: `Bearer ${refreshed.accessToken}`,
@@ -371,13 +395,14 @@ export const fetchSecondMeStreamForSlot = async (
   path: string,
   init?: RequestInit,
 ) => {
+  const config = getSecondMeConfig();
   const accessToken = await getValidSecondMeAccessToken(slot);
 
   if (!accessToken) {
     throw new Error("UNAUTHORIZED");
   }
 
-  return fetch(joinUrl(env.SECONDME_API_BASE_URL, path), {
+  return fetch(joinUrl(config.apiBaseUrl, path), {
     ...init,
     headers: {
       Authorization: `Bearer ${accessToken}`,

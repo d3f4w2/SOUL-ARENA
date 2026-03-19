@@ -1,11 +1,15 @@
 import type {
   ArenaParticipantSlot,
+  AudienceMember,
   BattlePackage,
   BattleSetupRecord,
   BattleSummary,
+  LiveSession,
   OpenClawBindCodeRecord,
   OpenClawBindingInput,
   OpenClawBindingRecord,
+  Vote,
+  VoteSide,
 } from "@/lib/arena-types";
 
 export type ListBattlePackagesOptions = {
@@ -31,6 +35,24 @@ export type SaveOpenClawBindCodeInput = {
   slot: ArenaParticipantSlot;
 };
 
+export type SaveAudienceMemberInput = {
+  avatarDataUrl?: string;
+  displayId?: string;
+  displayName: string;
+  sessionId: string;
+};
+
+export type SaveLiveSessionInput = {
+  battleId?: string | null;
+  startAt?: string | null;
+};
+
+export type SaveVoteInput = {
+  battleId: string;
+  sessionId: string;
+  side: VoteSide;
+};
+
 export type ClearSlotInput = {
   sessionId: string;
   slot: ArenaParticipantSlot;
@@ -51,6 +73,12 @@ export type ArenaStore = {
   getOpenClawBindCode: (code: string) => Promise<OpenClawBindCodeRecord | null>;
   markOpenClawBindCodeUsed: (input: { code: string; usedAt: string }) => Promise<OpenClawBindCodeRecord | null>;
   clearOpenClawBindCodesForSlot: (input: ClearSlotInput) => Promise<void>;
+  saveAudienceMember: (input: SaveAudienceMemberInput) => Promise<AudienceMember>;
+  listAudienceMembers: (limit?: number) => Promise<AudienceMember[]>;
+  setLiveSession: (input: SaveLiveSessionInput) => Promise<LiveSession>;
+  getLiveSession: () => Promise<LiveSession | null>;
+  saveVote: (input: SaveVoteInput) => Promise<Vote>;
+  countVotes: (input: { battleId: string }) => Promise<{ player: number; defender: number }>;
 };
 
 export const parseJson = <T>(value: string | null | undefined) => {
