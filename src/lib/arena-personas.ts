@@ -247,9 +247,13 @@ export const buildPersonaParticipantSource = (
       arenaTaboo: snapshot.taboo ?? undefined,
       arenaViewpoints: snapshot.viewpoints ?? [],
       avatarUrl: snapshot.avatarUrl ?? undefined,
-      bio: snapshot.bio ?? undefined,
+      bio: snapshot.bio ?? snapshot.declaration ?? undefined,
       displayId: snapshot.displayId ?? undefined,
-      route: snapshot.route ?? undefined,
+      route:
+        snapshot.route ??
+        (snapshot.displayId
+          ? `${snapshot.provider}/${snapshot.displayId}`
+          : undefined),
       sourceLabel: snapshot.sourceLabel ?? undefined,
     },
   };
@@ -419,6 +423,25 @@ type ZhihuCandidateSeed = {
   sourceTypes: string[];
 };
 
+const deriveZhihuBio = (seed: ZhihuCandidateSeed, query: string) =>
+  clampText(
+    seed.bio ??
+      seed.snippets[0] ??
+      `${seed.displayName} 最近因「${query}」相关讨论进入知乎热榜视野。`,
+    220,
+  );
+
+const deriveZhihuMemoryAnchors = (seed: ZhihuCandidateSeed, query: string) =>
+  clampList(
+    [
+      ...seed.snippets,
+      seed.bio ? `公开简介：${seed.bio}` : null,
+      `热榜议题：${query}`,
+    ],
+    4,
+    160,
+  );
+
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === "object" && !Array.isArray(value);
 
@@ -543,11 +566,13 @@ export const searchZhihuParticipantCandidates = async ({
 
   return [...seeds.entries()]
     .map(([candidateId, seed]) => {
+      const bio = deriveZhihuBio(seed, trimmedQuery);
+      const memoryAnchors = deriveZhihuMemoryAnchors(seed, trimmedQuery);
       const tags = deriveZhihuTags({
-        bio: seed.bio,
+        bio,
         displayName: seed.displayName,
         query: trimmedQuery,
-        snippets: seed.snippets,
+        snippets: memoryAnchors,
       });
 
       return buildPersonaParticipantSource(
@@ -555,26 +580,26 @@ export const searchZhihuParticipantCandidates = async ({
           slot,
           snapshot: {
             avatarUrl: seed.avatarUrl,
-            bio: seed.bio,
+            bio,
             candidateId,
             declaration:
-              seed.bio ??
+              bio ??
               `${seed.displayName} 的公开知乎内容会成为这次对战的人格入口。`,
             displayId: seed.displayId,
             displayName: seed.displayName,
-            memoryAnchors: seed.snippets,
+            memoryAnchors,
             participantId: seed.displayId ?? candidateId,
             provider: "zhihu",
-            route: seed.displayId ? `zhihu/${seed.displayId}` : null,
+            route: seed.displayId ? `zhihu/${seed.displayId}` : `zhihu/search/${trimmedQuery}`,
             shades: tags,
             soulSeedTags: tags,
-            sourceLabel: "知乎真实用户",
+            sourceLabel: "知乎实时热榜 NPC",
             sourceMeta: {
               importedFromQuery: trimmedQuery,
               sourceTypes: seed.sourceTypes,
             },
             taboo: "禁止凭空编造该知乎用户未公开表达过的人生经历。",
-            viewpoints: clampList(seed.snippets, 3, 160),
+            viewpoints: clampList(memoryAnchors, 3, 160),
           },
         }),
       );

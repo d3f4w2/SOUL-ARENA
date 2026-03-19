@@ -240,6 +240,21 @@ const participantRoute = (participant: ArenaParticipantSource | null) =>
 const participantBio = (participant: ArenaParticipantSource | null) =>
   typeof participant?.user?.bio === "string" ? participant.user.bio : null;
 
+const participantBattleHint = (participant: ArenaParticipantSource | null) => {
+  const roomTitle =
+    typeof participant?.sourceMeta?.derivedFromRoomTitle === "string"
+      ? participant.sourceMeta.derivedFromRoomTitle
+      : null;
+  const lastBattleAt =
+    typeof participant?.sourceMeta?.lastBattleAt === "string"
+      ? new Date(participant.sourceMeta.lastBattleAt).toLocaleString()
+      : null;
+
+  return [roomTitle ? `来源战报：${roomTitle}` : null, lastBattleAt ? `最近对战：${lastBattleAt}` : null]
+    .filter(Boolean)
+    .join(" · ");
+};
+
 const participantDisplayId = (participant: ArenaParticipantSource | null) =>
   participant?.displayId ??
   (typeof participant?.user?.displayId === "string" ? participant.user.displayId : null);
@@ -767,6 +782,10 @@ function FighterCard({
   const labelColor = isAlpha ? "var(--red)" : "var(--gold)";
   const accentColor = isAlpha ? "var(--red)" : "var(--gold-bright)";
   const showBetaSelector = !isAlpha && betaSelection;
+  const displayParticipant =
+    showBetaSelector && betaSelection.mode === "zhihu"
+      ? betaSelection.zhihuMatch ?? participant
+      : participant;
 
   return (
     <article className={`${panelClass} p-6 flex flex-col gap-5`}>
@@ -775,8 +794,8 @@ function FighterCard({
         <div className="flex items-start gap-4">
           <AvatarUploader
             isAlpha={isAlpha}
-            participantName={participant?.displayName ?? null}
-            participantTags={topShades(participant)}
+            participantName={displayParticipant?.displayName ?? null}
+            participantTags={topShades(displayParticipant)}
             slot={slot}
           />
           <div>
@@ -784,12 +803,12 @@ function FighterCard({
               {participantTitle(slot)}
             </div>
             <p style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '1.3rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: accentColor, textShadow: isAlpha ? '0 0 12px rgba(200,0,0,0.4)' : '0 0 12px rgba(255,215,0,0.35)' }}>
-              {participantSubtitle(participant)}
+              {participantSubtitle(displayParticipant)}
             </p>
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          {!participant?.connected ? (
+          {!(showBetaSelector && betaSelection.mode !== "secondme") && !participant?.connected ? (
             <button
               className="mk-button px-4 py-2"
               onClick={onConnect}
@@ -800,7 +819,7 @@ function FighterCard({
             </button>
           ) : (
             <>
-              {slot === "beta" && duplicateWarning ? (
+              {slot === "beta" && betaSelection?.mode === "secondme" && duplicateWarning ? (
                 <button
                   className="mk-button px-4 py-2"
                   onClick={onConnect}
@@ -965,6 +984,9 @@ function FighterCard({
                           }}
                         >
                           {candidate.sourceLabel ?? "历史战绩玩家"}
+                          {participantBattleHint(candidate)
+                            ? ` · ${participantBattleHint(candidate)}`
+                            : ""}
                         </p>
                       </div>
                       <div className="flex flex-wrap gap-1">
@@ -1058,10 +1080,10 @@ function FighterCard({
           身份信息
         </p>
         <p style={{ fontFamily: "'Courier New', monospace", fontSize: '0.78rem', color: 'var(--text-dim)', lineHeight: '1.8' }}>
-          主页路径：{userField(participant, "route") ?? "无"}
+          主页路径：{userField(displayParticipant, "route") ?? "无"}
         </p>
         <p style={{ fontFamily: "'Courier New', monospace", fontSize: '0.78rem', color: 'var(--text-dim)', lineHeight: '1.8' }}>
-          简介：{userField(participant, "bio") ?? "无"}
+          简介：{userField(displayParticipant, "bio") ?? "无"}
         </p>
       </div>
 
@@ -1071,8 +1093,8 @@ function FighterCard({
           核心标签
         </p>
         <div className="flex flex-wrap gap-2">
-          {topShades(participant).length ? (
-            topShades(participant).map((shade) => (
+          {topShades(displayParticipant).length ? (
+            topShades(displayParticipant).map((shade) => (
               <span key={shade} className={isAlpha ? "mk-badge" : "mk-badge-gold"}>
                 {shade}
               </span>
@@ -1089,8 +1111,8 @@ function FighterCard({
           软记忆锚点
         </p>
         <div className="flex flex-col gap-2">
-          {memoryAnchors(participant).length ? (
-            memoryAnchors(participant).map((memory) => (
+          {memoryAnchors(displayParticipant).length ? (
+            memoryAnchors(displayParticipant).map((memory) => (
               <p key={memory} style={{ fontFamily: "'Courier New', monospace", fontSize: '0.78rem', color: 'var(--text-dim)', lineHeight: '1.7' }}>
                 {memory}
               </p>
@@ -1183,9 +1205,9 @@ function FighterCard({
       </div>
 
       {/* Issues */}
-      {participant?.issues.length ? (
+      {displayParticipant?.issues.length ? (
         <div className="mk-warning">
-          {participant.issues.map((issue) => (
+          {displayParticipant.issues.map((issue) => (
             <p key={issue}>{issue}</p>
           ))}
           {slot === "beta" && duplicateWarning ? (
@@ -1272,13 +1294,14 @@ export function ArenaBuilder() {
   useEffect(() => {
     if (beta?.provider === "history" || beta?.provider === "zhihu") {
       setBetaSourceMode(beta.provider);
-      if (beta.provider === "zhihu") {
+      if (beta.provider === "zhihu" && beta.connected) {
         setZhihuMatch(beta);
       }
       return;
     }
 
     setBetaSourceMode("secondme");
+    setZhihuMatch(null);
   }, [beta]);
 
   // Auto-generate sprites when a participant connects and has no sprite cached
@@ -1398,6 +1421,7 @@ export function ArenaBuilder() {
     candidate: ArenaParticipantSource,
   ) => {
     const ref = toRef(candidate);
+    setPreview(null);
 
     await readJson("/api/participants", {
       body: JSON.stringify({
@@ -1427,8 +1451,18 @@ export function ArenaBuilder() {
 
   const activateHistoryMode = async () => {
     setBetaSourceMode("history");
-    await setBetaProviderMode("history");
-    await loadHistoryCandidates();
+    const candidates = await loadHistoryCandidates();
+
+    if (!candidates.length) {
+      setStatus("当前还没有历史玩家可选。先完成几场真实对战，再回来选乙方。");
+      return;
+    }
+
+    const selectedCandidate =
+      candidates.find((candidate) => candidate.candidateId === beta?.candidateId) ??
+      candidates[0];
+
+    await selectBetaParticipant("history", selectedCandidate);
   };
 
   const rerollZhihuMatch = async () => {
@@ -1443,6 +1477,7 @@ export function ArenaBuilder() {
         throw new Error("当前没有可用的知乎热榜 NPC。");
       }
 
+      setZhihuMatch(payload.participant);
       await selectBetaParticipant("zhihu", payload.participant);
     } finally {
       setZhihuLoading(false);
@@ -1451,13 +1486,13 @@ export function ArenaBuilder() {
 
   const activateZhihuMode = async () => {
     setBetaSourceMode("zhihu");
-    await setBetaProviderMode("zhihu");
     await rerollZhihuMatch();
   };
 
   const activateSecondMeMode = async () => {
     setBetaSourceMode("secondme");
     setZhihuMatch(null);
+    setPreview(null);
     await setBetaProviderMode("secondme");
   };
 
