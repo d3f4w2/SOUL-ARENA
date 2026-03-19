@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Soul Arena",
-  description: "SecondMe + Zhihu hackathon integration cockpit",
+  title: "Soul Arena — Agent 构筑竞技场",
+  description: "把 AI 人格、观点、规则与禁忌转成可对战的构筑，再用一场可回放、可录屏、可冲榜的 battle 来验证谁的构筑更强。",
 };
 
 export default function RootLayout({

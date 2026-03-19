@@ -1083,3 +1083,159 @@ textarea {
 .stamp-animation {
   animation: stamp-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
+
+/* ===================================
+   CANVAS FRAME — cinematic battle screen
+=================================== */
+
+.mk-canvas-frame {
+  position: relative;
+}
+
+/* Animated corner brackets — top left + top right + bottom left + bottom right */
+.mk-canvas-frame::before,
+.mk-canvas-frame::after {
+  content: "";
+  position: absolute;
+  z-index: 2;
+  pointer-events: none;
+}
+
+/* Top corners */
+.mk-canvas-frame::before {
+  top: -2px;
+  left: -2px;
+  width: 28px;
+  height: 28px;
+  border-top: 3px solid var(--red-bright);
+  border-left: 3px solid var(--red-bright);
+  box-shadow: -2px -2px 12px rgba(255, 30, 0, 0.6);
+}
+
+.mk-canvas-frame::after {
+  top: -2px;
+  right: -2px;
+  width: 28px;
+  height: 28px;
+  border-top: 3px solid var(--gold-bright);
+  border-right: 3px solid var(--gold-bright);
+  box-shadow: 2px -2px 12px rgba(255, 215, 0, 0.5);
+}
+
+/* Battle canvas pulsing border */
+@keyframes canvas-border-pulse {
+  0%, 100% { box-shadow: 0 0 20px rgba(139,0,0,0.35), inset 0 0 30px rgba(0,0,0,0.8); }
+  50% { box-shadow: 0 0 40px rgba(200,0,0,0.55), 0 0 70px rgba(139,0,0,0.25), inset 0 0 30px rgba(0,0,0,0.8); }
+}
+
+.mk-battle-canvas {
+  animation: canvas-border-pulse 3s ease-in-out infinite;
+  border: 1px solid rgba(200,0,0,0.5);
+  border-top: 2px solid var(--red-bright);
+  border-bottom: 2px solid var(--gold-dim);
+  display: block;
+  background: #030008;
+}
+
+/* ===================================
+   FIGHTER PROFILE CARDS — character select style
+=================================== */
+
+@keyframes fighter-card-glow {
+  0%, 100% { box-shadow: 0 0 15px rgba(139,0,0,0.3), inset 0 0 20px rgba(0,0,0,0.5); }
+  50% { box-shadow: 0 0 30px rgba(200,0,0,0.5), inset 0 0 20px rgba(0,0,0,0.5); }
+}
+
+.mk-fighter-active {
+  animation: fighter-card-glow 2s ease-in-out infinite;
+  border-top-color: var(--red-bright) !important;
+}
+
+.mk-fighter-active-gold {
+  animation: fighter-card-glow-gold 2s ease-in-out infinite;
+  border-top-color: var(--gold-bright) !important;
+}
+
+@keyframes fighter-card-glow-gold {
+  0%, 100% { box-shadow: 0 0 15px rgba(180,120,0,0.3), inset 0 0 20px rgba(0,0,0,0.5); }
+  50% { box-shadow: 0 0 30px rgba(255,215,0,0.45), inset 0 0 20px rgba(0,0,0,0.5); }
+}
+
+/* ===================================
+   BATTLE RESULT — dramatic entrance
+=================================== */
+
+@keyframes result-slam {
+  0% { transform: scale(2) translateY(-20px); opacity: 0; filter: blur(10px) brightness(3); }
+  40% { transform: scale(0.95) translateY(3px); opacity: 1; filter: blur(0) brightness(1.5); }
+  60% { transform: scale(1.02); filter: brightness(1.2); }
+  100% { transform: scale(1); filter: brightness(1); }
+}
+
+.result-slam {
+  animation: result-slam 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* ===================================
+   EQUIPMENT SLOT HOVER — RPG style
+=================================== */
+
+@keyframes equip-hover-shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+.mk-equip-card {
+  transition: all 200ms ease;
+  position: relative;
+}
+
+.mk-equip-card:hover {
+  transform: translateY(-3px) scale(1.02);
+  z-index: 10;
+}
+
+.mk-equip-legendary:hover {
+  box-shadow: 0 8px 32px rgba(255,215,0,0.45), 0 0 16px rgba(255,215,0,0.3);
+}
+
+.mk-equip-epic:hover {
+  box-shadow: 0 8px 32px rgba(192,96,255,0.4), 0 0 16px rgba(180,0,255,0.25);
+}
+
+.mk-equip-rare:hover {
+  box-shadow: 0 8px 32px rgba(68,153,255,0.4), 0 0 16px rgba(50,100,255,0.25);
+}
+
+/* ===================================
+   NEON TEXT GLOW
+=================================== */
+
+.mk-neon-red {
+  color: var(--red-bright);
+  text-shadow: 0 0 8px rgba(255,30,0,0.9), 0 0 20px rgba(200,0,0,0.6), 0 0 40px rgba(139,0,0,0.4);
+}
+
+.mk-neon-gold {
+  color: var(--gold-bright);
+  text-shadow: 0 0 8px rgba(255,215,0,0.9), 0 0 20px rgba(212,160,0,0.6), 0 0 40px rgba(180,120,0,0.4);
+}
+
+/* ===================================
+   ANNOUNCEMENT ENTRANCE — vs screen
+=================================== */
+
+@keyframes vs-slam-left {
+  0% { transform: translateX(-120px) skewX(15deg); opacity: 0; }
+  60% { transform: translateX(5px) skewX(-2deg); opacity: 1; }
+  100% { transform: translateX(0) skewX(0deg); }
+}
+
+@keyframes vs-slam-right {
+  0% { transform: translateX(120px) skewX(-15deg); opacity: 0; }
+  60% { transform: translateX(-5px) skewX(2deg); opacity: 1; }
+  100% { transform: translateX(0) skewX(0deg); }
+}
+
+.vs-slam-left { animation: vs-slam-left 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.vs-slam-right { animation: vs-slam-right 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
