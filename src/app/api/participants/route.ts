@@ -1,13 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import {
+  clearSelectedParticipantRef,
   getActiveParticipantProvider,
   setActiveParticipantProvider,
+  setSelectedParticipantRef,
 } from "@/lib/arena-session";
 import { listArenaParticipants } from "@/lib/arena-participants";
 import { clearOpenClawBindingForSlot } from "@/lib/openclaw";
 import { clearSecondMeSession } from "@/lib/secondme";
-import type { ParticipantProvider } from "@/lib/arena-types";
+import type {
+  ArenaParticipantRef,
+  ParticipantProvider,
+} from "@/lib/arena-types";
 
 export async function GET() {
   const participants = await listArenaParticipants();
@@ -19,6 +24,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   const body = (await request.json()) as {
+    ref?: ArenaParticipantRef;
     provider?: ParticipantProvider;
     slot?: string;
   };
@@ -32,10 +38,15 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  if (body.provider !== "secondme" && body.provider !== "openclaw") {
+  if (
+    body.provider !== "secondme" &&
+    body.provider !== "openclaw" &&
+    body.provider !== "history" &&
+    body.provider !== "zhihu"
+  ) {
     return NextResponse.json(
       {
-        message: "provider 必须是 secondme 或 openclaw",
+        message: "provider 必须是 secondme、openclaw、history 或 zhihu",
       },
       { status: 400 },
     );
@@ -45,6 +56,19 @@ export async function POST(request: NextRequest) {
     provider: body.provider,
     slot: body.slot,
   });
+
+  if ((body.provider === "history" || body.provider === "zhihu") && body.ref) {
+    await setSelectedParticipantRef({
+      ref: {
+        ...body.ref,
+        provider: body.provider,
+        slot: body.slot,
+      } as ArenaParticipantRef,
+      slot: body.slot,
+    });
+  } else {
+    await clearSelectedParticipantRef(body.slot);
+  }
 
   return NextResponse.json({
     ok: true,
@@ -69,9 +93,11 @@ export async function DELETE(request: NextRequest) {
 
   if (provider === "openclaw") {
     await clearOpenClawBindingForSlot(slot);
-  } else {
+  } else if (provider === "secondme") {
     await clearSecondMeSession(slot);
   }
+
+  await clearSelectedParticipantRef(slot);
 
   return NextResponse.json({
     ok: true,

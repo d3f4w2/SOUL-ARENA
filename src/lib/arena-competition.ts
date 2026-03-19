@@ -1,4 +1,5 @@
 import { getBattlePackage, listBattlePackages } from "@/lib/arena-store";
+import { buildArenaCompetitorId } from "@/lib/arena-identity";
 import type {
   ArenaBattleCompetition,
   ArenaBattleCompetitionSide,
@@ -44,20 +45,17 @@ type CompetitionSnapshot = {
 const clamp = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value));
 
-const toSlug = (value: string) =>
-  value
-    .trim()
-    .toLowerCase()
-    .replace(/[^\p{L}\p{N}]+/gu, "-")
-    .replace(/^-+|-+$/g, "");
+const readString = (value: unknown) =>
+  typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
 
-const buildCompetitorId = ({
+const getIdentitySeed = ({
   displayId,
   displayName,
   participantId,
   provider,
   secondMeUserId,
   slot,
+  sourceMeta,
 }: {
   displayId?: string | null;
   displayName: string;
@@ -65,17 +63,28 @@ const buildCompetitorId = ({
   provider: ArenaCompetitorIdentity["provider"];
   secondMeUserId?: string | null;
   slot?: ArenaCompetitorIdentity["slot"];
-}) => {
-  const stablePart =
-    provider === "openclaw"
-      ? displayId?.trim() ||
-        `${slot ?? "unknown"}:${toSlug(displayName) || "anonymous"}`
-      : secondMeUserId?.trim() ||
-        participantId?.trim() ||
-        `${slot ?? "unknown"}:${toSlug(displayName) || "anonymous"}`;
-
-  return `${provider}:${stablePart}`;
-};
+  sourceMeta?: Record<string, unknown> | null;
+}) => ({
+  displayId:
+    provider === "history"
+      ? readString(sourceMeta?.identityDisplayId) ?? displayId ?? null
+      : displayId ?? null,
+  displayName,
+  participantId:
+    provider === "history"
+      ? readString(sourceMeta?.identityParticipantId) ?? participantId
+      : participantId,
+  provider:
+    provider === "history"
+      ? ((readString(sourceMeta?.identityProvider) as ArenaCompetitorIdentity["provider"] | null) ??
+          provider)
+      : provider,
+  secondMeUserId:
+    provider === "history"
+      ? readString(sourceMeta?.identitySecondMeUserId) ?? secondMeUserId ?? null
+      : secondMeUserId ?? null,
+  slot,
+});
 
 const createIdentityFromFighter = (
   fighter: FighterProfile,
@@ -85,18 +94,21 @@ const createIdentityFromFighter = (
     return null;
   }
 
-  return {
-    competitorId: buildCompetitorId({
-      displayId: fighter.source.displayId,
-      displayName: fighter.displayName,
-      participantId: fighter.source.participantId,
-      provider: fighter.source.provider,
-      secondMeUserId: fighter.source.secondMeUserId,
-      slot: fighter.source.slot,
-    }),
+  const seed = getIdentitySeed({
+    displayId: fighter.source.displayId,
     displayName: fighter.displayName,
+    participantId: fighter.source.participantId,
     provider: fighter.source.provider,
-    secondMeUserId: fighter.source.secondMeUserId ?? null,
+    secondMeUserId: fighter.source.secondMeUserId,
+    slot: fighter.source.slot,
+    sourceMeta: fighter.source.sourceMeta,
+  });
+
+  return {
+    competitorId: buildArenaCompetitorId(seed),
+    displayName: fighter.displayName,
+    provider: seed.provider,
+    secondMeUserId: seed.secondMeUserId ?? null,
     slot: fighter.source.slot,
   };
 };
@@ -108,17 +120,21 @@ const createIdentityFromParticipant = (
     return null;
   }
 
-  return {
-    competitorId: buildCompetitorId({
-      displayId: participant.displayId,
-      displayName: participant.displayName,
-      provider: participant.provider,
-      secondMeUserId: participant.secondMeUserId,
-      slot: participant.slot,
-    }),
+  const seed = getIdentitySeed({
+    displayId: participant.displayId,
     displayName: participant.displayName,
+    participantId: participant.participantId,
     provider: participant.provider,
     secondMeUserId: participant.secondMeUserId,
+    slot: participant.slot,
+    sourceMeta: participant.sourceMeta,
+  });
+
+  return {
+    competitorId: buildArenaCompetitorId(seed),
+    displayName: participant.displayName,
+    provider: seed.provider,
+    secondMeUserId: seed.secondMeUserId,
     slot: participant.slot,
   };
 };

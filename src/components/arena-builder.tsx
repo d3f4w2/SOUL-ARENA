@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
 
+import { buildPersonaSnapshotFromSource } from "@/lib/arena-persona-snapshot";
 import { soulLabels } from "@/lib/arena-presets";
 import type {
   ArenaBuildPreview,
@@ -39,6 +40,14 @@ type LeaderboardResponse = {
 
 type ProfileResponse = {
   profiles: ArenaParticipantCompetitiveProfile[];
+};
+
+type CandidateResponse = {
+  candidates: ArenaParticipantSource[];
+};
+
+type RandomZhihuResponse = {
+  participant: ArenaParticipantSource | null;
 };
 
 type SetupResponse = {
@@ -84,6 +93,8 @@ type BindCodeState = {
   expiresAt: string;
   registerUrl: string;
 } | null;
+
+type BetaSourceMode = "secondme" | "history" | "zhihu";
 
 const battleStorageKey = (battleId: string) => `soul-arena:battle:${battleId}`;
 
@@ -271,9 +282,11 @@ const memoryAnchors = (participant: ArenaParticipantSource | null) =>
     .filter(Boolean);
 
 const toRef = (participant: ArenaParticipantSource): ArenaParticipantRef => ({
+  candidateId: participant.candidateId,
   participantId: participant.participantId,
   provider: participant.provider,
   slot: participant.slot,
+  sourceSnapshot: buildPersonaSnapshotFromSource(participant) ?? undefined,
 });
 
 const getProfileBySlot = (
@@ -712,6 +725,7 @@ function AvatarUploader({
 
 // ── Fighter info card (shared for alpha & beta) ──────────────────
 function FighterCard({
+  betaSelection,
   participant,
   profile,
   slot,
@@ -723,6 +737,19 @@ function FighterCard({
   onDisconnect,
   onOverrideChange,
 }: {
+  betaSelection?: {
+    historyCandidates: ArenaParticipantSource[];
+    historyLoading: boolean;
+    mode: BetaSourceMode;
+    onHistoryMode: () => void;
+    onHistoryRefresh: () => void;
+    onHistorySelect: (candidate: ArenaParticipantSource) => void;
+    onSecondMeMode: () => void;
+    onZhihuMode: () => void;
+    onZhihuReroll: () => void;
+    zhihuLoading: boolean;
+    zhihuMatch: ArenaParticipantSource | null;
+  };
   participant: ArenaParticipantSource | null;
   profile: ArenaCompetitorProfile | null;
   slot: "alpha" | "beta";
@@ -739,6 +766,7 @@ function FighterCard({
   const panelClass = isAlpha ? "mk-fighter-card" : "mk-fighter-card-gold";
   const labelColor = isAlpha ? "var(--red)" : "var(--gold)";
   const accentColor = isAlpha ? "var(--red)" : "var(--gold-bright)";
+  const showBetaSelector = !isAlpha && betaSelection;
 
   return (
     <article className={`${panelClass} p-6 flex flex-col gap-5`}>
@@ -792,6 +820,46 @@ function FighterCard({
           )}
         </div>
       </div>
+
+      {showBetaSelector ? (
+        <div className="mk-panel-inset p-4">
+          <p
+            style={{
+              fontFamily: "Impact, Arial Black, sans-serif",
+              fontSize: "0.72rem",
+              letterSpacing: "0.25em",
+              textTransform: "uppercase",
+              color: labelColor,
+              marginBottom: "10px",
+            }}
+          >
+            乙方来源选择
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <button
+              className={betaSelection.mode === "secondme" ? "mk-button px-4 py-2" : "mk-button-ghost px-4 py-2"}
+              onClick={betaSelection.onSecondMeMode}
+              type="button"
+            >
+              扫码登录
+            </button>
+            <button
+              className={betaSelection.mode === "history" ? "mk-button px-4 py-2" : "mk-button-ghost px-4 py-2"}
+              onClick={betaSelection.onHistoryMode}
+              type="button"
+            >
+              历史玩家
+            </button>
+            <button
+              className={betaSelection.mode === "zhihu" ? "mk-button px-4 py-2" : "mk-button-ghost px-4 py-2"}
+              onClick={betaSelection.onZhihuMode}
+              type="button"
+            >
+              随机知乎
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       {/* Competitive Profile */}
       <div className="mk-panel-inset p-4">
@@ -850,6 +918,134 @@ function FighterCard({
                 type="button"
               >
                 重新生成二维码
+              </button>
+            </div>
+          </div>
+        ) : null}
+        {showBetaSelector && betaSelection.mode === "history" ? (
+          <div className="mt-4 flex flex-col gap-3">
+            <p
+              style={{
+                fontFamily: "'Courier New', monospace",
+                fontSize: "0.76rem",
+                color: "var(--text-dim)",
+                lineHeight: "1.75",
+              }}
+            >
+              乙方可直接选择已经打过比赛的玩家，不再要求第二台设备登录。
+            </p>
+            <div className="flex flex-col gap-2">
+              {betaSelection.historyCandidates.length ? (
+                betaSelection.historyCandidates.slice(0, 6).map((candidate, index) => (
+                  <button
+                    key={candidate.candidateId ?? candidate.participantId ?? candidate.displayName ?? `history-${index}`}
+                    className="mk-button-ghost px-4 py-3 text-left"
+                    onClick={() => betaSelection.onHistorySelect(candidate)}
+                    type="button"
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", alignItems: "center" }}>
+                      <div>
+                        <p
+                          style={{
+                            fontFamily: "Impact, Arial Black, sans-serif",
+                            fontSize: "0.88rem",
+                            letterSpacing: "0.06em",
+                            color: accentColor,
+                          }}
+                        >
+                          {candidate.displayName}
+                        </p>
+                        <p
+                          style={{
+                            fontFamily: "'Courier New', monospace",
+                            fontSize: "0.7rem",
+                            color: "var(--text-dim)",
+                            lineHeight: "1.6",
+                            marginTop: "4px",
+                          }}
+                        >
+                          {candidate.sourceLabel ?? "历史战绩玩家"}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {topShades(candidate)
+                          .slice(0, 3)
+                          .map((shade) => (
+                            <span key={shade} className="mk-badge-gold">
+                              {shade}
+                            </span>
+                          ))}
+                      </div>
+                    </div>
+                  </button>
+                ))
+              ) : (
+                <p
+                  style={{
+                    fontFamily: "'Courier New', monospace",
+                    fontSize: "0.75rem",
+                    color: "var(--text-muted)",
+                  }}
+                >
+                  当前还没有历史玩家可选。先完成几场真实对战，这里就会自动出现候选。
+                </p>
+              )}
+            </div>
+          </div>
+        ) : null}
+        {showBetaSelector && betaSelection.mode === "zhihu" ? (
+          <div className="mt-4 flex flex-col gap-3">
+            <p
+              style={{
+                fontFamily: "'Courier New', monospace",
+                fontSize: "0.76rem",
+                color: "var(--text-dim)",
+                lineHeight: "1.75",
+              }}
+            >
+              知乎乙方会根据实时热榜动态生成 NPC 池，并随机匹配其中一位。热榜变化后，重新随机得到的对手也会变化。
+            </p>
+            {betaSelection.zhihuMatch ? (
+              <div className="mk-panel-inset p-4">
+                <p
+                  style={{
+                    fontFamily: "Impact, Arial Black, sans-serif",
+                    fontSize: "0.92rem",
+                    letterSpacing: "0.06em",
+                    color: accentColor,
+                  }}
+                >
+                  当前匹配：{betaSelection.zhihuMatch.displayName}
+                </p>
+                <p
+                  style={{
+                    fontFamily: "'Courier New', monospace",
+                    fontSize: "0.72rem",
+                    color: "var(--text-dim)",
+                    lineHeight: "1.7",
+                    marginTop: "6px",
+                  }}
+                >
+                  {participantBio(betaSelection.zhihuMatch) ?? "基于知乎热榜实时生成的公开人格摘要。"}
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {topShades(betaSelection.zhihuMatch)
+                    .slice(0, 4)
+                    .map((shade) => (
+                      <span key={shade} className="mk-badge-gold">
+                        {shade}
+                      </span>
+                    ))}
+                </div>
+              </div>
+            ) : null}
+            <div className="flex flex-wrap gap-2">
+              <button
+                className="mk-button px-4 py-2"
+                onClick={betaSelection.onZhihuReroll}
+                type="button"
+              >
+                {betaSelection.zhihuLoading ? "匹配中..." : "重新随机知乎"}
               </button>
             </div>
           </div>
@@ -1035,6 +1231,11 @@ export function ArenaBuilder() {
     alpha: null,
     beta: null,
   });
+  const [betaSourceMode, setBetaSourceMode] = useState<BetaSourceMode>("secondme");
+  const [historyCandidates, setHistoryCandidates] = useState<ArenaParticipantSource[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [zhihuLoading, setZhihuLoading] = useState(false);
+  const [zhihuMatch, setZhihuMatch] = useState<ArenaParticipantSource | null>(null);
   const [pendingSlot, setPendingSlot] = useState<"alpha" | "beta" | null>(null);
   const setupId = searchParams.get("setupId");
 
@@ -1067,6 +1268,18 @@ export function ArenaBuilder() {
     () => buildMatchupSummary(alphaProfile, betaProfile),
     [alphaProfile, betaProfile],
   );
+
+  useEffect(() => {
+    if (beta?.provider === "history" || beta?.provider === "zhihu") {
+      setBetaSourceMode(beta.provider);
+      if (beta.provider === "zhihu") {
+        setZhihuMatch(beta);
+      }
+      return;
+    }
+
+    setBetaSourceMode("secondme");
+  }, [beta]);
 
   // Auto-generate sprites when a participant connects and has no sprite cached
   useEffect(() => {
@@ -1124,12 +1337,128 @@ export function ArenaBuilder() {
     setParticipantRefs((current) => {
       const nextAlpha = data.participants.find((item) => item.slot === "alpha") ?? null;
       const nextBeta = data.participants.find((item) => item.slot === "beta") ?? null;
+      const syncRef = (
+        previous: ArenaParticipantRef | null,
+        nextParticipant: ArenaParticipantSource | null,
+      ) => {
+        const nextRef = nextParticipant ? toRef(nextParticipant) : null;
+
+        if (!nextRef) {
+          return null;
+        }
+
+        if (
+          !previous ||
+          previous.provider !== nextRef.provider ||
+          previous.participantId !== nextRef.participantId ||
+          previous.candidateId !== nextRef.candidateId
+        ) {
+          return nextRef;
+        }
+
+        return previous;
+      };
 
       return {
-        alpha: current.alpha ?? (nextAlpha ? toRef(nextAlpha) : null),
-        beta: current.beta ?? (nextBeta ? toRef(nextBeta) : null),
+        alpha: syncRef(current.alpha, nextAlpha),
+        beta: syncRef(current.beta, nextBeta),
       };
     });
+  };
+
+  const setBetaProviderMode = async (provider: BetaSourceMode) => {
+    await readJson("/api/participants", {
+      body: JSON.stringify({ provider, slot: "beta" }),
+      headers: {
+        "Content-Type": "application/json",
+      },
+      method: "POST",
+    });
+
+    const data = await loadArenaData();
+    applyArenaData(data);
+  };
+
+  const loadHistoryCandidates = async () => {
+    setHistoryLoading(true);
+
+    try {
+      const payload = await readJson<CandidateResponse>(
+        "/api/participants/history?slot=beta",
+      );
+      setHistoryCandidates(payload.candidates);
+      return payload.candidates;
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  const selectBetaParticipant = async (
+    provider: "history" | "zhihu",
+    candidate: ArenaParticipantSource,
+  ) => {
+    const ref = toRef(candidate);
+
+    await readJson("/api/participants", {
+      body: JSON.stringify({
+        provider,
+        ref,
+        slot: "beta",
+      }),
+      headers: {
+        "Content-Type": "application/json",
+      },
+      method: "POST",
+    });
+
+    setParticipantRefs((current) => ({
+      ...current,
+      beta: ref,
+    }));
+
+    if (provider === "zhihu") {
+      setZhihuMatch(candidate);
+    }
+
+    const data = await loadArenaData();
+    applyArenaData(data);
+    setStatus(`乙方已切换为 ${candidate.displayName ?? "新的对手"}。`);
+  };
+
+  const activateHistoryMode = async () => {
+    setBetaSourceMode("history");
+    await setBetaProviderMode("history");
+    await loadHistoryCandidates();
+  };
+
+  const rerollZhihuMatch = async () => {
+    setZhihuLoading(true);
+
+    try {
+      const payload = await readJson<RandomZhihuResponse>(
+        "/api/participants/zhihu?slot=beta",
+      );
+
+      if (!payload.participant) {
+        throw new Error("当前没有可用的知乎热榜 NPC。");
+      }
+
+      await selectBetaParticipant("zhihu", payload.participant);
+    } finally {
+      setZhihuLoading(false);
+    }
+  };
+
+  const activateZhihuMode = async () => {
+    setBetaSourceMode("zhihu");
+    await setBetaProviderMode("zhihu");
+    await rerollZhihuMatch();
+  };
+
+  const activateSecondMeMode = async () => {
+    setBetaSourceMode("secondme");
+    setZhihuMatch(null);
+    await setBetaProviderMode("secondme");
   };
 
   useEffect(() => {
@@ -1144,21 +1473,7 @@ export function ArenaBuilder() {
         }
 
         startTransition(() => {
-          setMeta(data.meta);
-          setParticipants(data.participants);
-          setProfiles(data.profiles);
-          setLeaderboard(data.leaderboard);
-          setFeatured(data.featured);
-          setTopicId((current) => current || data.meta.topics[0]?.id || "");
-          setParticipantRefs((current) => {
-            const nextAlpha = data.participants.find((item) => item.slot === "alpha") ?? null;
-            const nextBeta = data.participants.find((item) => item.slot === "beta") ?? null;
-
-            return {
-              alpha: current.alpha ?? (nextAlpha ? toRef(nextAlpha) : null),
-              beta: current.beta ?? (nextBeta ? toRef(nextBeta) : null),
-            };
-          });
+          applyArenaData(data);
         });
       } catch (error) {
         if (active) {
@@ -1239,21 +1554,7 @@ export function ArenaBuilder() {
           return;
         }
 
-        setMeta(data.meta);
-        setParticipants(data.participants);
-        setProfiles(data.profiles);
-        setLeaderboard(data.leaderboard);
-        setFeatured(data.featured);
-        setTopicId((current) => current || data.meta.topics[0]?.id || "");
-        setParticipantRefs((current) => {
-          const nextAlpha = data.participants.find((item) => item.slot === "alpha") ?? null;
-          const nextBeta = data.participants.find((item) => item.slot === "beta") ?? null;
-
-          return {
-            alpha: current.alpha ?? (nextAlpha ? toRef(nextAlpha) : null),
-            beta: current.beta ?? (nextBeta ? toRef(nextBeta) : null),
-          };
-        });
+        applyArenaData(data);
         setBindCodes((current) => ({
           alpha: data.participants.find((item) => item.slot === "alpha" && item.connected) ? null : current.alpha,
           beta: data.participants.find((item) => item.slot === "beta" && item.connected) ? null : current.beta,
@@ -1384,6 +1685,16 @@ export function ArenaBuilder() {
   };
 
   const connectParticipant = (slot: "alpha" | "beta") => {
+    if (slot === "beta" && betaSourceMode === "history") {
+      void activateHistoryMode();
+      return;
+    }
+
+    if (slot === "beta" && betaSourceMode === "zhihu") {
+      void activateZhihuMode();
+      return;
+    }
+
     void startSecondMeQrConnect(slot);
   };
 
@@ -1400,6 +1711,9 @@ export function ArenaBuilder() {
       ...current,
       [slot]: null,
     }));
+    if (slot === "beta") {
+      setZhihuMatch(null);
+    }
     const data = await loadArenaData();
     applyArenaData(data);
     setStatus(`${participantTitle(slot)}已断开连接。`);
@@ -1896,6 +2210,31 @@ export function ArenaBuilder() {
           {/* Beta */}
           <div className="slide-in-right">
             <FighterCard
+              betaSelection={{
+                historyCandidates,
+                historyLoading,
+                mode: betaSourceMode,
+                onHistoryMode: () => {
+                  void activateHistoryMode();
+                },
+                onHistoryRefresh: () => {
+                  void loadHistoryCandidates();
+                },
+                onHistorySelect: (candidate) => {
+                  void selectBetaParticipant("history", candidate);
+                },
+                onSecondMeMode: () => {
+                  void activateSecondMeMode();
+                },
+                onZhihuMode: () => {
+                  void activateZhihuMode();
+                },
+                onZhihuReroll: () => {
+                  void rerollZhihuMatch();
+                },
+                zhihuLoading,
+                zhihuMatch,
+              }}
               duplicateWarning={duplicateWarning}
               onConnect={() => connectParticipant("beta")}
               onDisconnect={() => disconnectParticipant("beta")}

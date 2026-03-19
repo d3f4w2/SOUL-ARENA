@@ -1,5 +1,9 @@
-import { getActiveParticipantProvider } from "@/lib/arena-session";
+import {
+  getActiveParticipantProvider,
+  getSelectedParticipantRef,
+} from "@/lib/arena-session";
 import { getOpenClawParticipantSource } from "@/lib/openclaw";
+import { buildPersonaParticipantSource } from "@/lib/arena-personas";
 import type {
   ArenaParticipantRef,
   ArenaParticipantSlot,
@@ -324,6 +328,10 @@ export const getArenaParticipantSource = async (
     return getOpenClawParticipantSource(ref);
   }
 
+  if (ref.provider === "history" || ref.provider === "zhihu") {
+    return buildPersonaParticipantSource(ref);
+  }
+
   return getSecondMeParticipantSource(ref.slot);
 };
 
@@ -364,12 +372,26 @@ const annotateDuplicateIdentityIssues = (
 export const listArenaParticipants = async () =>
   annotateDuplicateIdentityIssues(
     await Promise.all(
-      getSecondMeAuthSlots().map(async (slot) =>
-        getArenaParticipantSource({
-          provider: await getActiveParticipantProvider(slot),
-          slot,
-        }),
-      ),
+      getSecondMeAuthSlots().map(async (slot) => {
+        const provider = await getActiveParticipantProvider(slot);
+        const selectedRef =
+          provider === "history" || provider === "zhihu"
+            ? await getSelectedParticipantRef(slot)
+            : null;
+
+        return getArenaParticipantSource(
+          selectedRef
+            ? {
+                ...selectedRef,
+                provider,
+                slot,
+              }
+            : {
+                provider,
+                slot,
+              },
+        );
+      }),
     ),
   );
 
@@ -400,27 +422,47 @@ export const buildMemoryAnchors = (source: ArenaParticipantSource) => {
   return anchors.slice(0, 4).map((item) => trimSentence(item, 120));
 };
 
-const getOpenClawProfileInput = (
+const getStructuredProfileInput = (
   source: ArenaParticipantSource,
 ): OpenClawBindingInput | null => {
-  if (source.provider !== "openclaw" || !source.user) {
+  if (!source.user) {
+    return null;
+  }
+
+  const declaration = readString(source.user.arenaDeclaration);
+  const rule = readString(source.user.arenaRule);
+  const taboo = readString(source.user.arenaTaboo);
+  const viewpoints = readStringArray(source.user.arenaViewpoints);
+  const soulSeedTags = readStringArray(source.user.arenaSoulSeedTags);
+  const archetype = readString(source.user.arenaArchetype);
+  const aura = readString(source.user.arenaAura);
+
+  if (
+    source.provider !== "openclaw" &&
+    !declaration &&
+    !rule &&
+    !taboo &&
+    !viewpoints.length &&
+    !soulSeedTags.length &&
+    !archetype &&
+    !aura
+  ) {
     return null;
   }
 
   return {
-    archetype:
-      readString(source.user.arenaArchetype) ?? undefined,
-    aura: readString(source.user.arenaAura) ?? undefined,
-    declaration: readString(source.user.arenaDeclaration) ?? "",
+    archetype: archetype ?? undefined,
+    aura: aura ?? undefined,
+    declaration: declaration ?? "",
     displayName: readString(source.displayName) ?? `${participantSlotLabel(source.slot)}人格`,
     memoryAnchors: buildMemoryAnchors(source),
-    rule: readString(source.user.arenaRule) ?? "",
+    rule: rule ?? "",
     runtimeLabel: readString(source.user.runtimeLabel) ?? undefined,
-    soulSeedTags: readStringArray(source.user.arenaSoulSeedTags),
+    soulSeedTags,
     sourceLabel: readString(source.user.sourceLabel) ?? undefined,
-    taboo: readString(source.user.arenaTaboo) ?? "",
+    taboo: taboo ?? "",
     tags: source.shades.map(shadeLabel).filter(Boolean),
-    viewpoints: readStringArray(source.user.arenaViewpoints),
+    viewpoints,
   };
 };
 
@@ -433,7 +475,7 @@ export const buildFighterInputFromParticipant = (
   const topShades = source.shades.map(shadeLabel).filter(Boolean).slice(0, 4);
   const fallbackName = `${participantSlotLabel(source.slot)}人格`;
   const baseDisplayName = source.displayName ?? fallbackName;
-  const openclawProfile = getOpenClawProfileInput(source);
+  const structuredProfile = getStructuredProfileInput(source);
 
   const baseViewpoints = unique([
     ...readStringArray(source.user?.arenaViewpoints),
@@ -449,13 +491,13 @@ export const buildFighterInputFromParticipant = (
 
   const mergedViewpoints = unique([
     ...(override?.viewpoints ?? []),
-    ...(openclawProfile?.viewpoints ?? []),
+    ...(structuredProfile?.viewpoints ?? []),
     ...baseViewpoints,
   ]).slice(0, 3);
 
   const declaration =
     override?.declaration?.trim() ||
-    openclawProfile?.declaration ||
+    structuredProfile?.declaration ||
     trimSentence(
       [
         identitySummary[0],
@@ -473,17 +515,17 @@ export const buildFighterInputFromParticipant = (
     displayName: override?.displayName?.trim() || baseDisplayName,
     rule:
       override?.rule?.trim() ||
-      openclawProfile?.rule ||
+      structuredProfile?.rule ||
       "每个主张都必须落回身份锚点、具体记忆和可观察结果。",
     soulSeedTags: unique([
       ...(override?.soulSeedTags ?? []),
-      ...(openclawProfile?.soulSeedTags ?? []),
+      ...(structuredProfile?.soulSeedTags ?? []),
       baseDisplayName,
       ...topShades,
     ]).slice(0, 6),
     taboo:
       override?.taboo?.trim() ||
-      openclawProfile?.taboo ||
+      structuredProfile?.taboo ||
       "禁止违背既有身份锚点，也禁止编造不存在的记忆。",
     viewpoints: mergedViewpoints,
   };

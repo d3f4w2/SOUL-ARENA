@@ -57,6 +57,24 @@
 ## 2026-03-19
 
 ### Done
+- `/arena` 乙方现在支持三种来源：
+  - `SecondMe` 扫码实时登录
+  - 从已打过比赛的历史玩家中选择
+  - 基于知乎实时热榜随机匹配出的知乎 NPC
+- `history` / `zhihu` 已进入统一 participant provider 模型，并可直接参与 preview / battle / setup 持久化。
+- 乙方切到知乎时，不再要求手动登录第二台设备，而是按当前知乎热榜动态生成 NPC 池并随机匹配。
+- 历史玩家与知乎用户都会被标准化成统一的人格快照，以便沿用现有 fighter build 和 battle 流程。
+
+### Current shape
+- 甲方仍保持原有 `SecondMe` 登录体验。
+- 乙方来源选择被限制在原有乙方操作区，没有改动 `/arena` 其他结构。
+- `history` / `zhihu` 来源属于离线人格快照，不依赖实时 OAuth，但 battle setup 会保存它们的来源快照，便于 rematch / replay 还原。
+
+### Risks
+- 知乎 NPC 目前通过“实时热榜标题 -> 搜索结果作者/用户”链路派生，质量受知乎开放接口返回形态影响。
+- 历史玩家来源依赖已持久化的 battle 包；如果还没有真实 battle，候选池会为空。
+
+### Done
 - SecondMe authorization now supports QR bind-code handoff for `alpha` / `beta`.
 - Arena can initiate authorization on one device and complete it from another browser/device.
 - OAuth callback now writes the completed SecondMe session back to the originating Arena session.

@@ -147,3 +147,14 @@
   - API contract reference
   - `soul.md` persona mapping reference
   - example registration payload
+
+### Beta Multi-Source Opponent Selection
+- Extended participant provider typing and session selection so `beta` can resolve from `secondme`, `history`, or `zhihu`
+- Added persona-snapshot based participant refs so non-OAuth opponents can still survive setup persistence and replay/rematch restoration
+- Added history-player candidate derivation from persisted battle packages
+- Added Zhihu NPC derivation from realtime billboard headlines plus search-result author extraction
+- Reworked the beta-side builder panel to keep QR login while adding:
+  - history-player selection
+  - realtime Zhihu random matching
+  - Zhihu reroll within the same UI area
+- Kept the rest of `/arena` unchanged and left `alpha` on the original SecondMe path

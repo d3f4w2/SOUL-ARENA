@@ -298,6 +298,7 @@ const getSourceAura = (
 const createParticipantSnapshots = (sources: ArenaParticipantSource[]) =>
   sources.map((source) => ({
     avatarUrl: source.avatarUrl ?? null,
+    candidateId: source.candidateId,
     configVersion: source.configVersion ?? null,
     displayId: source.displayId ?? null,
     displayName: source.displayName ?? `${participantSlotLabel(source.slot)}人格`,
@@ -344,6 +345,7 @@ const buildFighterProfile = (
     soul,
     source: {
       avatarUrl: participant.source.avatarUrl ?? null,
+      candidateId: participant.source.candidateId,
       configVersion: participant.source.configVersion ?? null,
       connected: participant.source.connected,
       displayId: participant.source.displayId ?? null,
@@ -353,6 +355,7 @@ const buildFighterProfile = (
       secondMeUserId: participant.source.secondMeUserId,
       slot: participant.ref.slot,
       sourceLabel: participant.source.sourceLabel ?? null,
+      sourceMeta: participant.source.sourceMeta ?? null,
     },
   } satisfies FighterProfile;
 };

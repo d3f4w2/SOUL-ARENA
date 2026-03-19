@@ -7,7 +7,11 @@ export type SoulStatKey =
 
 export type SoulStats = Record<SoulStatKey, number>;
 
-export type ParticipantProvider = "secondme" | "openclaw";
+export type ParticipantProvider =
+  | "secondme"
+  | "openclaw"
+  | "history"
+  | "zhihu";
 export type ArenaParticipantSlot = "alpha" | "beta";
 export type ArenaGenerationMode = "mock" | "orchestrated";
 export type BattleOrchestrationMode =
@@ -169,14 +173,40 @@ export type ParticipantSessionSnapshot = {
   expiresAt: number | null;
 };
 
+export type ArenaParticipantPersonaSnapshot = {
+  archetype?: string | null;
+  aura?: string | null;
+  avatarUrl?: string | null;
+  bio?: string | null;
+  candidateId: string;
+  declaration?: string | null;
+  displayId?: string | null;
+  displayName: string;
+  memoryAnchors?: string[];
+  participantId?: string;
+  provider: "history" | "zhihu";
+  route?: string | null;
+  rule?: string | null;
+  secondMeUserId?: string | null;
+  shades?: string[];
+  soulSeedTags?: string[];
+  sourceLabel?: string | null;
+  sourceMeta?: Record<string, unknown> | null;
+  taboo?: string | null;
+  viewpoints?: string[];
+};
+
 export type ArenaParticipantRef = {
+  candidateId?: string;
   participantId?: string;
   provider: ParticipantProvider;
   slot: ArenaParticipantSlot;
+  sourceSnapshot?: ArenaParticipantPersonaSnapshot | null;
 };
 
 export type ArenaParticipantSource = {
   avatarUrl?: string | null;
+  candidateId?: string;
   displayId?: string | null;
   participantId?: string;
   slot: ArenaParticipantSlot;
@@ -197,6 +227,7 @@ export type ArenaParticipantSource = {
 
 export type FighterSourceMeta = {
   avatarUrl?: string | null;
+  candidateId?: string;
   connected: boolean;
   displayId?: string | null;
   participantId?: string;
@@ -206,10 +237,12 @@ export type FighterSourceMeta = {
   configVersion?: string | null;
   runtimeReady?: boolean;
   sourceLabel?: string | null;
+  sourceMeta?: Record<string, unknown> | null;
 };
 
 export type ArenaParticipantSnapshot = {
   avatarUrl?: string | null;
+  candidateId?: string;
   displayId?: string | null;
   slot: ArenaParticipantSlot;
   provider: ParticipantProvider;
