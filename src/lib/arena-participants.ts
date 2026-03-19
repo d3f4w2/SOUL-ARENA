@@ -51,6 +51,45 @@ const readStringArray = (value: unknown) =>
         .filter(Boolean)
     : [];
 
+const fallbackShadeDefinitions = [
+  {
+    keywords: ["测试", "test", "验证", "调试", "回归"],
+    label: "测试驱动",
+  },
+  {
+    keywords: ["功能", "流程", "能力", "接入", "验证"],
+    label: "功能验证",
+  },
+  {
+    keywords: ["记忆", "memory", "锚点", "回忆", "fact"],
+    label: "记忆锚定",
+  },
+  {
+    keywords: ["技术", "代码", "工程", "程序", "开发"],
+    label: "技术探索",
+  },
+  {
+    keywords: ["规则", "规范", "约束", "纪律"],
+    label: "规则敏感",
+  },
+  {
+    keywords: ["分析", "理性", "逻辑", "判断", "推断"],
+    label: "理性分析",
+  },
+  {
+    keywords: ["背景", "身份", "画像", "自我介绍"],
+    label: "身份表达",
+  },
+  {
+    keywords: ["兴趣", "探索", "尝试", "体验", "发现"],
+    label: "探索倾向",
+  },
+  {
+    keywords: ["交流", "沟通", "聊天", "表达", "你好"],
+    label: "表达倾向",
+  },
+] as const;
+
 const normalizeSecondMeUser = (
   user: SecondMeUserInfo | null,
 ): SecondMeUserInfo | null => {
@@ -106,6 +145,62 @@ const duplicateIdentityIssue =
 
 export const participantSlotLabel = (slot: ArenaParticipantSlot) =>
   slot === "alpha" ? "甲方" : "乙方";
+
+const deriveFallbackShades = ({
+  displayName,
+  route,
+  softMemory,
+  user,
+}: {
+  displayName: string | null;
+  route: string | null;
+  softMemory: SecondMeSoftMemory[];
+  user: SecondMeUserInfo | null;
+}): SecondMeShade[] => {
+  const bio = readString(user?.bio);
+  const selfIntroduction = readString(user?.selfIntroduction);
+  const memoryText = softMemory.map(softMemoryText).filter(Boolean).join(" ");
+  const corpus = [bio, selfIntroduction, memoryText, route, displayName]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  if (!corpus) {
+    return [];
+  }
+
+  const derivedLabels = fallbackShadeDefinitions
+    .map((definition) => ({
+      label: definition.label,
+      score: definition.keywords.reduce(
+        (count, keyword) =>
+          count + (corpus.includes(keyword.toLowerCase()) ? 1 : 0),
+        0,
+      ),
+    }))
+    .filter((entry) => entry.score > 0)
+    .sort(
+      (left, right) =>
+        right.score - left.score ||
+        left.label.localeCompare(right.label, "zh-CN"),
+    )
+    .map((entry) => entry.label);
+
+  const fallbackLabels = unique([
+    ...derivedLabels,
+    memoryText ? "记忆留痕" : null,
+    bio || selfIntroduction ? "自我叙述" : null,
+    route ? "独立身份" : null,
+  ]).slice(0, 4);
+
+  return fallbackLabels.map((label, index) => ({
+    description:
+      "Derived locally from available SecondMe profile and memory text.",
+    id: `derived:${index}:${label}`,
+    label,
+    name: label,
+  }));
+};
 
 const getSecondMeParticipantSource = async (
   slot: SecondMeAuthSlot,
@@ -178,31 +273,45 @@ const getSecondMeParticipantSource = async (
     readString(user?.id) ??
     readString(user?.userId) ??
     null;
+  const upstreamShades =
+    shadesResult.status === "fulfilled"
+      ? (shadesResult.value.data?.shades ?? [])
+      : [];
+  const normalizedSoftMemory =
+    memoryResult.status === "fulfilled"
+      ? (memoryResult.value.data?.list ?? []).map(normalizeSecondMeSoftMemory)
+      : [];
+  const normalizedDisplayName =
+    readString(user?.name) ?? readString(user?.route) ?? null;
+  const normalizedRoute = readString(user?.route);
+  const normalizedShades =
+    upstreamShades.length > 0
+      ? upstreamShades
+      : deriveFallbackShades({
+          displayName: normalizedDisplayName,
+          route: normalizedRoute,
+          softMemory: normalizedSoftMemory,
+          user,
+        });
 
   return {
     avatarUrl:
       readString(user?.avatarUrl) ?? readString(user?.avatar) ?? null,
     connected: Boolean(user),
-    displayName:
-      readString(user?.name) ?? readString(user?.route) ?? null,
+    displayName: normalizedDisplayName,
     issues,
     participantId: secondMeUserId ?? undefined,
     provider: "secondme",
     runtimeReady: true,
     secondMeUserId,
     session,
-    shades:
-      shadesResult.status === "fulfilled"
-        ? (shadesResult.value.data?.shades ?? [])
-        : [],
+    shades: normalizedShades,
     slot,
-    softMemory:
-      memoryResult.status === "fulfilled"
-        ? (memoryResult.value.data?.list ?? []).map(normalizeSecondMeSoftMemory)
-        : [],
+    softMemory: normalizedSoftMemory,
     sourceLabel: "SecondMe OAuth Session",
     sourceMeta: {
       provider: "secondme",
+      shadeSource: upstreamShades.length > 0 ? "upstream" : "derived_fallback",
     },
     user,
   };

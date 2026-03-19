@@ -300,3 +300,48 @@
   - `setupId`
   - `originBattleId`
   - `sourceMeta.participantSnapshots`
+
+## 2026-03-19 SecondMe QR bind auth
+
+### `POST /api/auth/secondme/bind-code`
+- `implemented`
+- Request body:
+  - `slot`
+- Returns:
+  - `bind.bindCode`
+  - `bind.expiresAt`
+  - `bind.qrPageUrl`
+  - `bind.slot`
+  - `bind.status`
+  - `bind.usedAt`
+- Behavior:
+  - creates a slot-specific bind code for the current Arena session
+  - opens a dedicated QR/device handoff flow for SecondMe OAuth
+  - clears previous pending bind codes and stale stored SecondMe session for that slot
+
+### `GET /api/auth/secondme/bind-code`
+- `implemented`
+- Query:
+  - `code?`
+  - `slot?`
+- Returns the current bind status for a specific bind code or for the latest bind code in the current Arena session/slot.
+
+### `GET /secondme/connect/[bindCode]`
+- `implemented`
+- Dedicated QR page for cross-device SecondMe authorization.
+- Shows QR code, direct auth link fallback, and pending/completed/expired states.
+
+### `GET /api/auth/callback`
+- `implemented`
+- Now supports both:
+  - legacy slot-based same-browser completion
+  - bind-code based cross-device completion for the QR flow
+
+## 2026-03-19 Participant tag normalization
+- `GET /api/participants`
+  - `shades` may now come from either:
+    - upstream SecondMe `shades`
+    - backend-derived fallback tags when upstream `shades` is empty
+  - `secondMeUserId` is normalized from `secondMeId`, `id`, or `userId`
+  - `avatarUrl` is normalized from `avatarUrl` or `avatar`
+  - `softMemory` text may be normalized from `summary`, `text`, `content`, `title`, or `factContent`

@@ -53,6 +53,24 @@
   - judge-side aggregation
   - deterministic fallback exchange logic
 - Hosted persistence now depends on `POSTGRES_URL` in Vercel; local development still falls back to SQLite.
+
+## 2026-03-19
+
+### Done
+- SecondMe authorization now supports QR bind-code handoff for `alpha` / `beta`.
+- Arena can initiate authorization on one device and complete it from another browser/device.
+- OAuth callback now writes the completed SecondMe session back to the originating Arena session.
+- SecondMe payload normalization now supports:
+  - `userId -> secondMeUserId`
+  - `avatar -> avatarUrl`
+  - `selfIntroduction -> bio` fallback
+  - `factContent -> softMemory` text fallback
+- When upstream `shades` is empty, the backend now derives a small fallback tag set at runtime from profile and memory text.
+
+### Current shape
+- `/api/participants` can now return either upstream or backend-derived `shades`.
+- Arena build/profile generation benefits automatically because it already consumes participant `shades`.
+- The frontend contract remains unchanged.
 ## 2026-03-18
 
 ### 已完成

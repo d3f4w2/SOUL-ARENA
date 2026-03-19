@@ -117,6 +117,28 @@
 - Fixed missing `await` calls in battle/history/leaderboard/profile/rematch routes and pages so read-after-write behavior stays correct against Postgres
 - Kept battle detail, history, leaderboard, rematch, and OpenClaw binding flows on the shared store abstraction
 
+### SecondMe QR bind flow
+- Added a bind-code based QR authorization flow for `alpha` / `beta` SecondMe slots
+- Added a dedicated `/secondme/connect/[bindCode]` QR page for cross-device OAuth handoff
+- Extended `/api/auth/callback` to complete both slot-based and bind-code based SecondMe authorization
+- Persisted completed SecondMe sessions back to the originating Arena session so the builder can poll and recover authorization state
+
+### SecondMe payload normalization
+- Normalized `userId` into `secondMeUserId` so duplicate-account detection works against the real upstream payload
+- Normalized `avatar` into `avatarUrl`
+- Normalized `selfIntroduction` into a `bio` fallback when no `bio` is available
+- Normalized `factContent` into the existing soft-memory text extraction path
+
+### Derived fallback tags
+- Added backend-derived fallback tags when upstream `shades` is empty
+- Built the fallback tags from currently available participant text:
+  - `bio`
+  - `selfIntroduction`
+  - `softMemory`
+  - `route`
+  - `displayName`
+- Kept the existing `shades` contract unchanged so the current frontend and battle pipeline benefit automatically
+
 ### Local Handoff Skill For OpenClaw Registration
 - Extracted the OpenClaw-side Soul Arena registration flow into a local skill package under `skills/soul-arena-openclaw-register`
 - Kept the scope narrow: bind-code creation remains in Soul Arena, while the extracted skill only covers persona-to-register payload construction and `POST /api/openclaw/register`

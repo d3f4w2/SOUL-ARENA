@@ -109,3 +109,19 @@ npm run build
 - Configure `POSTGRES_URL` in Vercel for shared battle persistence.
 - Hosted deployments now persist battles, battle setups, and OpenClaw bindings in Postgres.
 - Local development keeps the `.local/soul-arena.sqlite` fallback when `POSTGRES_URL` is not set.
+
+## 2026-03-19 SecondMe QR Auth
+- Arena SecondMe authorization now supports a bind-code based QR flow for `alpha` and `beta`.
+- The Arena page creates a slot-specific bind code and opens a dedicated QR page instead of relying on same-browser login reuse.
+- Another device or browser can finish SecondMe OAuth, and the originating Arena session receives the authorization result automatically.
+- The older “use incognito or another browser” guidance is now only a fallback, not the main path.
+
+## 2026-03-19 Derived Fallback Tags
+- When upstream `shades` are empty, Soul Arena now derives a small fallback tag set at runtime from:
+  - `bio`
+  - `selfIntroduction`
+  - `softMemory`
+  - `route`
+  - `displayName`
+- These fallback tags are exposed through the existing participant `shades` field, so no frontend contract change is required.
+- Upstream `shades` still win whenever SecondMe returns non-empty tag data.
