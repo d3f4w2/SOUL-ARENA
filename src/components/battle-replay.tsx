@@ -9,6 +9,7 @@ import type {
   ArenaBattleCompetitionSide,
   ArenaCompetitorProfile,
   ArenaParticipantSnapshot,
+  BuildCard,
   BattleEvent,
   BattlePackage,
   SoulStatKey,
@@ -492,6 +493,7 @@ function drawStage(
     sprite: HTMLImageElement | null,
     displayName: string, score: number,
     phaseOffset: number,
+    cards: BuildCard[],
   ) => {
     const f = facing;
     const headR = 27;
@@ -678,6 +680,59 @@ function drawStage(
       ctx.shadowColor = glowColor; ctx.shadowBlur = 10;
       ctx.fillText(`${displayName.toUpperCase()} · ${score}pts`, cx, npY + npH - 6);
       ctx.shadowBlur = 0;
+
+      // ── Equipment rack below nameplate ──────────────────────────
+      if (cards.length > 0) {
+        const slotW = 52, slotH = 18, slotGap = 4;
+        const totalW = cards.length * slotW + (cards.length - 1) * slotGap;
+        const rackX = cx - totalW / 2;
+        const rackY = npY + npH + 4;
+
+        const SLOT_COLORS: Record<string, { bg: string; border: string; stat: string; icon: string }> = {
+          viewpoint: { bg: 'rgba(180,20,0,0.45)',   border: '#cc3300', stat: 'ATK', icon: '⚔' },
+          rule:      { bg: 'rgba(10,60,140,0.45)',  border: '#2266bb', stat: 'DEF', icon: '⛨' },
+          taboo:     { bg: 'rgba(100,0,160,0.45)',  border: '#8833cc', stat: 'PEN', icon: '✦' },
+        };
+        const RARITY_COLORS = [
+          { min: 50, color: '#ffd700' },
+          { min: 36, color: '#bb55ff' },
+          { min: 22, color: '#4499ff' },
+          { min: 0,  color: '#777777' },
+        ];
+
+        cards.forEach((card, i) => {
+          const sx = rackX + i * (slotW + slotGap);
+          const cfg = SLOT_COLORS[card.kind] ?? SLOT_COLORS.viewpoint;
+          const total = card.atk + card.def + card.pen + card.spd;
+          const rarityColor = (RARITY_COLORS.find((r) => total >= r.min) ?? RARITY_COLORS[RARITY_COLORS.length - 1]).color;
+
+          // Slot background
+          ctx.fillStyle = cfg.bg;
+          ctx.fillRect(sx, rackY, slotW, slotH);
+          // Slot border
+          ctx.strokeStyle = cfg.border;
+          ctx.lineWidth = 1;
+          ctx.strokeRect(sx + 0.5, rackY + 0.5, slotW - 1, slotH - 1);
+          // Rarity top strip
+          ctx.fillStyle = rarityColor;
+          ctx.fillRect(sx, rackY, slotW, 2);
+          // Icon
+          ctx.font = '10px sans-serif';
+          ctx.textAlign = 'left';
+          ctx.fillStyle = rarityColor;
+          ctx.shadowColor = rarityColor; ctx.shadowBlur = 4;
+          ctx.fillText(cfg.icon, sx + 3, rackY + 13);
+          ctx.shadowBlur = 0;
+          // Stat value
+          const statVal = cfg.stat === 'ATK' ? card.atk : cfg.stat === 'DEF' ? card.def : card.pen;
+          ctx.font = 'bold 9px "Courier New", monospace';
+          ctx.fillStyle = rarityColor;
+          ctx.textAlign = 'right';
+          ctx.fillText(`${cfg.stat}${statVal}`, sx + slotW - 3, rackY + 13);
+        });
+        ctx.textAlign = 'center';
+      }
+
       return; // skip stick figure
     }
 
@@ -780,8 +835,8 @@ function drawStage(
     ctx.shadowBlur = 0;
   };
 
-  drawFighterFigure(285, floorY, 1, playerPose, "#cc0000", "rgba(255,30,0,0.85)", playerAvatar, playerSprite, battle.player.displayName, replayState.playerScore, 0);
-  drawFighterFigure(W - 285, floorY, -1, defenderPose, "#c8900a", "rgba(255,200,0,0.8)", defenderAvatar, defenderSprite, battle.defender.displayName, replayState.defenderScore, Math.PI);
+  drawFighterFigure(285, floorY, 1, playerPose, "#cc0000", "rgba(255,30,0,0.85)", playerAvatar, playerSprite, battle.player.displayName, replayState.playerScore, 0, battle.player.cards ?? []);
+  drawFighterFigure(W - 285, floorY, -1, defenderPose, "#c8900a", "rgba(255,200,0,0.8)", defenderAvatar, defenderSprite, battle.defender.displayName, replayState.defenderScore, Math.PI, battle.defender.cards ?? []);
 
   // ── 4. ATTACK EFFECTS ──────────────────────────────────────────
   const isWeaknessHit = evType === "weakness_hit";

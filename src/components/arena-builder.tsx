@@ -322,58 +322,147 @@ function StatBar({
   );
 }
 
-// ── Build card detail ───────────────────────────────────────────────
-function BuildCardDetail({
-  card,
-  isPlayer,
-  sourceText,
-}: {
-  card: BuildCard;
-  isPlayer: boolean;
-  sourceText?: string;
-}) {
-  const [open, setOpen] = useState(false);
-  const accent = isPlayer ? 'var(--red)' : 'var(--gold)';
-  const accentDim = isPlayer ? 'rgba(200,0,0,0.5)' : 'rgba(212,160,0,0.5)';
+// ── Equipment card system ────────────────────────────────────────────
+const SLOT_CONFIG = {
+  viewpoint: { icon: '⚔', label: 'WEAPON', labelCn: '武器', statKey: 'atk' as const },
+  rule:      { icon: '⛨', label: 'ARMOR',  labelCn: '护甲', statKey: 'def' as const },
+  taboo:     { icon: '✦', label: 'RELIC',  labelCn: '禁忌器', statKey: 'pen' as const },
+} as const;
+
+const RARITY = [
+  { pct: 0.75, label: '传说', en: 'LEGENDARY', color: '#ffd700', glow: 'rgba(255,215,0,0.55)', border: '#ffd700' },
+  { pct: 0.55, label: '史诗', en: 'EPIC',      color: '#c060ff', glow: 'rgba(180,60,255,0.45)', border: '#b040ee' },
+  { pct: 0.35, label: '精良', en: 'RARE',      color: '#4499ff', glow: 'rgba(60,140,255,0.35)', border: '#2277dd' },
+  { pct: 0,    label: '普通', en: 'COMMON',    color: '#888888', glow: 'rgba(100,100,100,0.2)', border: '#555555' },
+] as const;
+
+// Max possible per-stat: atk≤20, def≤19, pen≤18, spd≤18 → total max ≈ 75
+// If values exceed 75 (demo seed uses 60-100 scale), detect and normalise
+function getEquipRarity(card: BuildCard) {
+  const total = card.atk + card.def + card.pen + card.spd;
+  const maxPossible = total > 80 ? 400 : 75; // auto-detect scale
+  const pct = total / maxPossible;
+  return RARITY.find((r) => pct >= r.pct) ?? RARITY[RARITY.length - 1];
+}
+
+function MiniStatBar({ value, max, color }: { value: number; max: number; color: string }) {
+  const pct = Math.round((value / max) * 100);
+  return (
+    <div style={{ flex: 1, height: '5px', background: 'rgba(0,0,0,0.5)', borderRadius: '2px', overflow: 'hidden' }}>
+      <div style={{ height: '100%', width: `${pct}%`, background: color, boxShadow: `0 0 4px ${color}`, borderRadius: '2px' }} />
+    </div>
+  );
+}
+
+function EquipmentCard({ card, isPlayer, sourceText }: { card: BuildCard; isPlayer: boolean; sourceText?: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const slot = SLOT_CONFIG[card.kind] ?? SLOT_CONFIG.viewpoint;
+  const rarity = getEquipRarity(card);
+  const teamAccent = isPlayer ? '#cc2200' : '#c8900a';
 
   return (
-    <div style={{ background: 'rgba(0,0,0,0.4)', border: `1px solid rgba(60,0,0,0.25)`, borderLeft: `3px solid ${accent}`, padding: '8px 10px' }}>
-      <button className="flex w-full items-center justify-between gap-2" onClick={() => setOpen((v) => !v)} type="button">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '0.75rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: accent }}>
-            {card.title}
-          </span>
-          <span style={{ fontFamily: "'Courier New', monospace", fontSize: '0.62rem', color: 'var(--text-muted)', background: 'rgba(0,0,0,0.4)', padding: '1px 6px', border: `1px solid ${accentDim}` }}>
-            {card.trait}
-          </span>
-        </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <span style={{ fontFamily: "'Courier New', monospace", fontSize: '0.6rem', color: 'var(--red)' }}>ATK{card.atk}</span>
-          <span style={{ fontFamily: "'Courier New', monospace", fontSize: '0.6rem', color: 'var(--gold-dim)' }}>DEF{card.def}</span>
-          <span style={{ fontFamily: "'Courier New', monospace", fontSize: '0.6rem', color: 'var(--text-muted)' }}>
-            {open ? '▲' : '▼'}
-          </span>
-        </div>
-      </button>
+    <div
+      onClick={() => setExpanded((v) => !v)}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => e.key === 'Enter' && setExpanded((v) => !v)}
+      style={{
+        position: 'relative',
+        background: `linear-gradient(135deg, rgba(0,0,0,0.75) 0%, rgba(10,5,20,0.85) 100%)`,
+        border: `1px solid ${rarity.border}`,
+        borderTop: `2px solid ${rarity.color}`,
+        boxShadow: `0 0 16px ${rarity.glow}, inset 0 0 20px rgba(0,0,0,0.4)`,
+        cursor: 'pointer',
+        userSelect: 'none',
+        overflow: 'hidden',
+      }}
+    >
+      {/* Rarity shimmer line */}
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '1px', background: `linear-gradient(90deg, transparent, ${rarity.color}, transparent)`, opacity: 0.8 }} />
 
-      {open && (
-        <div className="mt-3 flex flex-col gap-2">
-          <p style={{ fontFamily: "'Courier New', monospace", fontSize: '0.72rem', color: 'var(--text-dim)', lineHeight: '1.65', borderLeft: '2px solid rgba(60,0,0,0.3)', paddingLeft: '8px' }}>
+      {/* Header row: slot icon + type + rarity badge */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 10px 5px', borderBottom: `1px solid rgba(255,255,255,0.06)` }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span style={{ fontSize: '0.9rem', lineHeight: 1 }}>{slot.icon}</span>
+          <span style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '0.6rem', letterSpacing: '0.2em', color: 'rgba(200,200,200,0.55)', textTransform: 'uppercase' }}>
+            {slot.label}
+          </span>
+          <span style={{ fontFamily: "'Courier New', monospace", fontSize: '0.58rem', color: 'rgba(150,150,150,0.5)' }}>
+            {slot.labelCn}
+          </span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+          <span style={{
+            fontFamily: 'Impact, Arial Black, sans-serif',
+            fontSize: '0.55rem',
+            letterSpacing: '0.15em',
+            color: rarity.color,
+            textTransform: 'uppercase',
+            padding: '1px 5px',
+            border: `1px solid ${rarity.border}`,
+            boxShadow: `0 0 6px ${rarity.glow}`,
+          }}>
+            {rarity.label} · {rarity.en}
+          </span>
+          <span style={{ fontFamily: "'Courier New', monospace", fontSize: '0.55rem', color: 'rgba(150,150,150,0.4)' }}>
+            {expanded ? '▲' : '▼'}
+          </span>
+        </div>
+      </div>
+
+      {/* Item body */}
+      <div style={{ padding: '10px 12px 8px' }}>
+        {/* Item name + trait */}
+        <div style={{ marginBottom: '8px' }}>
+          <div style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '1rem', letterSpacing: '0.06em', color: rarity.color, textShadow: `0 0 12px ${rarity.glow}`, lineHeight: 1.15 }}>
+            {card.title}
+          </div>
+          <div style={{ marginTop: '3px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ fontFamily: "'Courier New', monospace", fontSize: '0.62rem', color: teamAccent, background: 'rgba(0,0,0,0.5)', padding: '1px 6px', border: `1px solid ${teamAccent}44` }}>
+              {card.trait}
+            </span>
+          </div>
+        </div>
+
+        {/* Compact 2-col stat bars — auto-detect 0-20 vs 0-100 scale */}
+        {(() => {
+          const isHighScale = card.atk > 25 || card.def > 25;
+          const maxAtk = isHighScale ? 100 : 20;
+          const maxDef = isHighScale ? 100 : 20;
+          const maxPen = isHighScale ? 100 : 18;
+          const maxSpd = isHighScale ? 100 : 18;
+          return (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 10px' }}>
+          {[
+            { key: 'ATK', val: card.atk, max: maxAtk, color: '#ff4422' },
+            { key: 'DEF', val: card.def, max: maxDef, color: '#c8900a' },
+            { key: 'PEN', val: card.pen, max: maxPen, color: '#9933ff' },
+            { key: 'SPD', val: card.spd, max: maxSpd, color: '#1188cc' },
+          ].map(({ key, val, max, color }) => (
+            <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <span style={{ fontFamily: "'Courier New', monospace", fontSize: '0.55rem', color: color, width: '1.8rem', flexShrink: 0, letterSpacing: '0.05em' }}>{key}</span>
+              <MiniStatBar value={Math.min(val, max)} max={max} color={color} />
+              <span style={{ fontFamily: "'Courier New', monospace", fontSize: '0.6rem', color: 'rgba(220,220,220,0.75)', width: '1.8rem', flexShrink: 0, textAlign: 'right' }}>{val}</span>
+            </div>
+          ))}
+        </div>
+          );
+        })()}
+      </div>
+
+      {/* Expanded: full text + source + hint */}
+      {expanded && (
+        <div style={{ padding: '0 12px 10px', borderTop: `1px solid rgba(255,255,255,0.06)` }}>
+          <p style={{ fontFamily: "'Courier New', monospace", fontSize: '0.7rem', color: 'var(--text-dim)', lineHeight: '1.7', paddingLeft: '8px', borderLeft: `2px solid ${rarity.border}55`, marginTop: '8px' }}>
             {card.text}
           </p>
           {sourceText && (
-            <p style={{ fontFamily: "'Courier New', monospace", fontSize: '0.65rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+            <p style={{ fontFamily: "'Courier New', monospace", fontSize: '0.62rem', color: 'var(--text-muted)', fontStyle: 'italic', marginTop: '6px' }}>
               ↳ 来源：{sourceText}
             </p>
           )}
-          <div className="flex flex-col gap-1 mt-1">
-            <StatBar label="ATK" value={card.atk} max={20} accent="var(--red)" />
-            <StatBar label="DEF" value={card.def} max={20} accent="var(--gold-dim)" />
-            <StatBar label="PEN" value={card.pen} max={18} accent="#7a00cc" />
-            <StatBar label="SPD" value={card.spd} max={18} accent="#006fa8" />
-          </div>
-          <p style={{ fontFamily: "'Courier New', monospace", fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-            {card.hint}
+          <p style={{ fontFamily: "'Courier New', monospace", fontSize: '0.64rem', color: rarity.color, opacity: 0.7, marginTop: '8px', paddingTop: '6px', borderTop: `1px solid rgba(255,255,255,0.05)` }}>
+            💡 {card.hint}
           </p>
         </div>
       )}
@@ -435,13 +524,19 @@ function BuildDerivationPanel({
         </p>
       </div>
 
-      {/* Cards */}
+      {/* Equipment rack */}
       <div className="flex flex-col gap-2">
-        <p style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '0.65rem', letterSpacing: '0.22em', textTransform: 'uppercase', color: accent }}>
-          装备卡 · Build Cards
-        </p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
+          <p style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '0.65rem', letterSpacing: '0.22em', textTransform: 'uppercase', color: accent, margin: 0 }}>
+            装备栏 · Equipment
+          </p>
+          <div style={{ flex: 1, height: '1px', background: `linear-gradient(90deg, ${accent}66, transparent)` }} />
+          <span style={{ fontFamily: "'Courier New', monospace", fontSize: '0.58rem', color: 'rgba(150,150,150,0.5)' }}>
+            {fighter.cards.length} / 3 槽
+          </span>
+        </div>
         {fighter.cards.map((card, i) => (
-          <BuildCardDetail
+          <EquipmentCard
             key={card.id}
             card={card}
             isPlayer={isPlayer}
