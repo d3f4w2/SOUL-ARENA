@@ -8,6 +8,9 @@ import type {
   OpenClawBindCodeRecord,
   OpenClawBindingInput,
   OpenClawBindingRecord,
+  SecondMeBindCodeRecord,
+  SecondMeSessionRecord,
+  SecondMeSessionSource,
   Vote,
   VoteSide,
 } from "@/lib/arena-types";
@@ -29,6 +32,23 @@ export type SaveOpenClawBindingInput = {
 };
 
 export type SaveOpenClawBindCodeInput = {
+  code: string;
+  expiresAt: string;
+  sessionId: string;
+  slot: ArenaParticipantSlot;
+};
+
+export type SaveSecondMeSessionInput = {
+  accessToken: string;
+  bindCode?: string | null;
+  expiresAt: number;
+  refreshToken: string;
+  sessionId: string;
+  slot: ArenaParticipantSlot;
+  source: SecondMeSessionSource;
+};
+
+export type SaveSecondMeBindCodeInput = {
   code: string;
   expiresAt: string;
   sessionId: string;
@@ -73,6 +93,14 @@ export type ArenaStore = {
   getOpenClawBindCode: (code: string) => Promise<OpenClawBindCodeRecord | null>;
   markOpenClawBindCodeUsed: (input: { code: string; usedAt: string }) => Promise<OpenClawBindCodeRecord | null>;
   clearOpenClawBindCodesForSlot: (input: ClearSlotInput) => Promise<void>;
+  saveSecondMeSession: (input: SaveSecondMeSessionInput) => Promise<SecondMeSessionRecord>;
+  getSecondMeSessionForSlot: (input: ClearSlotInput) => Promise<SecondMeSessionRecord | null>;
+  clearSecondMeSessionsForSlot: (input: ClearSlotInput) => Promise<void>;
+  saveSecondMeBindCode: (input: SaveSecondMeBindCodeInput) => Promise<SecondMeBindCodeRecord>;
+  getSecondMeBindCode: (code: string) => Promise<SecondMeBindCodeRecord | null>;
+  getLatestSecondMeBindCodeForSlot: (input: ClearSlotInput) => Promise<SecondMeBindCodeRecord | null>;
+  markSecondMeBindCodeUsed: (input: { code: string; usedAt: string }) => Promise<SecondMeBindCodeRecord | null>;
+  clearSecondMeBindCodesForSlot: (input: ClearSlotInput) => Promise<void>;
   saveAudienceMember: (input: SaveAudienceMemberInput) => Promise<AudienceMember>;
   listAudienceMembers: (limit?: number) => Promise<AudienceMember[]>;
   setLiveSession: (input: SaveLiveSessionInput) => Promise<LiveSession>;

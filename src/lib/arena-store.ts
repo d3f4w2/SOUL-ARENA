@@ -7,6 +7,8 @@ import type {
   LiveSession,
   OpenClawBindCodeRecord,
   OpenClawBindingRecord,
+  SecondMeBindCodeRecord,
+  SecondMeSessionRecord,
   Vote,
 } from "@/lib/arena-types";
 import { env } from "@/lib/env";
@@ -19,6 +21,8 @@ import type {
   SaveLiveSessionInput,
   SaveOpenClawBindCodeInput,
   SaveOpenClawBindingInput,
+  SaveSecondMeBindCodeInput,
+  SaveSecondMeSessionInput,
   SaveVoteInput,
 } from "@/lib/arena-store-shared";
 
@@ -129,6 +133,44 @@ export const clearOpenClawBindCodesForSlot = async (input: {
   sessionId: string;
   slot: ArenaParticipantSlot;
 }) => (await getArenaStore()).clearOpenClawBindCodesForSlot(input);
+
+export const saveSecondMeSession = async (
+  input: SaveSecondMeSessionInput,
+): Promise<SecondMeSessionRecord> =>
+  (await getArenaStore()).saveSecondMeSession(input);
+
+export const getSecondMeSessionForSlot = async (input: {
+  sessionId: string;
+  slot: ArenaParticipantSlot;
+}) => (await getArenaStore()).getSecondMeSessionForSlot(input);
+
+export const clearSecondMeSessionsForSlot = async (input: {
+  sessionId: string;
+  slot: ArenaParticipantSlot;
+}) => (await getArenaStore()).clearSecondMeSessionsForSlot(input);
+
+export const saveSecondMeBindCode = async (
+  input: SaveSecondMeBindCodeInput,
+): Promise<SecondMeBindCodeRecord> =>
+  (await getArenaStore()).saveSecondMeBindCode(input);
+
+export const getSecondMeBindCode = async (code: string) =>
+  (await getArenaStore()).getSecondMeBindCode(code);
+
+export const getLatestSecondMeBindCodeForSlot = async (input: {
+  sessionId: string;
+  slot: ArenaParticipantSlot;
+}) => (await getArenaStore()).getLatestSecondMeBindCodeForSlot(input);
+
+export const markSecondMeBindCodeUsed = async (input: {
+  code: string;
+  usedAt: string;
+}) => (await getArenaStore()).markSecondMeBindCodeUsed(input);
+
+export const clearSecondMeBindCodesForSlot = async (input: {
+  sessionId: string;
+  slot: ArenaParticipantSlot;
+}) => (await getArenaStore()).clearSecondMeBindCodesForSlot(input);
 
 export const saveAudienceMember = async (
   input: SaveAudienceMemberInput,

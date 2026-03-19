@@ -9,6 +9,8 @@ import type {
   BattleSetupRecord,
   OpenClawBindCodeRecord,
   OpenClawBindingRecord,
+  SecondMeBindCodeRecord,
+  SecondMeSessionRecord,
   Vote,
 } from "@/lib/arena-types";
 import {
@@ -18,6 +20,8 @@ import {
   type SaveLiveSessionInput,
   type SaveOpenClawBindCodeInput,
   type SaveOpenClawBindingInput,
+  type SaveSecondMeBindCodeInput,
+  type SaveSecondMeSessionInput,
   type SaveVoteInput,
   toBattleSummary,
 } from "@/lib/arena-store-shared";
@@ -111,6 +115,32 @@ const ensureSchema = async () => {
 
     CREATE INDEX IF NOT EXISTS idx_openclaw_bind_codes_session_slot
       ON openclaw_bind_codes(session_id, slot, created_at DESC);
+
+    CREATE TABLE IF NOT EXISTS secondme_sessions (
+      session_id text NOT NULL,
+      slot text NOT NULL,
+      created_at timestamptz NOT NULL,
+      updated_at timestamptz NOT NULL,
+      expires_at bigint NOT NULL,
+      session_json jsonb NOT NULL,
+      PRIMARY KEY (session_id, slot)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_secondme_sessions_expires_at
+      ON secondme_sessions(expires_at);
+
+    CREATE TABLE IF NOT EXISTS secondme_bind_codes (
+      code text PRIMARY KEY,
+      session_id text NOT NULL,
+      slot text NOT NULL,
+      created_at timestamptz NOT NULL,
+      expires_at timestamptz NOT NULL,
+      used_at timestamptz,
+      bind_code_json jsonb NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_secondme_bind_codes_session_slot
+      ON secondme_bind_codes(session_id, slot, created_at DESC);
 
     CREATE TABLE IF NOT EXISTS audience_members (
       id text PRIMARY KEY,
@@ -450,6 +480,170 @@ export const createPostgresArenaStore = (): ArenaStore => ({
     await poolQuery(
       `
         DELETE FROM openclaw_bind_codes
+        WHERE session_id = $1 AND slot = $2 AND used_at IS NULL
+      `,
+      [sessionId, slot],
+    );
+  },
+  saveSecondMeSession: async ({
+    accessToken,
+    bindCode,
+    expiresAt,
+    refreshToken,
+    sessionId,
+    slot,
+    source,
+  }: SaveSecondMeSessionInput) => {
+    const current = await createPostgresArenaStore().getSecondMeSessionForSlot({
+      sessionId,
+      slot,
+    });
+    const now = new Date().toISOString();
+    const record: SecondMeSessionRecord = {
+      accessToken,
+      bindCode: bindCode ?? null,
+      createdAt: current?.createdAt ?? now,
+      expiresAt,
+      refreshToken,
+      sessionId,
+      slot,
+      source,
+      updatedAt: now,
+    };
+
+    await poolQuery(
+      `
+        INSERT INTO secondme_sessions (
+          session_id,
+          slot,
+          created_at,
+          updated_at,
+          expires_at,
+          session_json
+        )
+        VALUES ($1,$2,$3,$4,$5,$6::jsonb)
+        ON CONFLICT (session_id, slot) DO UPDATE SET
+          updated_at = excluded.updated_at,
+          expires_at = excluded.expires_at,
+          session_json = excluded.session_json
+      `,
+      [
+        record.sessionId,
+        record.slot,
+        record.createdAt,
+        record.updatedAt,
+        record.expiresAt,
+        JSON.stringify(record),
+      ],
+    );
+
+    return record;
+  },
+  getSecondMeSessionForSlot: async ({ sessionId, slot }) => {
+    const result = await poolQuery<{ session_json: SecondMeSessionRecord }>(
+      `
+        SELECT session_json
+        FROM secondme_sessions
+        WHERE session_id = $1 AND slot = $2
+        LIMIT 1
+      `,
+      [sessionId, slot],
+    );
+    return result.rows[0]?.session_json ?? null;
+  },
+  clearSecondMeSessionsForSlot: async ({ sessionId, slot }) => {
+    await poolQuery(
+      "DELETE FROM secondme_sessions WHERE session_id = $1 AND slot = $2",
+      [sessionId, slot],
+    );
+  },
+  saveSecondMeBindCode: async ({
+    code,
+    expiresAt,
+    sessionId,
+    slot,
+  }: SaveSecondMeBindCodeInput) => {
+    const record: SecondMeBindCodeRecord = {
+      code,
+      createdAt: new Date().toISOString(),
+      expiresAt,
+      sessionId,
+      slot,
+      usedAt: null,
+    };
+
+    await poolQuery(
+      `
+        INSERT INTO secondme_bind_codes (
+          code,
+          session_id,
+          slot,
+          created_at,
+          expires_at,
+          used_at,
+          bind_code_json
+        )
+        VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb)
+      `,
+      [
+        record.code,
+        record.sessionId,
+        record.slot,
+        record.createdAt,
+        record.expiresAt,
+        record.usedAt,
+        JSON.stringify(record),
+      ],
+    );
+
+    return record;
+  },
+  getSecondMeBindCode: async (code) => {
+    const result = await poolQuery<{ bind_code_json: SecondMeBindCodeRecord }>(
+      "SELECT bind_code_json FROM secondme_bind_codes WHERE code = $1 LIMIT 1",
+      [code],
+    );
+    return result.rows[0]?.bind_code_json ?? null;
+  },
+  getLatestSecondMeBindCodeForSlot: async ({ sessionId, slot }) => {
+    const result = await poolQuery<{ bind_code_json: SecondMeBindCodeRecord }>(
+      `
+        SELECT bind_code_json
+        FROM secondme_bind_codes
+        WHERE session_id = $1 AND slot = $2
+        ORDER BY created_at DESC
+        LIMIT 1
+      `,
+      [sessionId, slot],
+    );
+    return result.rows[0]?.bind_code_json ?? null;
+  },
+  markSecondMeBindCodeUsed: async ({ code, usedAt }) => {
+    const current = await createPostgresArenaStore().getSecondMeBindCode(code);
+    if (!current) {
+      return null;
+    }
+
+    const next: SecondMeBindCodeRecord = {
+      ...current,
+      usedAt,
+    };
+
+    await poolQuery(
+      `
+        UPDATE secondme_bind_codes
+        SET used_at = $1, bind_code_json = $2::jsonb
+        WHERE code = $3
+      `,
+      [usedAt, JSON.stringify(next), code],
+    );
+
+    return next;
+  },
+  clearSecondMeBindCodesForSlot: async ({ sessionId, slot }) => {
+    await poolQuery(
+      `
+        DELETE FROM secondme_bind_codes
         WHERE session_id = $1 AND slot = $2 AND used_at IS NULL
       `,
       [sessionId, slot],

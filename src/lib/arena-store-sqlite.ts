@@ -10,6 +10,8 @@ import type {
   LiveSession,
   OpenClawBindCodeRecord,
   OpenClawBindingRecord,
+  SecondMeBindCodeRecord,
+  SecondMeSessionRecord,
   Vote,
 } from "@/lib/arena-types";
 import {
@@ -20,6 +22,8 @@ import {
   type SaveLiveSessionInput,
   type SaveOpenClawBindCodeInput,
   type SaveOpenClawBindingInput,
+  type SaveSecondMeBindCodeInput,
+  type SaveSecondMeSessionInput,
   type SaveVoteInput,
   toBattleSummary,
 } from "@/lib/arena-store-shared";
@@ -51,6 +55,14 @@ type OpenClawBindingRow = {
 };
 
 type OpenClawBindCodeRow = {
+  bind_code_json: string;
+};
+
+type SecondMeSessionRow = {
+  session_json: string;
+};
+
+type SecondMeBindCodeRow = {
   bind_code_json: string;
 };
 
@@ -156,6 +168,32 @@ const initDatabase = () => {
 
     CREATE INDEX IF NOT EXISTS idx_openclaw_bind_codes_session_slot
       ON openclaw_bind_codes(session_id, slot, created_at DESC);
+
+    CREATE TABLE IF NOT EXISTS secondme_sessions (
+      session_id TEXT NOT NULL,
+      slot TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      expires_at INTEGER NOT NULL,
+      session_json TEXT NOT NULL,
+      PRIMARY KEY (session_id, slot)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_secondme_sessions_expires_at
+      ON secondme_sessions(expires_at);
+
+    CREATE TABLE IF NOT EXISTS secondme_bind_codes (
+      code TEXT PRIMARY KEY,
+      session_id TEXT NOT NULL,
+      slot TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      expires_at TEXT NOT NULL,
+      used_at TEXT,
+      bind_code_json TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_secondme_bind_codes_session_slot
+      ON secondme_bind_codes(session_id, slot, created_at DESC);
 
     CREATE TABLE IF NOT EXISTS audience_members (
       id TEXT PRIMARY KEY,
@@ -505,6 +543,153 @@ export const createSqliteArenaStore = (): ArenaStore => ({
   clearOpenClawBindCodesForSlot: async ({ sessionId, slot }) => {
     const statement = db.prepare(
       "DELETE FROM openclaw_bind_codes WHERE session_id = ? AND slot = ? AND used_at IS NULL",
+    );
+    statement.run(sessionId, slot);
+  },
+  saveSecondMeSession: async ({
+    accessToken,
+    bindCode,
+    expiresAt,
+    refreshToken,
+    sessionId,
+    slot,
+    source,
+  }: SaveSecondMeSessionInput) => {
+    const current = await createSqliteArenaStore().getSecondMeSessionForSlot({
+      sessionId,
+      slot,
+    });
+    const now = new Date().toISOString();
+    const record: SecondMeSessionRecord = {
+      accessToken,
+      bindCode: bindCode ?? null,
+      createdAt: current?.createdAt ?? now,
+      expiresAt,
+      refreshToken,
+      sessionId,
+      slot,
+      source,
+      updatedAt: now,
+    };
+    const statement = db.prepare(`
+      INSERT INTO secondme_sessions (
+        session_id,
+        slot,
+        created_at,
+        updated_at,
+        expires_at,
+        session_json
+      )
+      VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT(session_id, slot) DO UPDATE SET
+        updated_at = excluded.updated_at,
+        expires_at = excluded.expires_at,
+        session_json = excluded.session_json
+    `);
+    statement.run(
+      record.sessionId,
+      record.slot,
+      record.createdAt,
+      record.updatedAt,
+      record.expiresAt,
+      JSON.stringify(record),
+    );
+    return record;
+  },
+  getSecondMeSessionForSlot: async ({ sessionId, slot }) => {
+    const statement = db.prepare<SecondMeSessionRow>(
+      `
+        SELECT session_json
+        FROM secondme_sessions
+        WHERE session_id = ? AND slot = ?
+        LIMIT 1
+      `,
+    );
+    const row = statement.get(sessionId, slot);
+    return parseJson<SecondMeSessionRecord>(row?.session_json);
+  },
+  clearSecondMeSessionsForSlot: async ({ sessionId, slot }) => {
+    const statement = db.prepare(
+      "DELETE FROM secondme_sessions WHERE session_id = ? AND slot = ?",
+    );
+    statement.run(sessionId, slot);
+  },
+  saveSecondMeBindCode: async ({
+    code,
+    expiresAt,
+    sessionId,
+    slot,
+  }: SaveSecondMeBindCodeInput) => {
+    const record: SecondMeBindCodeRecord = {
+      code,
+      createdAt: new Date().toISOString(),
+      expiresAt,
+      sessionId,
+      slot,
+      usedAt: null,
+    };
+    const statement = db.prepare(`
+      INSERT INTO secondme_bind_codes (
+        code,
+        session_id,
+        slot,
+        created_at,
+        expires_at,
+        used_at,
+        bind_code_json
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `);
+    statement.run(
+      record.code,
+      record.sessionId,
+      record.slot,
+      record.createdAt,
+      record.expiresAt,
+      record.usedAt,
+      JSON.stringify(record),
+    );
+    return record;
+  },
+  getSecondMeBindCode: async (code) => {
+    const statement = db.prepare<SecondMeBindCodeRow>(
+      "SELECT bind_code_json FROM secondme_bind_codes WHERE code = ? LIMIT 1",
+    );
+    const row = statement.get(code);
+    return parseJson<SecondMeBindCodeRecord>(row?.bind_code_json);
+  },
+  getLatestSecondMeBindCodeForSlot: async ({ sessionId, slot }) => {
+    const statement = db.prepare<SecondMeBindCodeRow>(`
+      SELECT bind_code_json
+      FROM secondme_bind_codes
+      WHERE session_id = ? AND slot = ?
+      ORDER BY created_at DESC
+      LIMIT 1
+    `);
+    const row = statement.get(sessionId, slot);
+    return parseJson<SecondMeBindCodeRecord>(row?.bind_code_json);
+  },
+  markSecondMeBindCodeUsed: async ({ code, usedAt }) => {
+    const current = await createSqliteArenaStore().getSecondMeBindCode(code);
+    if (!current) {
+      return null;
+    }
+
+    const next: SecondMeBindCodeRecord = {
+      ...current,
+      usedAt,
+    };
+    const statement = db.prepare(`
+      UPDATE secondme_bind_codes
+      SET used_at = ?, bind_code_json = ?
+      WHERE code = ?
+    `);
+    statement.run(usedAt, JSON.stringify(next), code);
+    return next;
+  },
+  clearSecondMeBindCodesForSlot: async ({ sessionId, slot }) => {
+    const statement = db.prepare(
+      "DELETE FROM secondme_bind_codes WHERE session_id = ? AND slot = ? AND used_at IS NULL",
     );
     statement.run(sessionId, slot);
   },

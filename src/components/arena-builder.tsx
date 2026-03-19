@@ -57,6 +57,19 @@ type OpenClawProfileResponse = {
   participant: ArenaParticipantSource | null;
 };
 
+type SecondMeBindState = {
+  bindCode: string;
+  expiresAt: string;
+  qrPageUrl: string;
+  slot: "alpha" | "beta";
+  status: "pending" | "completed" | "expired" | "invalid";
+  usedAt: string | null;
+} | null;
+
+type SecondMeBindResponse = {
+  bind: SecondMeBindState;
+};
+
 type SlotOverrideDraft = {
   declaration: string;
   displayName: string;
@@ -704,6 +717,7 @@ function FighterCard({
   slot,
   opponentProfile,
   duplicateWarning,
+  secondMeBind,
   override,
   onConnect,
   onDisconnect,
@@ -714,6 +728,7 @@ function FighterCard({
   slot: "alpha" | "beta";
   opponentProfile: ArenaCompetitorProfile | null;
   duplicateWarning: string | null;
+  secondMeBind: SecondMeBindState;
   override: ParticipantBuildOverride;
   onConnect: () => void;
   onDisconnect: () => Promise<void>;
@@ -812,9 +827,33 @@ function FighterCard({
         </p>
         <p style={{ fontFamily: "'Courier New', monospace", fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: '1.75' }}>
           {slot === "alpha"
-            ? "甲方可以直接在当前窗口完成授权。"
-            : "乙方建议使用隐身窗口或另一浏览器完成授权，避免复用甲方的 SecondMe 登录态。"}
+            ? "点击上方按钮后会打开独立扫码页。你可以自己扫码，也可以让另一台设备直接在扫码页完成 SecondMe 登录。"
+            : "乙方推荐使用独立扫码页完成授权。扫码设备登录成功后，原竞技场页面会自动收到这个槽位的授权结果。"}
         </p>
+        {secondMeBind?.status === "pending" ? (
+          <div className="mt-3 flex flex-col gap-3">
+            <p style={{ fontFamily: "'Courier New', monospace", fontSize: '0.76rem', color: 'var(--text-dim)', lineHeight: '1.75' }}>
+              当前等待扫码授权中。绑定码 {secondMeBind.bindCode} ，过期时间 {new Date(secondMeBind.expiresAt).toLocaleString()}。
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <a
+                className="mk-button px-4 py-2"
+                href={secondMeBind.qrPageUrl}
+                rel="noreferrer"
+                target="_blank"
+              >
+                打开扫码页
+              </a>
+              <button
+                className="mk-button-ghost px-4 py-2"
+                onClick={onConnect}
+                type="button"
+              >
+                重新生成二维码
+              </button>
+            </div>
+          </div>
+        ) : null}
       </div>
 
       {/* Identity */}
@@ -992,6 +1031,10 @@ export function ArenaBuilder() {
     alpha: null,
     beta: null,
   });
+  const [secondMeBinds, setSecondMeBinds] = useState<Record<"alpha" | "beta", SecondMeBindState>>({
+    alpha: null,
+    beta: null,
+  });
   const [pendingSlot, setPendingSlot] = useState<"alpha" | "beta" | null>(null);
   const setupId = searchParams.get("setupId");
 
@@ -1068,6 +1111,9 @@ export function ArenaBuilder() {
     };
   };
 
+  const loadCurrentSecondMeBind = async (slot: "alpha" | "beta") =>
+    readJson<SecondMeBindResponse>(`/api/auth/secondme/bind-code?slot=${slot}`);
+
   const applyArenaData = (data: Awaited<ReturnType<typeof loadArenaData>>) => {
     setMeta(data.meta);
     setParticipants(data.participants);
@@ -1120,6 +1166,28 @@ export function ArenaBuilder() {
         }
       }
     })();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    void Promise.all([
+      loadCurrentSecondMeBind("alpha").catch(() => ({ bind: null })),
+      loadCurrentSecondMeBind("beta").catch(() => ({ bind: null })),
+    ]).then(([alphaBind, betaBind]) => {
+      if (!active) {
+        return;
+      }
+
+      setSecondMeBinds({
+        alpha: alphaBind.bind,
+        beta: betaBind.bind,
+      });
+    });
 
     return () => {
       active = false;
@@ -1196,6 +1264,55 @@ export function ArenaBuilder() {
     return () => window.clearInterval(timer);
   }, [alpha, beta, bindCodes]);
 
+  useEffect(() => {
+    const slotsToPoll = (["alpha", "beta"] as const).filter(
+      (slot) => secondMeBinds[slot]?.status === "pending",
+    );
+
+    if (!slotsToPoll.length) {
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      void (async () => {
+        const [alphaBind, betaBind, data] = await Promise.all([
+          slotsToPoll.includes("alpha")
+            ? loadCurrentSecondMeBind("alpha").catch(() => ({ bind: secondMeBinds.alpha }))
+            : Promise.resolve({ bind: secondMeBinds.alpha }),
+          slotsToPoll.includes("beta")
+            ? loadCurrentSecondMeBind("beta").catch(() => ({ bind: secondMeBinds.beta }))
+            : Promise.resolve({ bind: secondMeBinds.beta }),
+          loadArenaData().catch(() => null),
+        ]);
+
+        if (data) {
+          applyArenaData(data);
+        }
+
+        const nextBinds = {
+          alpha:
+            data?.participants.find((item) => item.slot === "alpha" && item.connected)
+              ? null
+              : alphaBind.bind,
+          beta:
+            data?.participants.find((item) => item.slot === "beta" && item.connected)
+              ? null
+              : betaBind.bind,
+        } satisfies Record<"alpha" | "beta", SecondMeBindState>;
+
+        setSecondMeBinds(nextBinds);
+
+        for (const slot of slotsToPoll) {
+          if (secondMeBinds[slot]?.status === "pending" && nextBinds[slot] === null) {
+            setStatus(`${participantTitle(slot)}扫码授权已完成。`);
+          }
+        }
+      })();
+    }, 3000);
+
+    return () => window.clearInterval(timer);
+  }, [secondMeBinds, alpha, beta]);
+
   const switchProvider = async (slot: "alpha" | "beta", provider: ParticipantProvider) => {
     await readJson("/api/participants", {
       body: JSON.stringify({ provider, slot }),
@@ -1210,7 +1327,7 @@ export function ArenaBuilder() {
     const participant = data.participants.find((item) => item.slot === slot) ?? null;
 
     if (provider === "secondme" && !participant?.connected) {
-      window.location.assign(`/api/auth/login?slot=${slot}&returnTo=/arena`);
+      await startSecondMeQrConnect(slot);
       return;
     }
 
@@ -1222,8 +1339,52 @@ export function ArenaBuilder() {
     setStatus(`${participantTitle(slot)}已切换到 ${provider}。`);
   };
 
+  const startSecondMeQrConnect = async (slot: "alpha" | "beta") => {
+    setPendingSlot(slot);
+
+    try {
+      const payload = await readJson<SecondMeBindResponse>("/api/auth/secondme/bind-code", {
+        body: JSON.stringify({ slot }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+      });
+
+      if (!payload.bind) {
+        throw new Error("未生成扫码绑定码");
+      }
+
+      setSecondMeBinds((current) => ({
+        ...current,
+        [slot]: payload.bind,
+      }));
+
+      const data = await loadArenaData().catch(() => null);
+      if (data) {
+        applyArenaData(data);
+      }
+
+      const popup = window.open(
+        payload.bind.qrPageUrl,
+        "_blank",
+        "noopener,noreferrer",
+      );
+
+      if (popup) {
+        popup.focus();
+      }
+
+      setStatus(
+        `${participantTitle(slot)}扫码页已生成，请在另一台设备或另一浏览器完成 SecondMe 登录。`,
+      );
+    } finally {
+      setPendingSlot(null);
+    }
+  };
+
   const connectParticipant = (slot: "alpha" | "beta") => {
-    window.location.assign(`/api/auth/login?slot=${slot}&returnTo=/arena`);
+    void startSecondMeQrConnect(slot);
   };
 
   const disconnectParticipant = async (slot: "alpha" | "beta") => {
@@ -1232,6 +1393,10 @@ export function ArenaBuilder() {
     });
     setPreview(null);
     setBindCodes((current) => ({
+      ...current,
+      [slot]: null,
+    }));
+    setSecondMeBinds((current) => ({
       ...current,
       [slot]: null,
     }));
@@ -1690,7 +1855,7 @@ export function ArenaBuilder() {
                 <div className="mk-warning mt-3">
                   <p>{duplicateWarning}</p>
                   <p style={{ marginTop: '6px', fontSize: '0.78rem' }}>
-                    如需真实双人，请让乙方使用隐身窗口或另一浏览器重新授权。
+                    如需真实双人，请给乙方重新生成扫码页，并让另一台设备或另一浏览器完成 SecondMe 授权。
                   </p>
                 </div>
               ) : null}
@@ -1714,6 +1879,7 @@ export function ArenaBuilder() {
               override={alphaOverride}
               participant={alpha}
               profile={alphaProfile}
+              secondMeBind={secondMeBinds.alpha}
               slot="alpha"
             />
           </div>
@@ -1738,6 +1904,7 @@ export function ArenaBuilder() {
               override={betaOverride}
               participant={beta}
               profile={betaProfile}
+              secondMeBind={secondMeBinds.beta}
               slot="beta"
             />
           </div>

@@ -7,6 +7,8 @@ import type {
   LiveSession,
   OpenClawBindCodeRecord,
   OpenClawBindingRecord,
+  SecondMeBindCodeRecord,
+  SecondMeSessionRecord,
   Vote,
 } from "@/lib/arena-types";
 import {
@@ -16,6 +18,8 @@ import {
   type SaveLiveSessionInput,
   type SaveOpenClawBindCodeInput,
   type SaveOpenClawBindingInput,
+  type SaveSecondMeBindCodeInput,
+  type SaveSecondMeSessionInput,
   type SaveVoteInput,
   toBattleSummary,
 } from "@/lib/arena-store-shared";
@@ -26,6 +30,8 @@ type MemoryState = {
   bindCodes: Map<string, OpenClawBindCodeRecord>;
   bindings: Map<string, OpenClawBindingRecord>;
   liveSession: LiveSession | null;
+  secondMeBindCodes: Map<string, SecondMeBindCodeRecord>;
+  secondMeSessions: Map<string, SecondMeSessionRecord>;
   setups: Map<string, BattleSetupRecord>;
   votes: Map<string, Vote>;
 };
@@ -44,6 +50,8 @@ const state =
     bindCodes: new Map<string, OpenClawBindCodeRecord>(),
     bindings: new Map<string, OpenClawBindingRecord>(),
     liveSession: null,
+    secondMeBindCodes: new Map<string, SecondMeBindCodeRecord>(),
+    secondMeSessions: new Map<string, SecondMeSessionRecord>(),
     setups: new Map<string, BattleSetupRecord>(),
     votes: new Map<string, Vote>(),
   };
@@ -114,6 +122,53 @@ const saveOpenClawBindCode = async ({
     usedAt: null,
   };
   state.bindCodes.set(code, record);
+  return record;
+};
+
+const secondMeSessionKey = (sessionId: string, slot: string) =>
+  `${sessionId}:${slot}`;
+
+const saveSecondMeSession = async ({
+  accessToken,
+  bindCode,
+  expiresAt,
+  refreshToken,
+  sessionId,
+  slot,
+  source,
+}: SaveSecondMeSessionInput) => {
+  const now = new Date().toISOString();
+  const record: SecondMeSessionRecord = {
+    accessToken,
+    bindCode: bindCode ?? null,
+    createdAt:
+      state.secondMeSessions.get(secondMeSessionKey(sessionId, slot))?.createdAt ?? now,
+    expiresAt,
+    refreshToken,
+    sessionId,
+    slot,
+    source,
+    updatedAt: now,
+  };
+  state.secondMeSessions.set(secondMeSessionKey(sessionId, slot), record);
+  return record;
+};
+
+const saveSecondMeBindCode = async ({
+  code,
+  expiresAt,
+  sessionId,
+  slot,
+}: SaveSecondMeBindCodeInput) => {
+  const record: SecondMeBindCodeRecord = {
+    code,
+    createdAt: new Date().toISOString(),
+    expiresAt,
+    sessionId,
+    slot,
+    usedAt: null,
+  };
+  state.secondMeBindCodes.set(code, record);
   return record;
 };
 
@@ -247,6 +302,34 @@ export const createMemoryArenaStore = (): ArenaStore => ({
     for (const [code, bindCode] of state.bindCodes.entries()) {
       if (bindCode.sessionId === sessionId && bindCode.slot === slot && !bindCode.usedAt) {
         state.bindCodes.delete(code);
+      }
+    }
+  },
+  saveSecondMeSession,
+  getSecondMeSessionForSlot: async ({ sessionId, slot }) =>
+    state.secondMeSessions.get(secondMeSessionKey(sessionId, slot)) ?? null,
+  clearSecondMeSessionsForSlot: async ({ sessionId, slot }) => {
+    state.secondMeSessions.delete(secondMeSessionKey(sessionId, slot));
+  },
+  saveSecondMeBindCode,
+  getSecondMeBindCode: async (code) => state.secondMeBindCodes.get(code) ?? null,
+  getLatestSecondMeBindCodeForSlot: async ({ sessionId, slot }) =>
+    [...state.secondMeBindCodes.values()]
+      .filter((bindCode) => bindCode.sessionId === sessionId && bindCode.slot === slot)
+      .sort((left, right) => right.createdAt.localeCompare(left.createdAt))[0] ?? null,
+  markSecondMeBindCodeUsed: async ({ code, usedAt }) => {
+    const current = state.secondMeBindCodes.get(code);
+    if (!current) {
+      return null;
+    }
+    const next = { ...current, usedAt };
+    state.secondMeBindCodes.set(code, next);
+    return next;
+  },
+  clearSecondMeBindCodesForSlot: async ({ sessionId, slot }) => {
+    for (const [code, bindCode] of state.secondMeBindCodes.entries()) {
+      if (bindCode.sessionId === sessionId && bindCode.slot === slot && !bindCode.usedAt) {
+        state.secondMeBindCodes.delete(code);
       }
     }
   },

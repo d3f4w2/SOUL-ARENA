@@ -139,6 +139,29 @@ export type OpenClawBindCodeRecord = {
   usedAt: string | null;
 };
 
+export type SecondMeSessionSource = "browser_oauth" | "qr_bind";
+
+export type SecondMeSessionRecord = {
+  accessToken: string;
+  bindCode: string | null;
+  createdAt: string;
+  expiresAt: number;
+  refreshToken: string;
+  sessionId: string;
+  slot: ArenaParticipantSlot;
+  source: SecondMeSessionSource;
+  updatedAt: string;
+};
+
+export type SecondMeBindCodeRecord = {
+  code: string;
+  createdAt: string;
+  expiresAt: string;
+  sessionId: string;
+  slot: ArenaParticipantSlot;
+  usedAt: string | null;
+};
+
 export type ParticipantSessionSnapshot = {
   authenticated: boolean;
   expiresAt: number | null;

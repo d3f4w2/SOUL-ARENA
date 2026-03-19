@@ -2,13 +2,30 @@ import { randomUUID } from "node:crypto";
 
 import { cookies } from "next/headers";
 
-import type { ArenaParticipantSlot } from "@/lib/arena-types";
+import {
+  clearSecondMeBindCodesForSlot,
+  clearSecondMeSessionsForSlot,
+  getLatestSecondMeBindCodeForSlot,
+  getSecondMeBindCode,
+  getSecondMeSessionForSlot,
+  markSecondMeBindCodeUsed,
+  saveSecondMeBindCode,
+  saveSecondMeSession,
+} from "@/lib/arena-store";
+import type {
+  ArenaParticipantSlot,
+  SecondMeBindCodeRecord,
+  SecondMeSessionRecord,
+  SecondMeSessionSource,
+} from "@/lib/arena-types";
+import { getArenaSessionId } from "@/lib/arena-session";
 import { env } from "@/lib/env";
 
 const SECONDME_SLOTS = ["alpha", "beta"] as const;
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 30;
 const REFRESH_WINDOW_MS = 60 * 1000;
 const SECURE_COOKIE = process.env.NODE_ENV === "production";
+const SECONDME_BIND_TTL_MS = 10 * 60 * 1000;
 
 type SecondMeEnvelope<T> = {
   code: number;
@@ -52,6 +69,16 @@ type SecondMeActRequest = {
   sessionId?: string;
   systemPrompt?: string;
 };
+
+type SecondMeCallbackContext =
+  | {
+      kind: "bind";
+      bindCode: string;
+    }
+  | {
+      kind: "slot";
+      slot: SecondMeAuthSlot;
+    };
 
 const getSecondMeConfig = () => {
   if (
@@ -111,6 +138,9 @@ const ephemeralCookieOptions = {
 const normalizeReturnTo = (value?: string | null) =>
   value && value.startsWith("/") ? value : "/arena";
 
+const createBindCodeValue = () =>
+  randomUUID().replace(/-/g, "").slice(0, 10).toUpperCase();
+
 const parseAuthState = (
   state: string | null,
 ): { slot: SecondMeAuthSlot; value: string } => {
@@ -130,6 +160,24 @@ const parseAuthState = (
   }
 
   return { slot: "alpha" as const, value: state };
+};
+
+const parseCallbackState = (state: string | null): SecondMeCallbackContext => {
+  if (state?.startsWith("bind:")) {
+    const [, bindCode] = state.split(":");
+
+    if (bindCode) {
+      return {
+        bindCode,
+        kind: "bind",
+      };
+    }
+  }
+
+  return {
+    kind: "slot",
+    slot: parseAuthState(state).slot,
+  };
 };
 
 const getCookieSession = async (
@@ -173,6 +221,28 @@ const setSessionCookies = async (
   cookieStore.set(refreshTokenCookie(slot), payload.refreshToken, cookieOptions);
   cookieStore.set(expiresAtCookie(slot), String(expiresAt), cookieOptions);
 };
+
+const tokenPayloadToSessionInput = ({
+  bindCode,
+  payload,
+  sessionId,
+  slot,
+  source,
+}: {
+  bindCode?: string | null;
+  payload: TokenPayload;
+  sessionId: string;
+  slot: SecondMeAuthSlot;
+  source: SecondMeSessionSource;
+}) => ({
+  accessToken: payload.accessToken,
+  bindCode: bindCode ?? null,
+  expiresAt: now() + Math.max(payload.expiresIn - 30, 30) * 1000,
+  refreshToken: payload.refreshToken,
+  sessionId,
+  slot,
+  source,
+});
 
 const exchangeForm = async (
   endpoint: string,
@@ -227,26 +297,113 @@ export const createSecondMeAuthUrl = async (
 
 export const resolveSecondMeAuthSlotFromState = (
   state: string | null,
-): SecondMeAuthSlot => parseAuthState(state).slot;
+): SecondMeAuthSlot => {
+  const context = parseCallbackState(state);
+  return context.kind === "slot" ? context.slot : "alpha";
+};
+
+export const exchangeCodeForTokenPayload = async (code: string) => {
+  const config = getSecondMeConfig();
+
+  return exchangeForm(joinUrl(config.apiBaseUrl, "/api/oauth/token/code"), {
+    client_id: config.clientId,
+    client_secret: config.clientSecret,
+    code,
+    grant_type: "authorization_code",
+    redirect_uri: config.redirectUri,
+  });
+};
+
+const refreshWithToken = async (refreshToken: string) => {
+  const config = getSecondMeConfig();
+
+  return exchangeForm(joinUrl(config.apiBaseUrl, "/api/oauth/token/refresh"), {
+    client_id: config.clientId,
+    client_secret: config.clientSecret,
+    grant_type: "refresh_token",
+    refresh_token: refreshToken,
+  });
+};
+
+const getStoredSecondMeSession = async (slot: SecondMeAuthSlot) => {
+  const sessionId = await getArenaSessionId();
+
+  return getSecondMeSessionForSlot({
+    sessionId,
+    slot,
+  });
+};
+
+const saveStoredSecondMeSessionForTarget = async ({
+  bindCode,
+  payload,
+  sessionId,
+  slot,
+  source,
+}: {
+  bindCode?: string | null;
+  payload: TokenPayload;
+  sessionId: string;
+  slot: SecondMeAuthSlot;
+  source: SecondMeSessionSource;
+}) =>
+  saveSecondMeSession(
+    tokenPayloadToSessionInput({
+      bindCode,
+      payload,
+      sessionId,
+      slot,
+      source,
+    }),
+  );
+
+const refreshStoredSecondMeSession = async (
+  session: SecondMeSessionRecord,
+) => {
+  const payload = await refreshWithToken(session.refreshToken);
+
+  await saveStoredSecondMeSessionForTarget({
+    bindCode: session.bindCode,
+    payload,
+    sessionId: session.sessionId,
+    slot: session.slot,
+    source: session.source,
+  });
+
+  return payload;
+};
+
+const assertSecondMeBindCodeUsable = (record: SecondMeBindCodeRecord | null) => {
+  if (!record) {
+    throw new Error("Invalid bind code");
+  }
+
+  if (record.usedAt) {
+    throw new Error("Bind code has already been used");
+  }
+
+  if (new Date(record.expiresAt).getTime() <= Date.now()) {
+    throw new Error("Bind code has expired");
+  }
+
+  return record;
+};
 
 export const exchangeCodeForSession = async (
   code: string,
   slot: SecondMeAuthSlot = "alpha",
 ) => {
-  const config = getSecondMeConfig();
   const authSlot = toSlot(slot);
-  const payload = await exchangeForm(
-    joinUrl(config.apiBaseUrl, "/api/oauth/token/code"),
-    {
-      grant_type: "authorization_code",
-      code,
-      redirect_uri: config.redirectUri,
-      client_id: config.clientId,
-      client_secret: config.clientSecret,
-    },
-  );
+  const payload = await exchangeCodeForTokenPayload(code);
+  const sessionId = await getArenaSessionId();
 
   await setSessionCookies(authSlot, payload);
+  await saveStoredSecondMeSessionForTarget({
+    payload,
+    sessionId,
+    slot: authSlot,
+    source: "browser_oauth",
+  });
   await clearSecondMeTransientCookies(authSlot);
   return payload;
 };
@@ -254,8 +411,13 @@ export const exchangeCodeForSession = async (
 export const refreshSecondMeSession = async (
   slot: SecondMeAuthSlot = "alpha",
 ) => {
-  const config = getSecondMeConfig();
   const authSlot = toSlot(slot);
+  const storedSession = await getStoredSecondMeSession(authSlot);
+
+  if (storedSession) {
+    return refreshStoredSecondMeSession(storedSession);
+  }
+
   const cookieStore = await cookies();
   const refreshToken = cookieStore.get(refreshTokenCookie(authSlot))?.value;
 
@@ -263,22 +425,22 @@ export const refreshSecondMeSession = async (
     throw new Error("No refresh token available");
   }
 
-  const payload = await exchangeForm(
-    joinUrl(config.apiBaseUrl, "/api/oauth/token/refresh"),
-    {
-      grant_type: "refresh_token",
-      refresh_token: refreshToken,
-      client_id: config.clientId,
-      client_secret: config.clientSecret,
-    },
-  );
+  const payload = await refreshWithToken(refreshToken);
 
   await setSessionCookies(authSlot, payload);
+  const sessionId = await getArenaSessionId();
+  await saveStoredSecondMeSessionForTarget({
+    payload,
+    sessionId,
+    slot: authSlot,
+    source: "browser_oauth",
+  });
   return payload;
 };
 
 export const clearSecondMeSession = async (slot?: SecondMeAuthSlot) => {
   const targets = slot ? [toSlot(slot)] : [...SECONDME_SLOTS];
+  const sessionId = await getArenaSessionId();
 
   await Promise.all(
     targets.flatMap((target) => [
@@ -287,14 +449,116 @@ export const clearSecondMeSession = async (slot?: SecondMeAuthSlot) => {
       clearCookie(expiresAtCookie(target)),
       clearCookie(stateCookie(target)),
       clearCookie(returnToCookie(target)),
+      clearSecondMeSessionsForSlot({
+        sessionId,
+        slot: target,
+      }),
+      clearSecondMeBindCodesForSlot({
+        sessionId,
+        slot: target,
+      }),
     ]),
   );
 };
 
+export const createSecondMeBindCodeForSlot = async (
+  slot: ArenaParticipantSlot,
+) => {
+  const authSlot = toSlot(slot);
+  const sessionId = await getArenaSessionId();
+
+  await clearSecondMeSessionsForSlot({
+    sessionId,
+    slot: authSlot,
+  });
+  await clearSecondMeBindCodesForSlot({
+    sessionId,
+    slot: authSlot,
+  });
+
+  return saveSecondMeBindCode({
+    code: createBindCodeValue(),
+    expiresAt: new Date(Date.now() + SECONDME_BIND_TTL_MS).toISOString(),
+    sessionId,
+    slot: authSlot,
+  });
+};
+
+export const buildSecondMeBindAuthUrl = async (bindCode: string) => {
+  const config = getSecondMeConfig();
+  const params = new URLSearchParams({
+    client_id: config.clientId,
+    redirect_uri: config.redirectUri,
+    response_type: "code",
+    scope: env.SECONDME_SCOPES.join(" "),
+    state: `bind:${bindCode}`,
+  });
+
+  return `${config.oauthUrl}?${params.toString()}`;
+};
+
+export const getSecondMeBindCodeRecord = async (code: string) =>
+  getSecondMeBindCode(code);
+
+export const getLatestSecondMeBindCodeForCurrentSession = async (
+  slot: ArenaParticipantSlot,
+) => {
+  const sessionId = await getArenaSessionId();
+
+  return getLatestSecondMeBindCodeForSlot({
+    sessionId,
+    slot: toSlot(slot),
+  });
+};
+
+export const completeSecondMeBindCode = async (
+  bindCodeValue: string,
+  payload: TokenPayload,
+) => {
+  const bindCode = assertSecondMeBindCodeUsable(
+    await getSecondMeBindCode(bindCodeValue),
+  );
+
+  await saveStoredSecondMeSessionForTarget({
+    bindCode: bindCode.code,
+    payload,
+    sessionId: bindCode.sessionId,
+    slot: bindCode.slot,
+    source: "qr_bind",
+  });
+  await markSecondMeBindCodeUsed({
+    code: bindCode.code,
+    usedAt: new Date().toISOString(),
+  });
+
+  return bindCode;
+};
+
+export const resolveSecondMeCallbackContext = (
+  state: string | null,
+): SecondMeCallbackContext => parseCallbackState(state);
+
 export const getValidSecondMeAccessToken = async (
   slot: SecondMeAuthSlot = "alpha",
 ) => {
-  const session = await getCookieSession(toSlot(slot));
+  const authSlot = toSlot(slot);
+  const storedSession = await getStoredSecondMeSession(authSlot);
+
+  if (storedSession) {
+    if (storedSession.expiresAt - now() > REFRESH_WINDOW_MS) {
+      return storedSession.accessToken;
+    }
+
+    const refreshed = await refreshStoredSecondMeSession(storedSession).catch(
+      () => null,
+    );
+
+    if (refreshed) {
+      return refreshed.accessToken;
+    }
+  }
+
+  const session = await getCookieSession(authSlot);
 
   if (!session.accessToken && !session.refreshToken) {
     return null;
@@ -319,7 +583,19 @@ export const getValidSecondMeAccessToken = async (
 export const getSecondMeSessionSnapshot = async (
   slot: SecondMeAuthSlot = "alpha",
 ) => {
-  const session = await getCookieSession(toSlot(slot));
+  const authSlot = toSlot(slot);
+  const storedSession = await getStoredSecondMeSession(authSlot);
+
+  if (storedSession) {
+    return {
+      authenticated: Boolean(
+        storedSession.accessToken || storedSession.refreshToken,
+      ),
+      expiresAt: storedSession.expiresAt || null,
+    };
+  }
+
+  const session = await getCookieSession(authSlot);
 
   return {
     authenticated: Boolean(session.accessToken || session.refreshToken),
