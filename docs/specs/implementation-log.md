@@ -116,3 +116,12 @@
 - Kept local SQLite as the local-development fallback when `POSTGRES_URL` is not configured
 - Fixed missing `await` calls in battle/history/leaderboard/profile/rematch routes and pages so read-after-write behavior stays correct against Postgres
 - Kept battle detail, history, leaderboard, rematch, and OpenClaw binding flows on the shared store abstraction
+
+### Local Handoff Skill For OpenClaw Registration
+- Extracted the OpenClaw-side Soul Arena registration flow into a local skill package under `skills/soul-arena-openclaw-register`
+- Kept the scope narrow: bind-code creation remains in Soul Arena, while the extracted skill only covers persona-to-register payload construction and `POST /api/openclaw/register`
+- Added a minimal handoff bundle with:
+  - `SKILL.md`
+  - API contract reference
+  - `soul.md` persona mapping reference
+  - example registration payload
