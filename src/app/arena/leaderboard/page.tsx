@@ -19,9 +19,11 @@ const resultLabel = (result: "win" | "loss" | null) => {
   return "尚未开赛";
 };
 
-export default function ArenaLeaderboardPage() {
-  const leaderboard = getArenaLeaderboard(20);
-  const featured = getArenaFeaturedCompetitor();
+export default async function ArenaLeaderboardPage() {
+  const [leaderboard, featured] = await Promise.all([
+    getArenaLeaderboard(20),
+    getArenaFeaturedCompetitor(),
+  ]);
 
   return (
     <main className="scanlines relative min-h-screen overflow-hidden px-4 py-6 sm:px-6 lg:px-10" style={{ color: "var(--text)" }}>

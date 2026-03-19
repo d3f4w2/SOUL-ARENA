@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const setup = createRematchSetupFromBattle(body.battleId);
+  const setup = await createRematchSetupFromBattle(body.battleId);
 
   if (!setup) {
     return NextResponse.json(

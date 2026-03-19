@@ -7,7 +7,7 @@ export async function GET(
   context: { params: Promise<{ battleId: string }> },
 ) {
   const { battleId } = await context.params;
-  const battle = getArenaBattlePackageWithCompetition(battleId);
+  const battle = await getArenaBattlePackageWithCompetition(battleId);
 
   if (!battle) {
     return NextResponse.json(

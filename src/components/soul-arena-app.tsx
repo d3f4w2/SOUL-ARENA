@@ -64,11 +64,11 @@ const winnerLabel = (
       ? defenderName
       : winnerId;
 
-export function SoulArenaApp() {
+export async function SoulArenaApp() {
   const classics = getClassicBattlePackages();
-  const leaderboard = getArenaLeaderboard(5);
-  const featured = getArenaFeaturedCompetitor();
-  const recentBattles = listArenaBattleSummariesWithCompetition(3);
+  const leaderboard = await getArenaLeaderboard(5);
+  const featured = await getArenaFeaturedCompetitor();
+  const recentBattles = await listArenaBattleSummariesWithCompetition(3);
 
   return (
     <main

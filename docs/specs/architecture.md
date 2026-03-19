@@ -134,3 +134,7 @@ battle package 仍然是当前最关键的内部稳定契约。它连接：
 1. 接入 `openclaw` 作为新的 participant provider
 2. 把当前 hybrid battle 推进到更完整的真实编排
 3. 在 SQLite 之上继续扩展 history / rematch / share 能力
+## 2026-03-19 Hosted persistence update
+- Vercel deployments use Postgres through `POSTGRES_URL` as the shared persistence store.
+- Local development keeps the existing SQLite fallback at `.local/soul-arena.sqlite`.
+- Battle detail, history, leaderboard, rematch, and OpenClaw binding flows all read from the shared store instead of relying on process-local state.

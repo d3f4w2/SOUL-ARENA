@@ -108,3 +108,11 @@
 - Builder now guides users through bind-code generation and waits for OpenClaw-side registration instead of relying on local file import
 - Registration payload now supports `displayId`, `avatarUrl`, and `agentVersion`
 - OpenClaw rating identity now prefers a stable `displayId` when available instead of per-binding ids
+
+## 2026-03-19
+
+### Hosted Persistence for Vercel
+- Promoted `POSTGRES_URL` to the hosted persistence path for Vercel deployments instead of silently falling back to local SQLite
+- Kept local SQLite as the local-development fallback when `POSTGRES_URL` is not configured
+- Fixed missing `await` calls in battle/history/leaderboard/profile/rematch routes and pages so read-after-write behavior stays correct against Postgres
+- Kept battle detail, history, leaderboard, rematch, and OpenClaw binding flows on the shared store abstraction

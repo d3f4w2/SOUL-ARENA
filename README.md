@@ -104,3 +104,8 @@ npm run build
 - 完成任务后更新：
   - `docs/specs/progress.md`
   - `docs/specs/implementation-log.md`
+
+## 2026-03-19 Hosted persistence
+- Configure `POSTGRES_URL` in Vercel for shared battle persistence.
+- Hosted deployments now persist battles, battle setups, and OpenClaw bindings in Postgres.
+- Local development keeps the `.local/soul-arena.sqlite` fallback when `POSTGRES_URL` is not set.

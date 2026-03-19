@@ -19,7 +19,7 @@
   - judge-side aggregation
   - deterministic fallback
 - Best-effort `agent_memory/ingest` writeback after battle generation.
-- SQLite-backed battle persistence.
+- Hosted Postgres-backed persistence for Vercel deployments, with SQLite fallback for local development.
 - `/api/arena/history` history API.
 - `/arena/history` reload-safe battle archive page.
 - User-facing Arena / history / replay text unified to Chinese.
@@ -32,7 +32,7 @@
 - `/arena/history`:
   - lists persisted battles and links into replay
 - `/arena/[battleId]`:
-  - reload-safe as long as the battle was persisted locally
+  - reload-safe as long as the battle was persisted to the configured store
 
 ## P0 next
 - Implement `openclaw` as an additional participant provider.
@@ -52,7 +52,7 @@
   - fighter-side move generation
   - judge-side aggregation
   - deterministic fallback exchange logic
-- Persistence is local SQLite only; there is no cross-device sync or hosted storage yet.
+- Hosted persistence now depends on `POSTGRES_URL` in Vercel; local development still falls back to SQLite.
 ## 2026-03-18
 
 ### 已完成

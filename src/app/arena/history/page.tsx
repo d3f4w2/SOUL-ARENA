@@ -8,9 +8,11 @@ import {
 
 export const dynamic = "force-dynamic";
 
-export default function ArenaHistoryPage() {
-  const battles = listArenaBattleSummariesWithCompetition(100);
-  const featured = getArenaFeaturedCompetitor();
+export default async function ArenaHistoryPage() {
+  const [battles, featured] = await Promise.all([
+    listArenaBattleSummariesWithCompetition(100),
+    getArenaFeaturedCompetitor(),
+  ]);
 
   return (
     <main className="scanlines relative min-h-screen overflow-hidden px-4 py-6 sm:px-6 lg:px-10" style={{ color: "var(--text)" }}>

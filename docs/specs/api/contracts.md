@@ -135,7 +135,8 @@
 
 - `GET /api/arena/battles/:battleId`
   - `implemented`
-  - Reads one battle package from the local SQLite battle store.
+  - Reads one battle package from the configured persistence store.
+  - Hosted deployments use Postgres via `POSTGRES_URL`; local development falls back to SQLite.
 
 - `GET /api/arena/battles/:battleId/events`
   - `implemented`
@@ -171,7 +172,7 @@
 
 ## Remaining gaps
 - `openclaw` provider is typed but not implemented.
-- Persistence is local SQLite only; there is no remote/shared store yet.
+- Hosted persistence uses Postgres on Vercel when `POSTGRES_URL` is configured; local development falls back to SQLite.
 - The home page still uses classic demo battles generated from local presets.
 ## 2026-03-18 竞技化补充
 

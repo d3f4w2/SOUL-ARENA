@@ -524,8 +524,8 @@ const buildCompetitionSnapshot = (
   };
 };
 
-const getSnapshot = () =>
-  buildCompetitionSnapshot(listBattlePackages({ order: "asc" }));
+const getSnapshot = async () =>
+  buildCompetitionSnapshot(await listBattlePackages({ order: "asc" }));
 
 const createProvisionalProfile = (
   identity: ArenaCompetitorIdentity,
@@ -559,17 +559,17 @@ const createProvisionalProfile = (
   };
 };
 
-export const getArenaLeaderboard = (limit = 10) =>
-  getSnapshot().leaderboard.slice(0, Math.max(1, Math.min(limit, 50)));
+export const getArenaLeaderboard = async (limit = 10) =>
+  (await getSnapshot()).leaderboard.slice(0, Math.max(1, Math.min(limit, 50)));
 
-export const getArenaBattlePackageWithCompetition = (battleId: string) => {
-  const battle = getBattlePackage(battleId);
+export const getArenaBattlePackageWithCompetition = async (battleId: string) => {
+  const battle = await getBattlePackage(battleId);
 
   if (!battle) {
     return null;
   }
 
-  const snapshot = getSnapshot();
+  const snapshot = await getSnapshot();
 
   return {
     ...battle,
@@ -577,10 +577,10 @@ export const getArenaBattlePackageWithCompetition = (battleId: string) => {
   } satisfies BattlePackage;
 };
 
-export const listArenaBattleSummariesWithCompetition = (limit = 50) => {
+export const listArenaBattleSummariesWithCompetition = async (limit = 50) => {
   const safeLimit = Math.max(1, Math.min(limit, 200));
-  const battles = listBattlePackages({ limit: safeLimit, order: "desc" });
-  const snapshot = getSnapshot();
+  const battles = await listBattlePackages({ limit: safeLimit, order: "desc" });
+  const snapshot = await getSnapshot();
 
   return battles.map((battle) =>
     toBattleSummary(
@@ -590,32 +590,32 @@ export const listArenaBattleSummariesWithCompetition = (limit = 50) => {
   );
 };
 
-export const getArenaCompetitorProfile = (competitorId: string) =>
-  getSnapshot().competitorIndex.get(competitorId) ?? null;
+export const getArenaCompetitorProfile = async (competitorId: string) =>
+  (await getSnapshot()).competitorIndex.get(competitorId) ?? null;
 
 export const getArenaProfilesForParticipants = (
   participants: ArenaParticipantSource[],
-): ArenaParticipantCompetitiveProfile[] => {
-  const snapshot = getSnapshot();
+): Promise<ArenaParticipantCompetitiveProfile[]> =>
+  getSnapshot().then((snapshot) =>
 
-  return participants
-    .filter((participant) => participant.slot === "alpha" || participant.slot === "beta")
-    .map((participant) => {
-      const identity = createIdentityFromParticipant(participant);
-      const profile = identity
-        ? snapshot.competitorIndex.get(identity.competitorId) ??
-          createProvisionalProfile(identity, snapshot.leaderboard)
-        : null;
+    participants
+      .filter((participant) => participant.slot === "alpha" || participant.slot === "beta")
+      .map((participant) => {
+        const identity = createIdentityFromParticipant(participant);
+        const profile = identity
+          ? snapshot.competitorIndex.get(identity.competitorId) ??
+            createProvisionalProfile(identity, snapshot.leaderboard)
+          : null;
 
-      return {
-        profile,
-        slot: participant.slot,
-      };
-    });
-};
+        return {
+          profile,
+          slot: participant.slot,
+        };
+      }),
+  );
 
-export const getArenaFeaturedCompetitor = () => {
-  const leaderboard = getArenaLeaderboard(10);
+export const getArenaFeaturedCompetitor = async () => {
+  const leaderboard = await getArenaLeaderboard(10);
 
   if (!leaderboard.length) {
     return null;

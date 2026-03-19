@@ -15,8 +15,8 @@ export const deriveSetupFromBattle = (battle: BattlePackage): BattleSetupRecord 
   topicSnapshot: battle.topic,
 });
 
-export const createRematchSetupFromBattle = (battleId: string) => {
-  const battle = getBattlePackage(battleId);
+export const createRematchSetupFromBattle = async (battleId: string) => {
+  const battle = await getBattlePackage(battleId);
 
   if (!battle) {
     return null;
@@ -37,7 +37,7 @@ export const getResolvedBattleSetup = async (setupId: string): Promise<{
   participants: ArenaParticipantSource[];
   setup: BattleSetupRecord;
 } | null> => {
-  const setup = getBattleSetup(setupId);
+  const setup = await getBattleSetup(setupId);
 
   if (!setup) {
     return null;

@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const setup = saveBattleSetup({
+  const setup = await saveBattleSetup({
     originBattleId: body.originBattleId ?? null,
     overrides: body.overrides ?? {},
     participants: body.participants,
@@ -100,8 +100,9 @@ export async function POST(request: NextRequest) {
     participants,
   );
 
-  saveBattlePackage(battle);
-  const hydratedBattle = getArenaBattlePackageWithCompetition(battle.id) ?? battle;
+  await saveBattlePackage(battle);
+  const hydratedBattle =
+    (await getArenaBattlePackageWithCompetition(battle.id)) ?? battle;
   await Promise.allSettled(
     body.participants
       .filter(

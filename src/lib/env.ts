@@ -51,6 +51,7 @@ export const env = {
     process.env.ZHIHU_OPENAPI_BASE_URL,
     "ZHIHU_OPENAPI_BASE_URL",
   ),
+  POSTGRES_URL: optional(process.env.POSTGRES_URL),
   OPENCLAW_WORKSPACE_DIR: optional(process.env.OPENCLAW_WORKSPACE_DIR),
   OPENCLAW_RUNTIME_BASE_URL: optional(process.env.OPENCLAW_RUNTIME_BASE_URL),
   OPENCLAW_RUNTIME_TOKEN: optional(process.env.OPENCLAW_RUNTIME_TOKEN),

@@ -387,7 +387,7 @@ export const createOpenClawBindCodeForSlot = async (
   slot: ArenaParticipantSlot,
 ) => {
   const sessionId = await getArenaSessionId();
-  clearOpenClawBindCodesForSlot({
+  await clearOpenClawBindCodesForSlot({
     sessionId,
     slot,
   });
@@ -419,8 +419,8 @@ const assertBindCodeUsable = (record: OpenClawBindCodeRecord | null) => {
 export const registerOpenClawBindingWithCode = async (
   input: OpenClawRegistrationInput,
 ) => {
-  const bindCode = assertBindCodeUsable(getOpenClawBindCode(input.bindCode));
-  const binding = saveOpenClawBinding({
+  const bindCode = assertBindCodeUsable(await getOpenClawBindCode(input.bindCode));
+  const binding = await saveOpenClawBinding({
     input: normalizeBindingInput(
       {
         archetype: input.archetype,
@@ -449,7 +449,7 @@ export const registerOpenClawBindingWithCode = async (
     slot: bindCode.slot,
   });
 
-  markOpenClawBindCodeUsed({
+  await markOpenClawBindCodeUsed({
     code: bindCode.code,
     usedAt: new Date().toISOString(),
   });
@@ -500,11 +500,11 @@ export const getOpenClawBindingForSlot = async ({
 
 export const clearOpenClawBindingForSlot = async (slot: ArenaParticipantSlot) => {
   const sessionId = await getArenaSessionId();
-  clearOpenClawBindingsForSlot({
+  await clearOpenClawBindingsForSlot({
     sessionId,
     slot,
   });
-  clearOpenClawBindCodesForSlot({
+  await clearOpenClawBindCodesForSlot({
     sessionId,
     slot,
   });
