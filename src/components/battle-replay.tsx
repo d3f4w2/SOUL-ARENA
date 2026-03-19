@@ -327,7 +327,7 @@ function drawStage(
       ctx.arc(mx, my, r, 0, Math.PI * 2);
       ctx.fillStyle = `hsl(${hue},60%,28%)`;
       ctx.fill();
-      ctx.font = `700 ${r}px Impact, Arial Black, sans-serif`;
+      ctx.font = `700 ${r}px Bahnschrift, Segoe UI Variable Display, Aptos Display, Microsoft YaHei UI, sans-serif`;
       ctx.fillStyle = `hsl(${hue},80%,75%)`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
@@ -384,7 +384,7 @@ function drawStage(
 
   // VS center divider
   ctx.textAlign = "center";
-  ctx.font = "700 24px Impact, Arial Black, sans-serif";
+  ctx.font = "700 24px Bahnschrift, Segoe UI Variable Display, Aptos Display, Microsoft YaHei UI, sans-serif";
   ctx.fillStyle = "#ffd700";
   ctx.shadowColor = "rgba(255,200,0,0.9)";
   ctx.shadowBlur = 18;
@@ -392,18 +392,18 @@ function drawStage(
   ctx.shadowBlur = 0;
 
   // ROUND label below VS
-  ctx.font = "700 11px Impact, Arial Black, sans-serif";
+  ctx.font = "700 11px Bahnschrift, Segoe UI Variable Display, Aptos Display, Microsoft YaHei UI, sans-serif";
   ctx.fillStyle = "#ff2200";
   ctx.shadowColor = "rgba(255,30,0,0.7)";
   ctx.shadowBlur = 6;
   ctx.fillText(`ROUND ${Math.max(1, replayState.round)}`, W / 2, 46);
   ctx.shadowBlur = 0;
-  ctx.font = "500 9px 'Courier New', monospace";
+  ctx.font = "500 9px Cascadia Mono, Consolas, Microsoft YaHei UI, monospace";
   ctx.fillStyle = "rgba(232,212,184,0.45)";
   ctx.fillText(battle.topic.title, W / 2, 60);
 
   // Player name (left side)
-  ctx.font = "bold 17px Impact, Arial Black, sans-serif";
+  ctx.font = "bold 17px Bahnschrift, Segoe UI Variable Display, Aptos Display, Microsoft YaHei UI, sans-serif";
   ctx.fillStyle = "#ff3300";
   ctx.textAlign = "left";
   ctx.shadowColor = "rgba(255,40,0,0.9)";
@@ -411,7 +411,7 @@ function drawStage(
   ctx.fillText(battle.player.displayName.toUpperCase(), 18, 22);
   ctx.shadowBlur = 0;
   // Defender name (right side)
-  ctx.font = "bold 17px Impact, Arial Black, sans-serif";
+  ctx.font = "bold 17px Bahnschrift, Segoe UI Variable Display, Aptos Display, Microsoft YaHei UI, sans-serif";
   ctx.fillStyle = "#ffd700";
   ctx.textAlign = "right";
   ctx.shadowColor = "rgba(255,215,0,0.9)";
@@ -442,7 +442,7 @@ function drawStage(
     ctx.fillStyle = "rgba(255,30,0,0.0)"; ctx.fillRect(barPad, barY2 + barH2 - 1, pFill, 1);
     ctx.shadowBlur = 0;
   }
-  ctx.textAlign = "left"; ctx.font = "bold 10px Impact, Arial Black, sans-serif";
+  ctx.textAlign = "left"; ctx.font = "bold 10px Bahnschrift, Segoe UI Variable Display, Aptos Display, Microsoft YaHei UI, sans-serif";
   ctx.fillStyle = replayState.playerHealth > 25 ? "rgba(255,220,220,0.85)" : "#ff6600";
   ctx.fillText(`${replayState.playerHealth}%`, barPad + 5, barY2 + barH2 - 4);
   // ── Defender health bar (right→left) ──
@@ -458,7 +458,7 @@ function drawStage(
   ctx.fillStyle = dBarGrad; ctx.fillRect(defBarX2 + barW2 - dFill, barY2, dFill, barH2);
   // Shine highlight
   ctx.fillStyle = "rgba(255,255,200,0.15)"; ctx.fillRect(defBarX2 + barW2 - dFill, barY2, dFill, 6);
-  ctx.textAlign = "right"; ctx.font = "bold 10px Impact, Arial Black, sans-serif";
+  ctx.textAlign = "right"; ctx.font = "bold 10px Bahnschrift, Segoe UI Variable Display, Aptos Display, Microsoft YaHei UI, sans-serif";
   ctx.fillStyle = replayState.defenderHealth > 25 ? "rgba(255,240,180,0.85)" : "#ff6600";
   ctx.fillText(`${replayState.defenderHealth}%`, W - barPad - 5, barY2 + barH2 - 4);
 
@@ -675,7 +675,7 @@ function drawStage(
       ctx.shadowBlur = 0;
       // Nameplate text
       ctx.textAlign = "center";
-      ctx.font = "bold 11px Impact, Arial Black, sans-serif";
+      ctx.font = "bold 11px Bahnschrift, Segoe UI Variable Display, Aptos Display, Microsoft YaHei UI, sans-serif";
       ctx.fillStyle = bodyColor === "#cc0000" ? "#ff8888" : "#ffd700";
       ctx.shadowColor = glowColor; ctx.shadowBlur = 10;
       ctx.fillText(`${displayName.toUpperCase()} · ${score}pts`, cx, npY + npH - 6);
@@ -725,7 +725,7 @@ function drawStage(
           ctx.shadowBlur = 0;
           // Stat value
           const statVal = cfg.stat === 'ATK' ? card.atk : cfg.stat === 'DEF' ? card.def : card.pen;
-          ctx.font = 'bold 9px "Courier New", monospace';
+          ctx.font = 'bold 9px Cascadia Mono, Consolas, Microsoft YaHei UI, monospace';
           ctx.fillStyle = rarityColor;
           ctx.textAlign = 'right';
           ctx.fillText(`${cfg.stat}${statVal}`, sx + slotW - 3, rackY + 13);
@@ -828,7 +828,7 @@ function drawStage(
     ctx.fillRect(npX2, npY2, npW2, 2);
     ctx.shadowBlur = 0;
     ctx.textAlign = "center";
-    ctx.font = "bold 11px Impact, Arial Black, sans-serif";
+    ctx.font = "bold 11px Bahnschrift, Segoe UI Variable Display, Aptos Display, Microsoft YaHei UI, sans-serif";
     ctx.fillStyle = bodyColor === "#cc0000" ? "#ff8888" : "#ffd700";
     ctx.shadowColor = glowColor; ctx.shadowBlur = 10;
     ctx.fillText(`${displayName.toUpperCase()} · ${score}pts`, cx, npY2 + npH2 - 6);
@@ -991,16 +991,16 @@ function drawStage(
 
   ctx.textAlign = "center";
   if (isWeaknessHit) {
-    ctx.font = "700 44px Impact, Arial Black, sans-serif";
+    ctx.font = "700 44px Bahnschrift, Segoe UI Variable Display, Aptos Display, Microsoft YaHei UI, sans-serif";
     ctx.fillStyle = "#ffd700"; ctx.shadowColor = "rgba(255,100,0,0.95)"; ctx.shadowBlur = 30;
     ctx.fillText("WEAKNESS HIT", W / 2, H - 56); ctx.shadowBlur = 0;
   } else {
-    ctx.font = `700 ${evType === "attack" ? 34 : 30}px Impact, Arial Black, sans-serif`;
+    ctx.font = `700 ${evType === "attack" ? 34 : 30}px Bahnschrift, Segoe UI Variable Display, Aptos Display, Microsoft YaHei UI, sans-serif`;
     ctx.fillStyle = isMeleeHit ? "#ff4400" : "#e8d4b8";
     ctx.shadowColor = "rgba(200,0,0,0.65)"; ctx.shadowBlur = 14;
     ctx.fillText(currentEvent?.title ?? "STAND BY", W / 2, H - 58); ctx.shadowBlur = 0;
   }
-  ctx.font = "500 14px 'Courier New', monospace";
+  ctx.font = "500 14px Cascadia Mono, Consolas, Microsoft YaHei UI, monospace";
   ctx.fillStyle = "rgba(232,212,184,0.72)";
   ctx.fillText(currentEvent?.description ?? "等待战斗数据载入。", W / 2, H - 30, W - 180);
   ctx.textAlign = "left";
@@ -1080,7 +1080,7 @@ function drawStage(
     ctx.textBaseline = "middle";
     const winnerColor = isPlayerWinner ? "#ff3300" : "#ffd700";
     const winnerShadow = isPlayerWinner ? "rgba(255,30,0,1)" : "rgba(255,215,0,1)";
-    ctx.font = `bold 88px Impact, "Arial Black", sans-serif`;
+    ctx.font = `bold 88px Bahnschrift, Segoe UI Variable Display, Aptos Display, Microsoft YaHei UI, sans-serif`;
     ctx.strokeStyle = "#000";
     ctx.lineWidth = 10;
     ctx.strokeText(winnerName.toUpperCase(), W / 2, H / 2 - 40);
@@ -1106,7 +1106,7 @@ function drawStage(
       ctx.save();
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.font = `bold 64px Impact, "Arial Black", sans-serif`;
+      ctx.font = `bold 64px Bahnschrift, Segoe UI Variable Display, Aptos Display, Microsoft YaHei UI, sans-serif`;
       ctx.strokeStyle = "#000"; ctx.lineWidth = 8;
       ctx.strokeText("WINS!", W / 2, H / 2 + 70);
       ctx.fillStyle = "#ff2200"; ctx.shadowColor = "rgba(255,30,0,1)"; ctx.shadowBlur = 30;
@@ -1142,7 +1142,7 @@ function drawStage(
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       const fontSize = Math.floor(120 * announcer.scale);
-      ctx.font = `bold ${fontSize}px Impact, "Arial Black", sans-serif`;
+      ctx.font = `bold ${fontSize}px Bahnschrift, Segoe UI Variable Display, Aptos Display, Microsoft YaHei UI, sans-serif`;
       ctx.strokeStyle = "#000";
       ctx.lineWidth = 10;
       ctx.strokeText(announcer.text, W / 2, H / 2);
@@ -1185,11 +1185,11 @@ const winnerLabel = (battle: BattlePackage) =>
 function MiniStatBar({ label, value, max, accent }: { label: string; value: number; max: number; accent: string }) {
   return (
     <div className="flex items-center gap-2">
-      <span style={{ fontFamily: "'Courier New', monospace", fontSize: '0.6rem', color: 'var(--text-muted)', width: '2.2rem', flexShrink: 0, textAlign: 'right' }}>{label}</span>
+      <span style={{ fontFamily: "Cascadia Mono, Consolas, Microsoft YaHei UI, monospace", fontSize: '0.6rem', color: 'var(--text-muted)', width: '2.2rem', flexShrink: 0, textAlign: 'right' }}>{label}</span>
       <div style={{ flex: 1, height: '5px', background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(60,0,0,0.25)', overflow: 'hidden' }}>
         <div style={{ height: '100%', width: `${Math.round((value / max) * 100)}%`, background: accent, transition: 'width 350ms ease' }} />
       </div>
-      <span style={{ fontFamily: "'Courier New', monospace", fontSize: '0.6rem', color: 'var(--text-dim)', width: '1.5rem' }}>{value}</span>
+      <span style={{ fontFamily: "Cascadia Mono, Consolas, Microsoft YaHei UI, monospace", fontSize: '0.6rem', color: 'var(--text-dim)', width: '1.5rem' }}>{value}</span>
     </div>
   );
 }
@@ -1685,10 +1685,10 @@ export function BattleReplay({ battleId }: { battleId: string }) {
           <div className="flex items-center gap-4 mb-4">
             <div className="flex-1">
               <div className="flex items-center justify-between mb-1">
-                <p style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '0.85rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--red-bright)', textShadow: '0 0 8px rgba(255,30,0,0.5)' }}>
+                <p style={{ fontFamily: 'Bahnschrift, Segoe UI Variable Display, Aptos Display, Microsoft YaHei UI, sans-serif', fontSize: '0.85rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--red-bright)', textShadow: '0 0 8px rgba(255,30,0,0.5)' }}>
                   {battle.player.displayName}
                 </p>
-                <p style={{ fontFamily: "'Courier New', monospace", fontSize: '0.72rem', color: 'var(--red)' }}>
+                <p style={{ fontFamily: "Cascadia Mono, Consolas, Microsoft YaHei UI, monospace", fontSize: '0.72rem', color: 'var(--red)' }}>
                   {replayState.playerHealth}%
                 </p>
               </div>
@@ -1696,7 +1696,7 @@ export function BattleReplay({ battleId }: { battleId: string }) {
             </div>
 
             <div className="flex flex-col items-center gap-1 px-3">
-              <p style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '0.6rem', letterSpacing: '0.3em', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+              <p style={{ fontFamily: 'Bahnschrift, Segoe UI Variable Display, Aptos Display, Microsoft YaHei UI, sans-serif', fontSize: '0.6rem', letterSpacing: '0.3em', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
                 第 {replayState.round} 回合
               </p>
               <span className="mk-vs" style={{ fontSize: '1.6rem' }}>VS</span>
@@ -1704,10 +1704,10 @@ export function BattleReplay({ battleId }: { battleId: string }) {
 
             <div className="flex-1">
               <div className="flex items-center justify-between mb-1">
-                <p style={{ fontFamily: "'Courier New', monospace", fontSize: '0.72rem', color: 'var(--gold)' }}>
+                <p style={{ fontFamily: "Cascadia Mono, Consolas, Microsoft YaHei UI, monospace", fontSize: '0.72rem', color: 'var(--gold)' }}>
                   {replayState.defenderHealth}%
                 </p>
-                <p style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '0.85rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--gold-bright)', textShadow: '0 0 8px rgba(255,215,0,0.4)', textAlign: 'right' }}>
+                <p style={{ fontFamily: 'Bahnschrift, Segoe UI Variable Display, Aptos Display, Microsoft YaHei UI, sans-serif', fontSize: '0.85rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--gold-bright)', textShadow: '0 0 8px rgba(255,215,0,0.4)', textAlign: 'right' }}>
                   {battle.defender.displayName}
                 </p>
               </div>
@@ -1721,7 +1721,7 @@ export function BattleReplay({ battleId }: { battleId: string }) {
             <div>
               <div className="mk-badge mb-2">实时战斗回放</div>
               <h1 className="mk-section">{battle.roomTitle}</h1>
-              <p style={{ fontFamily: "'Courier New', monospace", fontSize: '0.78rem', color: 'var(--text-dim)', lineHeight: '1.7', marginTop: '6px' }}>
+              <p style={{ fontFamily: "Cascadia Mono, Consolas, Microsoft YaHei UI, monospace", fontSize: '0.78rem', color: 'var(--text-dim)', lineHeight: '1.7', marginTop: '6px' }}>
                 {battle.topic.prompt}
               </p>
             </div>
@@ -1821,10 +1821,10 @@ export function BattleReplay({ battleId }: { battleId: string }) {
             </div>
             {/* Score display */}
             <div className="flex justify-between mt-2 px-1">
-              <p style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '0.8rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--red)' }}>
+              <p style={{ fontFamily: 'Bahnschrift, Segoe UI Variable Display, Aptos Display, Microsoft YaHei UI, sans-serif', fontSize: '0.8rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--red)' }}>
                 {battle.player.displayName} · {replayState.playerScore}
               </p>
-              <p style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '0.8rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--gold)' }}>
+              <p style={{ fontFamily: 'Bahnschrift, Segoe UI Variable Display, Aptos Display, Microsoft YaHei UI, sans-serif', fontSize: '0.8rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--gold)' }}>
                 {replayState.defenderScore} · {battle.defender.displayName}
               </p>
             </div>
@@ -1838,7 +1838,7 @@ export function BattleReplay({ battleId }: { battleId: string }) {
               <article className="entry-fade mk-panel p-5">
                 <div className="mk-label-red mb-2">排位结算</div>
                 <h2 className="mk-section mb-4">{battle.competition.stakesLabel}</h2>
-                <div style={{ fontFamily: "'Courier New', monospace", fontSize: '0.82rem', color: 'var(--text-dim)', lineHeight: '2.1' }}>
+                <div style={{ fontFamily: "Cascadia Mono, Consolas, Microsoft YaHei UI, monospace", fontSize: '0.82rem', color: 'var(--text-dim)', lineHeight: '2.1' }}>
                   <p>
                     获胜：<span style={{ color: 'var(--gold)' }}>{winnerCompetition?.displayName ?? "胜者"}</span>{" "}
                     <span style={{ color: 'var(--gold-bright)' }}>{formatScoreDelta(winnerCompetition)}</span>
@@ -1877,7 +1877,7 @@ export function BattleReplay({ battleId }: { battleId: string }) {
               <h2 className="mk-section mb-3">
                 {replayState.currentEvent?.title ?? "等待战斗开始"}
               </h2>
-              <p style={{ fontFamily: "'Courier New', monospace", fontSize: '0.82rem', color: 'var(--text-dim)', lineHeight: '1.8' }}>
+              <p style={{ fontFamily: "Cascadia Mono, Consolas, Microsoft YaHei UI, monospace", fontSize: '0.82rem', color: 'var(--text-dim)', lineHeight: '1.8' }}>
                 {replayState.currentEvent?.description}
               </p>
               {(replayState.currentEvent?.tags ?? []).length > 0 && (
@@ -1900,16 +1900,16 @@ export function BattleReplay({ battleId }: { battleId: string }) {
                 const isPlayer = actor === battle.player;
                 return (
                   <div className="mk-panel-inset p-3 mt-4">
-                    <p style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '0.62rem', letterSpacing: '0.22em', textTransform: 'uppercase', color: isPlayer ? 'var(--red)' : 'var(--gold)', marginBottom: '8px' }}>
+                    <p style={{ fontFamily: 'Bahnschrift, Segoe UI Variable Display, Aptos Display, Microsoft YaHei UI, sans-serif', fontSize: '0.62rem', letterSpacing: '0.22em', textTransform: 'uppercase', color: isPlayer ? 'var(--red)' : 'var(--gold)', marginBottom: '8px' }}>
                       {actor.displayName} · 构筑依据
                     </p>
                     {summary.map((s) => (
-                      <p key={s} style={{ fontFamily: "'Courier New', monospace", fontSize: '0.72rem', color: 'var(--text-dim)', lineHeight: '1.6' }}>
+                      <p key={s} style={{ fontFamily: "Cascadia Mono, Consolas, Microsoft YaHei UI, monospace", fontSize: '0.72rem', color: 'var(--text-dim)', lineHeight: '1.6' }}>
                         · {s}
                       </p>
                     ))}
                     {anchors.map((a) => (
-                      <p key={a} style={{ fontFamily: "'Courier New', monospace", fontSize: '0.72rem', color: 'var(--text-muted)', lineHeight: '1.6', fontStyle: 'italic' }}>
+                      <p key={a} style={{ fontFamily: "Cascadia Mono, Consolas, Microsoft YaHei UI, monospace", fontSize: '0.72rem', color: 'var(--text-muted)', lineHeight: '1.6', fontStyle: 'italic' }}>
                         「{a}」
                       </p>
                     ))}
@@ -1933,13 +1933,13 @@ export function BattleReplay({ battleId }: { battleId: string }) {
                       const accent = isPlayer ? 'var(--red)' : 'var(--gold)';
                       return (
                         <div key={fighter.id} style={{ background: 'rgba(0,0,0,0.4)', border: `1px solid rgba(60,0,0,0.22)`, borderTop: `2px solid ${accent}`, padding: '8px' }}>
-                          <p style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '0.62rem', letterSpacing: '0.18em', textTransform: 'uppercase', color: accent, marginBottom: '4px' }}>
+                          <p style={{ fontFamily: 'Bahnschrift, Segoe UI Variable Display, Aptos Display, Microsoft YaHei UI, sans-serif', fontSize: '0.62rem', letterSpacing: '0.18em', textTransform: 'uppercase', color: accent, marginBottom: '4px' }}>
                             {fighter.displayName}
                           </p>
-                          <p style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '0.75rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-bright)', marginBottom: '3px' }}>
+                          <p style={{ fontFamily: 'Bahnschrift, Segoe UI Variable Display, Aptos Display, Microsoft YaHei UI, sans-serif', fontSize: '0.75rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-bright)', marginBottom: '3px' }}>
                             {card.title}
                           </p>
-                          <p style={{ fontFamily: "'Courier New', monospace", fontSize: '0.6rem', color: accent, marginBottom: '6px' }}>
+                          <p style={{ fontFamily: "Cascadia Mono, Consolas, Microsoft YaHei UI, monospace", fontSize: '0.6rem', color: accent, marginBottom: '6px' }}>
                             {card.trait}
                           </p>
                           <div className="flex flex-col gap-1">
@@ -1948,7 +1948,7 @@ export function BattleReplay({ battleId }: { battleId: string }) {
                             <MiniStatBar label="PEN" value={card.pen} max={18} accent="#7a00cc" />
                             <MiniStatBar label="SPD" value={card.spd} max={18} accent="#006fa8" />
                           </div>
-                          <p style={{ fontFamily: "'Courier New', monospace", fontSize: '0.58rem', color: 'var(--text-muted)', marginTop: '5px', lineHeight: '1.5' }}>
+                          <p style={{ fontFamily: "Cascadia Mono, Consolas, Microsoft YaHei UI, monospace", fontSize: '0.58rem', color: 'var(--text-muted)', marginTop: '5px', lineHeight: '1.5' }}>
                             {card.hint}
                           </p>
                         </div>
@@ -1960,7 +1960,7 @@ export function BattleReplay({ battleId }: { battleId: string }) {
                   <div className="grid gap-3 mt-3" style={{ gridTemplateColumns: '1fr 1fr' }}>
                     {[{ fighter: battle.player, isPlayer: true }, { fighter: battle.defender, isPlayer: false }].map(({ fighter, isPlayer }) => (
                       <div key={fighter.id}>
-                        <p style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '0.6rem', letterSpacing: '0.2em', textTransform: 'uppercase', color: isPlayer ? 'var(--red)' : 'var(--gold)', marginBottom: '5px' }}>
+                        <p style={{ fontFamily: 'Bahnschrift, Segoe UI Variable Display, Aptos Display, Microsoft YaHei UI, sans-serif', fontSize: '0.6rem', letterSpacing: '0.2em', textTransform: 'uppercase', color: isPlayer ? 'var(--red)' : 'var(--gold)', marginBottom: '5px' }}>
                           魂核
                         </p>
                         <SoulMiniBlock soul={fighter.soul} accent={isPlayer ? 'var(--red)' : 'var(--gold)'} />
@@ -1980,10 +1980,10 @@ export function BattleReplay({ battleId }: { battleId: string }) {
                     key={event.id}
                     className={index === playhead ? "mk-event-item mk-event-item-active" : "mk-event-item"}
                   >
-                    <p style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '0.8rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: index === playhead ? 'var(--red-bright)' : 'var(--text)', marginBottom: '3px' }}>
+                    <p style={{ fontFamily: 'Bahnschrift, Segoe UI Variable Display, Aptos Display, Microsoft YaHei UI, sans-serif', fontSize: '0.8rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: index === playhead ? 'var(--red-bright)' : 'var(--text)', marginBottom: '3px' }}>
                       {event.title}
                     </p>
-                    <p style={{ fontFamily: "'Courier New', monospace", fontSize: '0.72rem', color: 'var(--text-muted)', lineHeight: '1.6' }}>
+                    <p style={{ fontFamily: "Cascadia Mono, Consolas, Microsoft YaHei UI, monospace", fontSize: '0.72rem', color: 'var(--text-muted)', lineHeight: '1.6' }}>
                       {event.description}
                     </p>
                   </div>
@@ -2004,10 +2004,10 @@ export function BattleReplay({ battleId }: { battleId: string }) {
               {battle.highlights.map((highlight) => (
                 <article key={highlight.id} className="mk-highlight">
                   <div className="mk-badge mb-2">{highlight.label}</div>
-                  <p style={{ fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: '0.08em', textTransform: 'uppercase', fontSize: '0.95rem', color: 'var(--text-bright)', marginBottom: '6px' }}>
+                  <p style={{ fontFamily: 'Bahnschrift, Segoe UI Variable Display, Aptos Display, Microsoft YaHei UI, sans-serif', letterSpacing: '0.08em', textTransform: 'uppercase', fontSize: '0.95rem', color: 'var(--text-bright)', marginBottom: '6px' }}>
                     {highlight.title}
                   </p>
-                  <p style={{ fontFamily: "'Courier New', monospace", fontSize: '0.8rem', color: 'var(--text-dim)', lineHeight: '1.75' }}>
+                  <p style={{ fontFamily: "Cascadia Mono, Consolas, Microsoft YaHei UI, monospace", fontSize: '0.8rem', color: 'var(--text-dim)', lineHeight: '1.75' }}>
                     {highlight.description}
                   </p>
                 </article>
@@ -2019,15 +2019,15 @@ export function BattleReplay({ battleId }: { battleId: string }) {
             <div className="grid gap-3 md:grid-cols-3">
               {battle.judges.map((judge) => (
                 <div key={judge.id} className="mk-panel-inset p-3">
-                  <p style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '0.78rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: '6px' }}>
+                  <p style={{ fontFamily: 'Bahnschrift, Segoe UI Variable Display, Aptos Display, Microsoft YaHei UI, sans-serif', fontSize: '0.78rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: '6px' }}>
                     {judge.title}
                   </p>
-                  <p style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '1.1rem', color: 'var(--text-bright)', marginBottom: '5px' }}>
+                  <p style={{ fontFamily: 'Bahnschrift, Segoe UI Variable Display, Aptos Display, Microsoft YaHei UI, sans-serif', fontSize: '1.1rem', color: 'var(--text-bright)', marginBottom: '5px' }}>
                     <span style={{ color: 'var(--red)' }}>{judge.playerScore}</span>
                     {" : "}
                     <span style={{ color: 'var(--gold)' }}>{judge.defenderScore}</span>
                   </p>
-                  <p style={{ fontFamily: "'Courier New', monospace", fontSize: '0.72rem', color: 'var(--text-muted)', lineHeight: '1.65' }}>
+                  <p style={{ fontFamily: "Cascadia Mono, Consolas, Microsoft YaHei UI, monospace", fontSize: '0.72rem', color: 'var(--text-muted)', lineHeight: '1.65' }}>
                     {judge.commentary}
                   </p>
                 </div>
@@ -2040,12 +2040,12 @@ export function BattleReplay({ battleId }: { battleId: string }) {
             <article className="entry-fade mk-panel p-5">
               <div className="mk-label-red mb-2">终局比分</div>
               <h2 className="mk-section mb-4">{winnerLabel(battle)}</h2>
-              <div style={{ fontFamily: "'Courier New', monospace", fontSize: '0.85rem', color: 'var(--text-dim)', lineHeight: '2.1' }}>
+              <div style={{ fontFamily: "Cascadia Mono, Consolas, Microsoft YaHei UI, monospace", fontSize: '0.85rem', color: 'var(--text-dim)', lineHeight: '2.1' }}>
                 <p>
                   终局总分{" "}
-                  <span style={{ color: 'var(--red)', fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '1.1rem' }}>{battle.finalScore.player}</span>
+                  <span style={{ color: 'var(--red)', fontFamily: 'Bahnschrift, Segoe UI Variable Display, Aptos Display, Microsoft YaHei UI, sans-serif', fontSize: '1.1rem' }}>{battle.finalScore.player}</span>
                   {" : "}
-                  <span style={{ color: 'var(--gold)', fontFamily: 'Impact, Arial Black, sans-serif', fontSize: '1.1rem' }}>{battle.finalScore.defender}</span>
+                  <span style={{ color: 'var(--gold)', fontFamily: 'Bahnschrift, Segoe UI Variable Display, Aptos Display, Microsoft YaHei UI, sans-serif', fontSize: '1.1rem' }}>{battle.finalScore.defender}</span>
                 </p>
                 <p>
                   观众热度{" "}
@@ -2066,7 +2066,7 @@ export function BattleReplay({ battleId }: { battleId: string }) {
                   style={{ fontSize: '0.78rem', background: 'rgba(180,0,0,0.18)', borderColor: 'var(--red)' }}
                   type="button"
                 >
-                  <span style={{ fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--red-bright)', fontSize: '0.85rem' }}>
+                  <span style={{ fontFamily: 'Bahnschrift, Segoe UI Variable Display, Aptos Display, Microsoft YaHei UI, sans-serif', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--red-bright)', fontSize: '0.85rem' }}>
                     {battle.player.displayName}
                   </span>
                   <br />
@@ -2079,7 +2079,7 @@ export function BattleReplay({ battleId }: { battleId: string }) {
                   style={{ fontSize: '0.78rem', background: 'rgba(180,140,0,0.12)', borderColor: 'var(--gold)' }}
                   type="button"
                 >
-                  <span style={{ fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--gold)', fontSize: '0.85rem' }}>
+                  <span style={{ fontFamily: 'Bahnschrift, Segoe UI Variable Display, Aptos Display, Microsoft YaHei UI, sans-serif', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--gold)', fontSize: '0.85rem' }}>
                     {battle.defender.displayName}
                   </span>
                   <br />
@@ -2095,7 +2095,7 @@ export function BattleReplay({ battleId }: { battleId: string }) {
               {(votes.player + votes.defender) === 0 && (
                 <div style={{ height: '8px', borderRadius: '4px', background: 'rgba(255,255,255,0.06)' }} />
               )}
-              <p style={{ fontFamily: "'Courier New', monospace", fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '6px', textAlign: 'center' }}>
+              <p style={{ fontFamily: "Cascadia Mono, Consolas, Microsoft YaHei UI, monospace", fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '6px', textAlign: 'center' }}>
                 共 {votes.player + votes.defender} 票
               </p>
             </article>
@@ -2108,7 +2108,7 @@ export function BattleReplay({ battleId }: { battleId: string }) {
                   : `下一位焦点：${battle.challengerPreview.displayName}`}
               </h2>
               {winnerProfile?.suggestion ? (
-                <div style={{ fontFamily: "'Courier New', monospace", fontSize: '0.82rem', color: 'var(--text-dim)', lineHeight: '2' }}>
+                <div style={{ fontFamily: "Cascadia Mono, Consolas, Microsoft YaHei UI, monospace", fontSize: '0.82rem', color: 'var(--text-dim)', lineHeight: '2' }}>
                   <p>{winnerProfile.suggestion.reason}</p>
                   <p>对手积分 <span style={{ color: 'var(--gold)' }}>{winnerProfile.suggestion.rating}</span> · 连胜 {winnerProfile.suggestion.currentStreak}</p>
                   <p>
@@ -2118,7 +2118,7 @@ export function BattleReplay({ battleId }: { battleId: string }) {
                 </div>
               ) : (
                 <>
-                  <p style={{ fontFamily: "'Courier New', monospace", fontSize: '0.82rem', color: 'var(--text-dim)', lineHeight: '1.8', marginBottom: '12px' }}>
+                  <p style={{ fontFamily: "Cascadia Mono, Consolas, Microsoft YaHei UI, monospace", fontSize: '0.82rem', color: 'var(--text-dim)', lineHeight: '1.8', marginBottom: '12px' }}>
                     {battle.challengerPreview.declaration}
                   </p>
                   <div className="flex flex-wrap gap-2">

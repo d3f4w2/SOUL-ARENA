@@ -1,39 +1,39 @@
 @import "tailwindcss";
 
 :root {
-  /* === MK BLOOD PALETTE === */
-  --bg: #05000a;
-  --bg-panel: #0e0008;
-  --bg-panel-alt: #160010;
-  --bg-card: #0a0005;
-  --bg-inset: rgba(0, 0, 0, 0.65);
+  /* Typography */
+  --font-display-stack: Bahnschrift, "Segoe UI Variable Display", "Aptos Display", "Microsoft YaHei UI", "PingFang SC", sans-serif;
+  --font-ui-stack: Aptos, "Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI", "PingFang SC", "Noto Sans SC", sans-serif;
+  --font-mono-stack: "Cascadia Mono", Consolas, "SFMono-Regular", "Microsoft YaHei UI", monospace;
 
-  /* Combat Reds */
-  --red: #cc0000;
-  --red-bright: #ff2200;
-  --red-dark: #8b0000;
-  --red-deep: #4a0000;
-  --red-glow: rgba(200, 0, 0, 0.55);
+  /* Arena palette */
+  --bg: #050814;
+  --bg-panel: #0c1120;
+  --bg-panel-alt: #13192d;
+  --bg-card: #090d18;
+  --bg-inset: rgba(7, 10, 20, 0.78);
 
-  /* Gold Energy */
-  --gold: #d4a000;
-  --gold-bright: #ffd700;
-  --gold-dim: rgba(212, 160, 0, 0.35);
-  --gold-glow: rgba(212, 160, 0, 0.45);
+  --red: #ff584b;
+  --red-bright: #ff8a63;
+  --red-dark: #7d2430;
+  --red-deep: #341019;
+  --red-glow: rgba(255, 88, 75, 0.42);
 
-  /* Ember */
-  --ember: #ff6600;
+  --gold: #ffb92c;
+  --gold-bright: #ffe57a;
+  --gold-dim: rgba(255, 185, 44, 0.3);
+  --gold-glow: rgba(255, 208, 92, 0.36);
 
-  /* Text */
-  --text: #e8d4b8;
-  --text-bright: #f5e8d0;
-  --text-muted: #6a4a4a;
-  --text-dim: rgba(232, 212, 184, 0.5);
+  --ember: #ff8c31;
 
-  /* Borders */
-  --border: rgba(160, 0, 0, 0.45);
-  --border-gold: rgba(212, 160, 0, 0.45);
-  --border-bright: rgba(255, 30, 0, 0.75);
+  --text: #f3eee7;
+  --text-bright: #fff8f0;
+  --text-muted: #b6ab9f;
+  --text-dim: rgba(243, 238, 231, 0.74);
+
+  --border: rgba(255, 103, 94, 0.3);
+  --border-gold: rgba(255, 191, 74, 0.32);
+  --border-bright: rgba(255, 140, 110, 0.7);
 
   /* Legacy compat */
   --background: var(--bg);
@@ -44,14 +44,14 @@
   --panel-strong: var(--bg-panel-alt);
   --muted: var(--text-muted);
   --olive: #5d4020;
-  --shadow: 0 0 40px rgba(139, 0, 0, 0.25);
+  --shadow: 0 20px 60px rgba(3, 6, 16, 0.48);
 }
 
 @theme inline {
   --color-background: var(--bg);
   --color-foreground: var(--text);
-  --font-sans: Impact, "Arial Black", "Arial Narrow", Arial, sans-serif;
-  --font-mono: "Courier New", Courier, monospace;
+  --font-sans: var(--font-ui-stack);
+  --font-mono: var(--font-mono-stack);
 }
 
 * {
@@ -65,13 +65,17 @@ html {
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: "Courier New", Courier, monospace;
+  font-family: var(--font-ui-stack);
+  font-size: 15.5px;
+  letter-spacing: 0.01em;
+  line-height: 1.65;
   min-height: 100vh;
   background-image:
-    radial-gradient(ellipse at 50% -10%, rgba(139, 0, 0, 0.4) 0%, transparent 55%),
-    radial-gradient(ellipse at 5% 100%, rgba(100, 0, 40, 0.25) 0%, transparent 45%),
-    radial-gradient(ellipse at 95% 60%, rgba(70, 0, 0, 0.2) 0%, transparent 40%),
-    linear-gradient(180deg, #060008 0%, #0a0010 60%, #050007 100%);
+    radial-gradient(circle at 16% 18%, rgba(255, 120, 96, 0.16) 0%, transparent 22%),
+    radial-gradient(circle at 84% 14%, rgba(255, 229, 122, 0.12) 0%, transparent 18%),
+    radial-gradient(ellipse at 50% -8%, rgba(125, 36, 48, 0.5) 0%, transparent 48%),
+    radial-gradient(ellipse at 92% 72%, rgba(255, 140, 49, 0.08) 0%, transparent 24%),
+    linear-gradient(180deg, #040711 0%, #0a1020 58%, #05070f 100%);
   overflow-x: hidden;
 }
 
@@ -85,6 +89,38 @@ input,
 select,
 textarea {
   font: inherit;
+}
+
+body :where(h1, h2, h3, h4, h5, h6, p, span, div, a, button, input, select, textarea, label, li, strong, em, small, article, section) {
+  font-family: var(--font-ui-stack) !important;
+}
+
+body :where(
+  .mk-title,
+  .display-title,
+  .mk-title-gold,
+  .mk-section,
+  .section-title,
+  .mk-label,
+  .mk-label-red,
+  .mk-vs,
+  .mk-rank-number,
+  .mk-button,
+  .mk-button-gold,
+  .mk-button-ghost,
+  .soft-button,
+  .mk-badge,
+  .mk-badge-gold,
+  .accent-chip,
+  .mk-loading-text,
+  .soul-splash-title,
+  .soul-splash-sub
+) {
+  font-family: var(--font-display-stack) !important;
+}
+
+body :where(code, pre) {
+  font-family: var(--font-mono-stack) !important;
 }
 
 ::selection {
@@ -106,9 +142,10 @@ textarea {
     0deg,
     transparent,
     transparent 2px,
-    rgba(0, 0, 0, 0.07) 2px,
-    rgba(0, 0, 0, 0.07) 4px
+    rgba(255, 255, 255, 0.012) 2px,
+    rgba(255, 255, 255, 0.012) 4px
   );
+  opacity: 0.6;
 }
 
 /* ===================================
@@ -116,13 +153,13 @@ textarea {
 =================================== */
 
 .mk-panel {
-  background: linear-gradient(160deg, rgba(20, 0, 12, 0.97) 0%, rgba(8, 0, 5, 0.99) 100%);
+  background: linear-gradient(160deg, rgba(16, 21, 38, 0.97) 0%, rgba(7, 10, 20, 0.99) 100%);
   border: 1px solid var(--border);
   border-top: 2px solid var(--red);
   box-shadow:
-    0 0 35px rgba(139, 0, 0, 0.18),
-    inset 0 0 50px rgba(0, 0, 0, 0.45),
-    inset 0 1px 0 rgba(255, 30, 0, 0.08);
+    0 0 35px rgba(21, 13, 34, 0.34),
+    inset 0 0 50px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 140, 110, 0.12);
   position: relative;
 }
 
@@ -138,13 +175,13 @@ textarea {
 }
 
 .mk-panel-gold {
-  background: linear-gradient(160deg, rgba(22, 12, 0, 0.97) 0%, rgba(10, 5, 0, 0.99) 100%);
+  background: linear-gradient(160deg, rgba(24, 20, 10, 0.97) 0%, rgba(10, 12, 20, 0.99) 100%);
   border: 1px solid var(--border-gold);
   border-top: 2px solid var(--gold);
   box-shadow:
-    0 0 35px rgba(180, 120, 0, 0.12),
-    inset 0 0 50px rgba(0, 0, 0, 0.45),
-    inset 0 1px 0 rgba(255, 215, 0, 0.06);
+    0 0 35px rgba(40, 28, 10, 0.3),
+    inset 0 0 50px rgba(0, 0, 0, 0.42),
+    inset 0 1px 0 rgba(255, 229, 122, 0.08);
   position: relative;
 }
 
@@ -160,17 +197,17 @@ textarea {
 }
 
 .mk-panel-inset {
-  background: rgba(0, 0, 0, 0.6);
-  border: 1px solid rgba(100, 0, 0, 0.3);
-  border-left: 2px solid rgba(139, 0, 0, 0.5);
+  background: rgba(5, 8, 18, 0.72);
+  border: 1px solid rgba(255, 103, 94, 0.18);
+  border-left: 2px solid rgba(255, 103, 94, 0.44);
 }
 
 .mk-fighter-card {
-  background: linear-gradient(180deg, rgba(18, 0, 10, 0.97) 0%, rgba(8, 0, 4, 0.99) 100%);
+  background: linear-gradient(180deg, rgba(16, 18, 34, 0.97) 0%, rgba(7, 10, 20, 0.99) 100%);
   border: 1px solid var(--border);
   border-top: 3px solid var(--red);
   box-shadow:
-    0 0 40px rgba(139, 0, 0, 0.2),
+    0 0 40px rgba(19, 11, 28, 0.38),
     inset 0 0 60px rgba(0, 0, 0, 0.5);
   position: relative;
 }
@@ -187,11 +224,11 @@ textarea {
 }
 
 .mk-fighter-card-gold {
-  background: linear-gradient(180deg, rgba(20, 10, 0, 0.97) 0%, rgba(10, 4, 0, 0.99) 100%);
+  background: linear-gradient(180deg, rgba(22, 18, 10, 0.97) 0%, rgba(8, 10, 18, 0.99) 100%);
   border: 1px solid var(--border-gold);
   border-top: 3px solid var(--gold);
   box-shadow:
-    0 0 40px rgba(180, 120, 0, 0.15),
+    0 0 40px rgba(33, 24, 12, 0.34),
     inset 0 0 60px rgba(0, 0, 0, 0.5);
   position: relative;
 }
@@ -213,54 +250,57 @@ textarea {
 }
 
 .mk-button {
-  background: linear-gradient(180deg, #bb0000 0%, #7a0000 100%);
+  background: linear-gradient(180deg, #d73733 0%, #821b24 100%);
   border: 1px solid var(--red-bright);
   color: var(--gold-bright);
-  font-family: Impact, "Arial Black", sans-serif;
-  font-size: 0.85rem;
-  letter-spacing: 0.18em;
+  font-family: var(--font-display-stack);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
   clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
 }
 
 .mk-button:hover {
-  background: linear-gradient(180deg, #ee0000 0%, #aa0000 100%);
-  box-shadow: 0 0 22px rgba(255, 30, 0, 0.55), 0 0 44px rgba(200, 0, 0, 0.3);
+  background: linear-gradient(180deg, #ff6c50 0%, #c52d2f 100%);
+  box-shadow: 0 0 18px rgba(255, 122, 99, 0.45), 0 0 44px rgba(255, 88, 75, 0.2);
   transform: translateY(-2px);
   color: #fff;
 }
 
 .mk-button-gold {
-  background: linear-gradient(180deg, var(--gold) 0%, #7a5500 100%);
+  background: linear-gradient(180deg, #ffca4d 0%, #9b6510 100%);
   border: 1px solid var(--gold-bright);
-  color: #1a0000;
-  font-family: Impact, "Arial Black", sans-serif;
-  font-size: 0.85rem;
-  letter-spacing: 0.18em;
+  color: #140d06;
+  font-family: var(--font-display-stack);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
   clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
 }
 
 .mk-button-gold:hover {
-  background: linear-gradient(180deg, var(--gold-bright) 0%, var(--gold) 100%);
-  box-shadow: 0 0 22px rgba(255, 215, 0, 0.5), 0 0 44px rgba(212, 160, 0, 0.3);
+  background: linear-gradient(180deg, #ffe57a 0%, #ffb92c 100%);
+  box-shadow: 0 0 18px rgba(255, 229, 122, 0.38), 0 0 44px rgba(255, 185, 44, 0.2);
   transform: translateY(-2px);
 }
 
 .mk-button-ghost,
 .soft-button {
-  background: transparent;
+  background: rgba(255, 255, 255, 0.02);
   border: 1px solid var(--border);
-  color: var(--text-muted);
-  font-family: Impact, "Arial Black", sans-serif;
-  font-size: 0.8rem;
-  letter-spacing: 0.14em;
+  color: var(--text-bright);
+  font-family: var(--font-display-stack);
+  font-size: 0.76rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
   clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
 }
 
 .mk-button-ghost:hover,
 .soft-button:hover {
-  border-color: var(--border-bright);
-  color: var(--text);
-  box-shadow: 0 0 12px rgba(200, 0, 0, 0.3);
+  border-color: var(--gold-bright);
+  color: var(--gold-bright);
+  box-shadow: 0 0 14px rgba(255, 185, 44, 0.16);
   transform: translateY(-1px);
 }
 
@@ -277,11 +317,11 @@ textarea {
 /* ── Form inputs ── */
 .mk-input {
   width: 100%;
-  background: rgba(0, 0, 0, 0.55);
-  border: 1px solid rgba(80, 0, 0, 0.5);
+  background: rgba(5, 8, 18, 0.88);
+  border: 1px solid rgba(255, 103, 94, 0.22);
   border-radius: 0;
   color: var(--text);
-  font-family: "Courier New", monospace;
+  font-family: var(--font-ui-stack);
   font-size: 0.8rem;
   line-height: 1.5;
   padding: 6px 10px;
@@ -290,13 +330,13 @@ textarea {
 
 .mk-input:focus {
   outline: none;
-  border-color: var(--red);
-  box-shadow: 0 0 8px rgba(200, 0, 0, 0.35);
+  border-color: var(--gold);
+  box-shadow: 0 0 10px rgba(255, 185, 44, 0.16);
 }
 
 .mk-input::placeholder {
   color: var(--text-muted);
-  opacity: 0.7;
+  opacity: 0.92;
 }
 
 /* ===================================
@@ -304,12 +344,12 @@ textarea {
 =================================== */
 
 .mk-badge {
-  background: rgba(100, 0, 0, 0.35);
+  background: linear-gradient(90deg, rgba(255, 126, 102, 0.16) 0%, rgba(255, 185, 44, 0.08) 100%);
   border: 1px solid var(--border);
-  color: var(--gold);
-  font-family: Impact, "Arial Black", sans-serif;
-  font-size: 0.62rem;
-  letter-spacing: 0.28em;
+  color: var(--gold-bright);
+  font-family: var(--font-display-stack);
+  font-size: 0.6rem;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
   clip-path: polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%);
   padding: 3px 16px 3px 10px;
@@ -317,12 +357,12 @@ textarea {
 }
 
 .mk-badge-gold {
-  background: rgba(180, 120, 0, 0.2);
+  background: linear-gradient(90deg, rgba(255, 229, 122, 0.14) 0%, rgba(255, 185, 44, 0.1) 100%);
   border: 1px solid var(--border-gold);
   color: var(--gold-bright);
-  font-family: Impact, "Arial Black", sans-serif;
-  font-size: 0.62rem;
-  letter-spacing: 0.28em;
+  font-family: var(--font-display-stack);
+  font-size: 0.6rem;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
   clip-path: polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%);
   padding: 3px 16px 3px 10px;
@@ -331,12 +371,12 @@ textarea {
 
 /* Legacy accent-chip compat */
 .accent-chip {
-  background: rgba(100, 0, 0, 0.35);
+  background: rgba(255, 126, 102, 0.14);
   border: 1px solid var(--border);
-  color: var(--gold);
-  font-family: Impact, "Arial Black", sans-serif;
+  color: var(--gold-bright);
+  font-family: var(--font-display-stack);
   font-size: 0.62rem;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   padding: 3px 10px;
   display: inline-block;
@@ -348,36 +388,36 @@ textarea {
 
 .mk-title,
 .display-title {
-  font-family: Impact, "Arial Black", "Arial Narrow", Arial, sans-serif;
+  font-family: var(--font-display-stack);
   font-size: clamp(3.5rem, 10vw, 8rem);
-  line-height: 0.88;
-  letter-spacing: 0.06em;
+  line-height: 0.92;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--red-bright);
   text-shadow:
-    4px 4px 0 var(--red-dark),
-    0 0 30px rgba(255, 30, 0, 0.5),
-    0 0 70px rgba(200, 0, 0, 0.3);
+    0 1px 0 rgba(255, 255, 255, 0.08),
+    0 0 18px rgba(255, 122, 99, 0.28),
+    0 0 42px rgba(255, 88, 75, 0.12);
 }
 
 .mk-title-gold {
-  font-family: Impact, "Arial Black", "Arial Narrow", Arial, sans-serif;
+  font-family: var(--font-display-stack);
   font-size: clamp(3.5rem, 10vw, 8rem);
-  line-height: 0.88;
-  letter-spacing: 0.06em;
+  line-height: 0.92;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--gold-bright);
   text-shadow:
-    3px 3px 0 #5a3800,
-    0 0 25px rgba(255, 215, 0, 0.4),
-    0 0 55px rgba(212, 160, 0, 0.25);
+    0 1px 0 rgba(255, 255, 255, 0.08),
+    0 0 18px rgba(255, 229, 122, 0.24),
+    0 0 38px rgba(255, 185, 44, 0.12);
 }
 
 .mk-section,
 .section-title {
-  font-family: Impact, "Arial Black", sans-serif;
+  font-family: var(--font-display-stack);
   font-size: clamp(1.1rem, 2.2vw, 1.7rem);
-  letter-spacing: 0.12em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--text-bright);
   position: relative;
@@ -396,17 +436,17 @@ textarea {
 }
 
 .mk-label {
-  font-family: Impact, "Arial Black", sans-serif;
+  font-family: var(--font-display-stack);
   font-size: 0.6rem;
-  letter-spacing: 0.35em;
+  letter-spacing: 0.26em;
   text-transform: uppercase;
   color: var(--text-muted);
 }
 
 .mk-label-red {
-  font-family: Impact, "Arial Black", sans-serif;
+  font-family: var(--font-display-stack);
   font-size: 0.6rem;
-  letter-spacing: 0.35em;
+  letter-spacing: 0.26em;
   text-transform: uppercase;
   color: var(--red);
 }
@@ -446,9 +486,9 @@ textarea {
 =================================== */
 
 .mk-vs {
-  font-family: Impact, "Arial Black", sans-serif;
+  font-family: var(--font-display-stack);
   font-size: clamp(2rem, 4vw, 3.5rem);
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--gold-bright);
   text-shadow:
@@ -499,7 +539,7 @@ textarea {
 }
 
 .mk-rank-number {
-  font-family: Impact, "Arial Black", sans-serif;
+  font-family: var(--font-display-stack);
   font-size: 1.4rem;
   color: var(--red);
   min-width: 2.2rem;
@@ -572,24 +612,24 @@ textarea {
 =================================== */
 
 .mk-status {
-  background: rgba(0, 0, 0, 0.7);
-  border: 1px solid rgba(70, 0, 0, 0.4);
+  background: rgba(8, 12, 22, 0.84);
+  border: 1px solid rgba(255, 103, 94, 0.22);
   border-left: 3px solid var(--red);
-  font-family: "Courier New", monospace;
+  font-family: var(--font-ui-stack);
   font-size: 0.82rem;
-  color: var(--text-dim);
+  color: var(--text);
   padding: 14px 18px;
   line-height: 1.8;
 }
 
 /* Warning */
 .mk-warning {
-  background: rgba(60, 30, 0, 0.5);
-  border: 1px solid rgba(200, 100, 0, 0.4);
+  background: rgba(34, 20, 8, 0.7);
+  border: 1px solid rgba(255, 140, 49, 0.34);
   border-left: 3px solid var(--ember);
-  font-family: "Courier New", monospace;
+  font-family: var(--font-ui-stack);
   font-size: 0.82rem;
-  color: rgba(255, 200, 120, 0.85);
+  color: rgba(255, 224, 168, 0.96);
   padding: 14px 18px;
   line-height: 1.8;
 }
@@ -875,9 +915,9 @@ textarea {
 }
 
 .mk-loading-text {
-  font-family: Impact, "Arial Black", sans-serif;
+  font-family: var(--font-display-stack);
   font-size: 0.75rem;
-  letter-spacing: 0.4em;
+  letter-spacing: 0.26em;
   text-transform: uppercase;
   color: var(--red);
   animation: loading-pulse 1.4s ease-in-out infinite;
@@ -974,9 +1014,9 @@ textarea {
 }
 
 .soul-splash-title {
-  font-family: Impact, "Arial Black", sans-serif;
+  font-family: var(--font-display-stack);
   font-size: clamp(4rem, 12vw, 9rem);
-  letter-spacing: 0.08em;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--red-bright);
   animation: splash-title-pulse 0.9s ease-in-out infinite;
@@ -984,9 +1024,9 @@ textarea {
 }
 
 .soul-splash-sub {
-  font-family: Impact, "Arial Black", sans-serif;
+  font-family: var(--font-display-stack);
   font-size: clamp(0.8rem, 2vw, 1.1rem);
-  letter-spacing: 0.55em;
+  letter-spacing: 0.34em;
   text-transform: uppercase;
   color: var(--gold);
   opacity: 0.85;
